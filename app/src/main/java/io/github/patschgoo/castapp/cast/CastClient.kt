@@ -282,6 +282,23 @@ class CastClient(
     suspend fun requestCustom(app: RunningApp, namespace: String, payload: JSONObject, timeoutMs: Long): JSONObject =
         request(namespace, app.transportId, payload, timeoutMs).json
 
+    /**
+     * Sends [payload] to the app on [namespace] and waits for the first message on that
+     * namespace that [match]es (for apps such as YouTube that don't echo the requestId).
+     */
+    suspend fun requestCustomMatching(
+        app: RunningApp,
+        namespace: String,
+        payload: JSONObject,
+        timeoutMs: Long,
+        match: (JSONObject) -> Boolean,
+    ): JSONObject {
+        payload.put("requestId", requestIds.getAndIncrement())
+        return awaitMessage(timeoutMs, { it.namespace == namespace && match(it.json) }) {
+            send(namespace, app.transportId, payload)
+        }.json
+    }
+
     suspend fun setVolume(level: Double) {
         val volume = JSONObject().put("level", level.coerceIn(0.0, 1.0))
         request(NS_RECEIVER, RECEIVER_ID, JSONObject().put("type", "SET_VOLUME").put("volume", volume), 5000)

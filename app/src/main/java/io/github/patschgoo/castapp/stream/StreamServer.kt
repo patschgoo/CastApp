@@ -10,6 +10,7 @@ import java.util.Collections
  *
  *  - /<token>/stream.mp4       progressive fragmented MP4 (lowest latency)
  *  - /<token>/hls/live.m3u8    HLS playlist (compatibility mode)
+ *  - /<token>/hls/master.m3u8  the same as a master playlist that names the codecs (HEVC)
  *  - /<token>/hls/init.mp4, /<token>/hls/segN.m4s
  *  - /<token>/audio.aac         sound only, as a live ADTS/AAC stream (speakers)
  *  - /<token>/live.ts           MPEG transport stream for DLNA TVs
@@ -21,10 +22,14 @@ class StreamServer(private val hub: StreamHub, preferredPort: Int) : TokenHttpSe
 
     val mp4Path: String get() = "/$token/stream.mp4"
     val hlsPath: String get() = "/$token/hls/live.m3u8"
+    val hlsMasterPath: String get() = "/$token/hls/master.m3u8"
     val audioPath: String get() = "/$token/audio.aac"
     val tsPath: String get() = "/$token/live.ts"
 
     val activeStreamClients: Int get() = liveClients.size
+
+    /** Peak video bitrate announced in the HLS master playlist. */
+    @Volatile var bandwidthHint: Int = 8_000_000
 
     /** Starts the HLS segmenter (idempotent) and returns it. */
     fun enableHls(): HlsSegmenter {
@@ -58,6 +63,12 @@ class StreamServer(private val hub: StreamHub, preferredPort: Int) : TokenHttpSe
             subPath == "hls/live.m3u8" -> {
                 val segmenter = hls ?: return notFound(out)
                 serveBytes(out, segmenter.playlist().toByteArray(), "application/vnd.apple.mpegurl", head)
+            }
+            subPath == "hls/master.m3u8" -> {
+                if (hls == null) return notFound(out)
+                val video = hub.videoConfig ?: return notFound(out)
+                val text = HlsSegmenter.masterPlaylist(video, hub.publishedAudioRate != null, bandwidthHint)
+                serveBytes(out, text.toByteArray(), "application/vnd.apple.mpegurl", head)
             }
             subPath == "hls/init.mp4" -> {
                 val init = hub.currentInitSegment() ?: return notFound(out)
@@ -102,6 +113,11 @@ class StreamServer(private val hub: StreamHub, preferredPort: Int) : TokenHttpSe
     private fun serveLiveTs(socket: Socket, out: OutputStream, head: Boolean) {
         if (hub.awaitInitSegment(10_000) == null) {
             writeHead(out, 503, "Service Unavailable", "text/plain", 0)
+            return
+        }
+        if (hub.videoConfig?.codec == VideoCodec.HEVC) {
+            // The transport stream for DLNA TVs is H.264 only.
+            writeHead(out, 415, "Unsupported Media Type", "text/plain", 0)
             return
         }
         writeHead(out, 200, "OK", "video/mp2t", -1, MediaServer.dlnaHeaders("video/mp2t", seekable = false))

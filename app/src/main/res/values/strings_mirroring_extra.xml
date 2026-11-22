@@ -1,0 +1,50 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Video codec (HEVC) -->
+    <string name="codec_setting_title">Video codec</string>
+    <string name="codec_auto">Automatic</string>
+    <string name="codec_h264">H.264</string>
+    <string name="codec_hevc">HEVC (H.265)</string>
+    <string name="codec_auto_desc">HEVC on TVs known to play it (CastApp TVs that support it, Chromecast Ultra, Chromecast with Google TV HD, Google TV Streamer, Shield), H.264 everywhere else</string>
+    <string name="codec_h264_desc">Plays on every TV</string>
+    <string name="codec_hevc_desc">The same picture at about a third less bitrate. Falls back to H.264 if the TV doesn\'t play it. DLNA TVs always get H.264.</string>
+    <string name="codec_no_hevc_encoder">This phone can\'t encode HEVC, so H.264 is used</string>
+    <string name="hevc_fallback_message">%1$s didn\'t play HEVC, switched to H.264</string>
+
+    <!-- Phone microphone -->
+    <string name="mic_setting_title">Phone microphone</string>
+    <string name="mic_setting_off">Off. Mixes your voice into the sound on the TV: presentations, game commentary, karaoke.</string>
+    <string name="mic_setting_on">Your voice is mixed into the sound on the TV. Keep the TV volume down or the phone away from the TV, otherwise you\'ll hear an echo.</string>
+    <string name="mic_setting_on_no_apps">Only your voice is cast (the sound of apps needs Android 10). Keep the TV volume down to avoid an echo.</string>
+    <string name="mic_setting_permission">Tap to allow the microphone</string>
+    <string name="mic_level_title">Microphone level</string>
+    <string name="mic_level_value">%1$d %%</string>
+    <string name="mic_permission_denied">Without the microphone permission, mirroring starts without your voice</string>
+    <string name="mic_unavailable">The microphone is busy or unavailable; mirroring without it</string>
+    <string name="mic_echo_warning">The TV is loud: the phone\'s microphone will pick it up and echo. Turn the TV down or move the phone away.</string>
+    <string name="mic_on_short">Mic on</string>
+
+    <!-- YouTube on the TV -->
+    <string name="yt_play_on_tv">Play in YouTube on the TV</string>
+    <string name="yt_browser_button">YouTube on TV</string>
+    <string name="yt_video">Video %1$s</string>
+    <string name="yt_starts_at">starts at %1$s</string>
+    <string name="yt_with_playlist">with its playlist</string>
+    <string name="yt_no_devices">Looking for a Chromecast, Google TV or CastApp TV…</string>
+    <string name="yt_via_cast">YouTube app via Google Cast</string>
+    <string name="yt_via_tv_app">Opens in the TV\'s YouTube app</string>
+    <string name="yt_open_in_browser">Browser</string>
+    <string name="yt_starting">Starting YouTube on %1$s…</string>
+    <string name="yt_started">Playing in YouTube on %1$s</string>
+    <string name="yt_tv_opened">Opening the video in YouTube on %1$s</string>
+    <string name="yt_error_device">%1$s has no YouTube app CastApp can start. Pick a Chromecast, Google TV or CastApp TV.</string>
+    <string name="yt_error_unreachable">Can\'t reach %1$s. Is it on the same Wi-Fi?</string>
+    <string name="yt_error_no_app">%1$s couldn\'t start YouTube. Is the YouTube app installed and up to date on the TV?</string>
+    <string name="yt_error_no_screen">YouTube on %1$s didn\'t answer. Try again in a moment.</string>
+    <string name="yt_error_internet">Couldn\'t reach YouTube. Check the phone\'s internet connection.</string>
+    <string name="yt_error_refused">YouTube didn\'t accept the request (%1$s). Try the YouTube app\'s own Cast button instead.</string>
+    <string name="yt_error_old_tv">Update CastApp on %1$s to open YouTube links there.</string>
+    <string name="yt_tv_no_app">There\'s no YouTube app on this TV</string>
+    <string name="yt_tv_notification_title">YouTube video from a phone</string>
+    <string name="yt_tv_notification_text">Select to open it in YouTube</string>
+</resources>

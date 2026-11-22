@@ -44,6 +44,9 @@ import io.github.patschgoo.castapp.service.CastService
 import io.github.patschgoo.castapp.service.MediaItem
 import io.github.patschgoo.castapp.service.MediaType
 import io.github.patschgoo.castapp.ui.theme.CastAppTheme
+import io.github.patschgoo.castapp.youtube.YouTubeCast
+import io.github.patschgoo.castapp.youtube.YouTubeLink
+import io.github.patschgoo.castapp.youtube.YouTubeTvSheet
 
 /**
  * "Cast to TV" from the share sheet or "Open with": videos, music and photos (one
@@ -60,6 +63,12 @@ class CastFileActivity : ComponentActivity() {
         val link = sharedText?.let { Regex("https?://\\S+").find(it)?.value }
         if (link != null && sharedUris(intent).isEmpty()) {
             val mime = MediaItem.mimeForUrl(link)
+            val youTube = YouTubeLink.parse(link)
+            if (youTube != null) {
+                // A YouTube video: the TV's own YouTube app plays it best.
+                showYouTubeSheet(youTube, link)
+                return
+            }
             if (looksLikeMediaFile(link)) {
                 items = listOf(MediaItem(title = link.substringBefore('?').substringAfterLast('/').ifEmpty { link }, uri = link, mimeType = mime))
             } else {
@@ -92,6 +101,32 @@ class CastFileActivity : ComponentActivity() {
                     onPick = ::castTo,
                     onScan = { app.devices.scanNetwork() },
                     onDismiss = ::finish,
+                )
+            }
+        }
+    }
+
+    private fun showYouTubeSheet(link: YouTubeLink, original: String) {
+        val app = CastApp.get(this)
+        setContent {
+            val settings by app.settings.state.collectAsStateWithLifecycle()
+            CastAppTheme(settings.theme) {
+                val all by app.devices.devices.collectAsStateWithLifecycle()
+                val scanning by app.devices.scanning.collectAsStateWithLifecycle()
+                YouTubeTvSheet(
+                    link = link,
+                    devices = all,
+                    scanning = scanning,
+                    onPick = { device ->
+                        YouTubeCast.play(this, device, link)
+                        finish()
+                    },
+                    onScan = { app.devices.scanNetwork() },
+                    onDismiss = ::finish,
+                    onOpenInBrowser = {
+                        startActivity(Intent(this, BrowserActivity::class.java).putExtra(BrowserActivity.EXTRA_URL, original))
+                        finish()
+                    },
                 )
             }
         }

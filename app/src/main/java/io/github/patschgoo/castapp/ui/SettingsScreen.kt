@@ -94,6 +94,7 @@ fun SettingsScreen(
                 val auto = "Automatic (${s.effectiveBitrate / 1_000_000.0} Mbit/s)".replace(".0 ", " ")
                 SettingItem("Bitrate", if (s.bitrateMbps == 0) auto else "${s.bitrateMbps} Mbit/s") { dialog = SettingDialog.BITRATE }
             }
+            item { VideoCodecSettingItem(s, settings) }
             item {
                 ListItem(
                     onClick = { settings.update { it.copy(adaptiveQuality = !it.adaptiveQuality) } },
@@ -134,6 +135,7 @@ fun SettingsScreen(
                     },
                 ) { Text("Cast audio") }
             }
+            item { MicrophoneSettingItems(s, settings) }
             item { AudioDelayItem(s.audioDelayMs) { d -> settings.update { it.copy(audioDelayMs = d) } } }
 
             item { SectionTitle("Videos, music and photos") }
