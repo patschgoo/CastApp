@@ -1,0 +1,74 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Remote control screen -->
+    <string name="remote_title">Remote</string>
+    <string name="remote_pick_tv">Pick a TV</string>
+    <string name="remote_switch">Switch TV</string>
+    <string name="remote_list_hint">Your phone and the TV need to be on the same Wi-Fi.</string>
+    <string name="remote_searching">Looking for TVs…</string>
+    <string name="remote_none_found">Nothing found yet</string>
+    <string name="remote_connecting">Connecting to %1$s…</string>
+    <string name="remote_lost">Lost the connection to %1$s.</string>
+    <string name="remote_reconnect">Reconnect</string>
+    <string name="remote_not_found">Can\'t find %1$s right now. Is it switched on?</string>
+    <string name="remote_cant_reach">Can\'t reach %1$s. Is it switched on and on the same Wi-Fi?</string>
+    <string name="remote_failed">Couldn\'t connect to %1$s.</string>
+    <string name="remote_code_label">Code</string>
+    <string name="remote_ok">OK</string>
+
+    <!-- Typing on the TV -->
+    <string name="remote_type_title">Type on the TV</string>
+    <string name="remote_type_hint">Open a search or text box on the TV first.</string>
+    <string name="remote_type_label">Text</string>
+    <string name="remote_send">Send</string>
+
+    <!-- Android TV / Google TV -->
+    <string name="remote_atv_preparing">Getting ready (only the first time)…</string>
+    <string name="remote_atv_pairing">Pairing with %1$s…</string>
+    <string name="remote_atv_pair_title">Pair with %1$s</string>
+    <string name="remote_atv_pair_text">Type the code shown on the TV.</string>
+    <string name="remote_atv_pair_wrong">That code doesn\'t match. Check the code on the TV and type it again.</string>
+    <string name="remote_atv_rejected">The TV didn\'t accept the code. Try again.</string>
+    <string name="remote_atv_cancelled">Pairing was cancelled.</string>
+    <string name="remote_atv_pair_failed">Couldn\'t pair with %1$s. Wake the TV up, then try again.</string>
+
+    <!-- Samsung, LG -->
+    <string name="remote_allow_on_tv">Choose Allow on the TV.</string>
+    <string name="remote_accept_on_tv">Choose Accept on the TV.</string>
+    <string name="remote_samsung_denied">%1$s didn\'t allow the remote. On the TV, open Settings → General → External Device Manager → Device Connection Manager → Device List, allow CastApp, then try again.</string>
+    <string name="remote_lg_denied">%1$s didn\'t accept the remote. Try again and choose Accept on the TV.</string>
+    <string name="remote_no_answer">The TV didn\'t answer. Try again and confirm on the TV.</string>
+
+    <!-- Roku -->
+    <string name="remote_roku_blocked">%1$s blocks control by phones. On the Roku: Settings → System → Advanced system settings → Control by mobile apps: turn it on.</string>
+
+    <!-- Buttons -->
+    <string name="remote_key_power">Power</string>
+    <string name="remote_key_up">Up</string>
+    <string name="remote_key_down">Down</string>
+    <string name="remote_key_left">Left</string>
+    <string name="remote_key_right">Right</string>
+    <string name="remote_key_ok">OK</string>
+    <string name="remote_key_back">Back</string>
+    <string name="remote_key_home">Home</string>
+    <string name="remote_key_menu">Menu</string>
+    <string name="remote_key_volume_up">Volume up</string>
+    <string name="remote_key_volume_down">Volume down</string>
+    <string name="remote_key_mute">Mute</string>
+    <string name="remote_key_channel_up">Channel up</string>
+    <string name="remote_key_channel_down">Channel down</string>
+    <string name="remote_key_play_pause">Play or pause</string>
+    <string name="remote_key_stop">Stop</string>
+    <string name="remote_key_rewind">Rewind</string>
+    <string name="remote_key_fast_forward">Fast forward</string>
+    <string name="remote_key_previous">Previous</string>
+    <string name="remote_key_next">Next</string>
+    <string name="remote_key_input">Input</string>
+    <string name="remote_key_info">Info</string>
+    <string name="remote_key_guide">Guide</string>
+    <string name="remote_key_settings">Settings</string>
+    <string name="remote_numbers">Numbers</string>
+    <string name="remote_keyboard">Keyboard</string>
+    <string name="remote_vol">VOL</string>
+    <string name="remote_ch">CH</string>
+</resources>
