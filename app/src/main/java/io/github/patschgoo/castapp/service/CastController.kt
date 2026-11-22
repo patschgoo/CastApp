@@ -61,6 +61,10 @@ sealed interface CastState {
         val durationMs: Long = 0,
         /** SystemClock.elapsedRealtime() when [positionMs] was measured. */
         val positionAt: Long = 0,
+        /** Mirroring: the video codec in use ("H.264" / "HEVC"). */
+        val videoCodec: String = "",
+        /** Mirroring: the phone's microphone is mixed into the sound. */
+        val microphone: Boolean = false,
     ) : CastState {
         /** Current playback position, extrapolated while playing. */
         fun positionNow(nowElapsed: Long): Long {

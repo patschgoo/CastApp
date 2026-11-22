@@ -1,7 +1,26 @@
 package io.github.patschgoo.castapp.stream
 
-/** Codec configuration for the H.264 video track. */
-class VideoConfig(val width: Int, val height: Int, val sps: ByteArray, val pps: ByteArray)
+/**
+ * Codec configuration for the video track: H.264 (SPS + PPS) or HEVC (VPS + SPS + PPS).
+ * Parameter sets are NAL units without start codes.
+ */
+class VideoConfig(
+    val width: Int,
+    val height: Int,
+    val sps: ByteArray,
+    val pps: ByteArray,
+    val codec: VideoCodec = VideoCodec.H264,
+    /** HEVC only. */
+    val vps: ByteArray? = null,
+) {
+    init {
+        require(codec != VideoCodec.HEVC || vps != null) { "HEVC needs a VPS" }
+    }
+
+    /** RFC 6381 codec string for MSE and HLS, e.g. "avc1.64001F" or "hvc1.1.6.L120.90". */
+    val codecString: String
+        get() = if (codec == VideoCodec.HEVC) HevcUtils.codecString(sps) else AvcUtils.codecString(sps)
+}
 
 /** Codec configuration for the AAC audio track. */
 class AudioConfig(
@@ -32,7 +51,9 @@ object FragmentedMp4 {
         w.box("ftyp") {
             fourcc("isom")
             u32(0x200)
-            fourcc("isom"); fourcc("iso6"); fourcc("iso5"); fourcc("avc1"); fourcc("mp41")
+            fourcc("isom"); fourcc("iso6"); fourcc("iso5")
+            if (video.codec == VideoCodec.H264) fourcc("avc1")
+            fourcc("mp41")
         }
         w.box("moov") {
             fullBox("mvhd", 0, 0) {
@@ -119,7 +140,7 @@ object FragmentedMp4 {
                 box("stbl") {
                     fullBox("stsd", 0, 0) {
                         u32(1)
-                        box("avc1") {
+                        box(if (v.codec == VideoCodec.HEVC) "hvc1" else "avc1") {
                             zeros(6)
                             u16(1) // data_reference_index
                             zeros(16) // pre_defined + reserved
@@ -132,13 +153,17 @@ object FragmentedMp4 {
                             zeros(32) // compressorname
                             u16(0x0018) // depth
                             u16(0xFFFF) // pre_defined = -1
-                            avcC(v)
+                            if (v.codec == VideoCodec.HEVC) hvcC(v) else avcC(v)
                         }
                     }
                     emptySampleTables()
                 }
             }
         }
+    }
+
+    private fun BoxWriter.hvcC(v: VideoConfig) = box("hvcC") {
+        bytes(HevcUtils.decoderConfigurationRecord(v.vps!!, v.sps, v.pps))
     }
 
     private fun BoxWriter.avcC(v: VideoConfig) = box("avcC") {

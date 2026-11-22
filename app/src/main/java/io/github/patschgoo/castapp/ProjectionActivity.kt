@@ -90,6 +90,21 @@ class ProjectionActivity : ComponentActivity() {
                 return
             }
         }
+        // "Phone microphone" is on: it needs the recording permission (asked whenever it's missing).
+        if (app.settings.current.microphone && checkSelfPermission(Manifest.permission.RECORD_AUDIO) != PackageManager.PERMISSION_GRANTED) {
+            micPermissionLauncher.launch(Manifest.permission.RECORD_AUDIO)
+            return
+        }
+        askOptionalPermissionsThenProject()
+    }
+
+    private val micPermissionLauncher = registerForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
+        if (!granted) Toast.makeText(this, R.string.mic_permission_denied, Toast.LENGTH_LONG).show()
+        askOptionalPermissionsThenProject()
+    }
+
+    private fun askOptionalPermissionsThenProject() {
+        val app = CastApp.get(this)
         val missing = optionalPermissions().filter { checkSelfPermission(it) != PackageManager.PERMISSION_GRANTED }
         if (missing.isNotEmpty() && !app.settings.askedForPermissions) {
             app.settings.askedForPermissions = true

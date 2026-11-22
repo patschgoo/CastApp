@@ -14,12 +14,14 @@ import android.os.Handler
 import android.util.Log
 import android.view.Surface
 import io.github.patschgoo.castapp.stream.AvcUtils
+import io.github.patschgoo.castapp.stream.HevcUtils
 import io.github.patschgoo.castapp.stream.StreamHub
+import io.github.patschgoo.castapp.stream.VideoCodec
 import io.github.patschgoo.castapp.stream.VideoConfig
 
 /**
- * Captures the screen through MediaProjection into a hardware H.264 encoder and
- * pushes the encoded frames into the [StreamHub].
+ * Captures the screen through MediaProjection into a hardware H.264 or HEVC
+ * encoder and pushes the encoded frames into the [StreamHub].
  *
  * The stream is always 16:9 landscape (the shape of a TV). In "fit" mode Android
  * keeps the aspect ratio when mirroring, so a portrait phone shows up centred with
@@ -36,8 +38,14 @@ class ScreenEncoder(
     private var bitrate: Int,
     private val densityDpi: Int,
     private val fill: Boolean,
+    /** Wanted codec; falls back to H.264 when the phone has no usable HEVC encoder. */
+    codec: VideoCodec = VideoCodec.H264,
     private val onError: (Throwable) -> Unit,
 ) {
+    /** The codec actually in use (see [reconfigure]). */
+    @Volatile var videoCodec: VideoCodec = codec
+        private set
+
     private var codec: MediaCodec? = null
     private var inputSurface: Surface? = null
     private var display: VirtualDisplay? = null
@@ -118,7 +126,7 @@ class ScreenEncoder(
      * permission) stays; only the encoder is rebuilt. [beforeRestart] runs once the
      * old encoder has stopped, so the stream can be reset in between.
      */
-    fun reconfigure(newWidth: Int, newHeight: Int, newBitrate: Int, beforeRestart: () -> Unit) {
+    fun reconfigure(newWidth: Int, newHeight: Int, newBitrate: Int, newCodec: VideoCodec = videoCodec, beforeRestart: () -> Unit) {
         running = false
         try { drainThread?.join(1000) } catch (_: InterruptedException) {}
         drainThread = null
@@ -133,6 +141,7 @@ class ScreenEncoder(
         width = newWidth
         height = newHeight
         bitrate = newBitrate
+        videoCodec = newCodec
         val c = createConfiguredCodec()
         codec = c
         val encoderSurface = c.createInputSurface()
@@ -161,19 +170,39 @@ class ScreenEncoder(
     }
 
     private fun createConfiguredCodec(): MediaCodec {
+        if (videoCodec == VideoCodec.HEVC) {
+            try {
+                return createConfiguredCodec(VideoCodec.HEVC)
+            } catch (e: Exception) {
+                Log.w(TAG, "No usable HEVC encoder, using H.264", e)
+                videoCodec = VideoCodec.H264
+            }
+        }
+        return createConfiguredCodec(VideoCodec.H264)
+    }
+
+    private fun createConfiguredCodec(type: VideoCodec): MediaCodec {
+        val mime = type.mime
         val sizes = linkedSetOf(width to height, 1280 to 720, 960 to 540)
         var lastError: Exception? = null
         for ((w, h) in sizes) {
+            // HEVC: only a hardware encoder will do (the software one is far too slow).
+            val hevcName = if (type == VideoCodec.HEVC) VideoCodecs.hardwareEncoder(mime, w, h) ?: continue else null
             // 2 = all tuning keys, 1 = basic keys, 0 = bare minimum for picky encoders.
             for (level in 2 downTo 0) {
-                val codec = try { MediaCodec.createEncoderByType(MIME) } catch (e: Exception) { lastError = e; continue }
+                val codec = try {
+                    if (hevcName != null) MediaCodec.createByCodecName(hevcName) else MediaCodec.createEncoderByType(mime)
+                } catch (e: Exception) {
+                    lastError = e
+                    continue
+                }
                 try {
-                    val caps = codec.codecInfo.getCapabilitiesForType(MIME)
+                    val caps = codec.codecInfo.getCapabilitiesForType(mime)
                     if (caps.videoCapabilities?.isSizeSupported(w, h) == false) {
                         codec.release()
                         break
                     }
-                    codec.configure(buildFormat(w, h, caps, level), null, null, MediaCodec.CONFIGURE_FLAG_ENCODE)
+                    codec.configure(buildFormat(type, w, h, caps, level), null, null, MediaCodec.CONFIGURE_FLAG_ENCODE)
                     encodedWidth = w
                     encodedHeight = h
                     return codec
@@ -184,11 +213,11 @@ class ScreenEncoder(
                 }
             }
         }
-        throw IllegalStateException("No usable H.264 encoder on this phone", lastError)
+        throw IllegalStateException("No usable ${type.label} encoder on this phone", lastError)
     }
 
-    private fun buildFormat(w: Int, h: Int, caps: MediaCodecInfo.CodecCapabilities, level: Int): MediaFormat =
-        MediaFormat.createVideoFormat(MIME, w, h).apply {
+    private fun buildFormat(type: VideoCodec, w: Int, h: Int, caps: MediaCodecInfo.CodecCapabilities, level: Int): MediaFormat =
+        MediaFormat.createVideoFormat(type.mime, w, h).apply {
             setInteger(MediaFormat.KEY_COLOR_FORMAT, MediaCodecInfo.CodecCapabilities.COLOR_FormatSurface)
             setInteger(MediaFormat.KEY_BIT_RATE, bitrate)
             setInteger(MediaFormat.KEY_FRAME_RATE, fps)
@@ -205,8 +234,14 @@ class ScreenEncoder(
                 if (caps.encoderCapabilities?.isBitrateModeSupported(MediaCodecInfo.EncoderCapabilities.BITRATE_MODE_CBR) == true) {
                     setInteger(MediaFormat.KEY_BITRATE_MODE, MediaCodecInfo.EncoderCapabilities.BITRATE_MODE_CBR)
                 }
-                val high = caps.profileLevels.any { it.profile == MediaCodecInfo.CodecProfileLevel.AVCProfileHigh }
-                if (high) setInteger(MediaFormat.KEY_PROFILE, MediaCodecInfo.CodecProfileLevel.AVCProfileHigh)
+                if (type == VideoCodec.HEVC) {
+                    // 8-bit Main profile: what every HEVC TV decoder plays.
+                    val main = caps.profileLevels.any { it.profile == MediaCodecInfo.CodecProfileLevel.HEVCProfileMain }
+                    if (main) setInteger(MediaFormat.KEY_PROFILE, MediaCodecInfo.CodecProfileLevel.HEVCProfileMain)
+                } else {
+                    val high = caps.profileLevels.any { it.profile == MediaCodecInfo.CodecProfileLevel.AVCProfileHigh }
+                    if (high) setInteger(MediaFormat.KEY_PROFILE, MediaCodecInfo.CodecProfileLevel.AVCProfileHigh)
+                }
             }
         }
 
@@ -254,29 +289,41 @@ class ScreenEncoder(
 
     private fun onFormat(format: MediaFormat) {
         if (hub.videoConfig != null) return
-        val sps = format.getByteBuffer("csd-0")?.let { b -> ByteArray(b.remaining()).also { b.get(it) } } ?: return
-        val pps = format.getByteBuffer("csd-1")?.let { b -> ByteArray(b.remaining()).also { b.get(it) } } ?: return
-        onCodecConfig(sps + pps)
+        // H.264: SPS in csd-0, PPS in csd-1. HEVC: VPS + SPS + PPS together in csd-0.
+        val csd0 = format.getByteBuffer("csd-0")?.let { b -> ByteArray(b.remaining()).also { b.get(it) } } ?: return
+        val csd1 = format.getByteBuffer("csd-1")?.let { b -> ByteArray(b.remaining()).also { b.get(it) } } ?: ByteArray(0)
+        onCodecConfig(csd0 + csd1)
     }
 
     private fun onCodecConfig(bytes: ByteArray) {
         if (hub.videoConfig != null) return
         val nals = AvcUtils.splitAnnexB(bytes)
-        val sps = nals.firstOrNull { AvcUtils.nalType(it) == AvcUtils.NAL_SPS } ?: return
-        val pps = nals.firstOrNull { AvcUtils.nalType(it) == AvcUtils.NAL_PPS } ?: return
-        hub.setVideoConfig(VideoConfig(encodedWidth, encodedHeight, sps, pps))
+        val config = if (videoCodec == VideoCodec.HEVC) {
+            val vps = nals.firstOrNull { HevcUtils.nalType(it) == HevcUtils.NAL_VPS } ?: return
+            val sps = nals.firstOrNull { HevcUtils.nalType(it) == HevcUtils.NAL_SPS } ?: return
+            val pps = nals.firstOrNull { HevcUtils.nalType(it) == HevcUtils.NAL_PPS } ?: return
+            if (HevcUtils.parseSps(sps) == null) return
+            VideoConfig(encodedWidth, encodedHeight, sps, pps, VideoCodec.HEVC, vps)
+        } else {
+            val sps = nals.firstOrNull { AvcUtils.nalType(it) == AvcUtils.NAL_SPS } ?: return
+            val pps = nals.firstOrNull { AvcUtils.nalType(it) == AvcUtils.NAL_PPS } ?: return
+            VideoConfig(encodedWidth, encodedHeight, sps, pps)
+        }
+        hub.setVideoConfig(config)
     }
 
     private fun onFrame(bytes: ByteArray, ptsUs: Long, keyFlag: Boolean) {
         val nals = AvcUtils.splitAnnexB(bytes)
         if (hub.videoConfig == null) {
-            // Some encoders put SPS/PPS in front of the first key frame instead of a config buffer.
+            // Some encoders put the parameter sets in front of the first key frame instead of a config buffer.
             onCodecConfig(bytes)
             if (hub.videoConfig == null) return
         }
-        val sample = AvcUtils.toAvccSample(nals)
+        val hevc = videoCodec == VideoCodec.HEVC
+        val sample = if (hevc) HevcUtils.toSample(nals) else AvcUtils.toAvccSample(nals)
         if (sample.isEmpty()) return
-        hub.pushVideo(sample, ptsUs, keyFlag || AvcUtils.containsIdr(nals))
+        val key = keyFlag || if (hevc) HevcUtils.containsKeyFrame(nals) else AvcUtils.containsIdr(nals)
+        hub.pushVideo(sample, ptsUs, key)
     }
 
     fun stop() {
@@ -299,6 +346,5 @@ class ScreenEncoder(
 
     companion object {
         private const val TAG = "ScreenEncoder"
-        private const val MIME = MediaFormat.MIMETYPE_VIDEO_AVC
     }
 }

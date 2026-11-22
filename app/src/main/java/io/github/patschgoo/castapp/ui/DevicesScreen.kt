@@ -437,6 +437,8 @@ private fun CastingCard(state: CastState.Active, actions: DevicesActions) {
                             if (state.audioOnly) add("phone sound")
                             if (state.resolution.isNotEmpty()) add(state.resolution)
                             if (state.bitrateKbps > 0 && !state.audioOnly) add("%.1f Mbit/s".format(state.bitrateKbps / 1000f))
+                            if (state.videoCodec.isNotEmpty() && !state.audioOnly) add(state.videoCodec)
+                            if (state.microphone) add(stringResource(R.string.mic_on_short))
                             if (!state.audioOnly && state.phase != CastPhase.CONNECTING) add(if (state.audio) "Audio on" else "No audio")
                             if (state.lowLatencyPlayer) add("Low-latency player")
                             if (state.compatibilityMode) add("Compatible mode")

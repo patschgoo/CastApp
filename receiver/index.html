@@ -25,7 +25,12 @@
  * keeping only a few hundred milliseconds buffered: when playback falls behind
  * we speed up a little, and if it falls far behind we jump to the live edge.
  *
+ * The stream is H.264 ("avc1...") or HEVC ("hvc1..."). Before sending HEVC the phone
+ * asks {type: "CAPS", codecs} and we answer whether this TV can play it; phones
+ * that get no answer (an older copy of this page) stay on H.264.
+ *
  * Test in a desktop browser: index.html?test=<stream url>&codecs=avc1.64001F,mp4a.40.2
+ * (HEVC: codecs=hvc1.1.6.L93.90,mp4a.40.2)
  */
 const NS = 'urn:x-cast:io.github.patschgoo.castapp';
 const TARGET_LAG = 0.2;   // seconds of buffer we aim for
@@ -35,6 +40,17 @@ const video = document.getElementById('v');
 const msg = document.getElementById('msg');
 let ctx = null;
 let player = null;
+
+/** True if this TV can play an MP4 stream with these codecs (MSE, then Cast's own check). */
+function canPlay(codecs) {
+  const type = 'video/mp4; codecs="' + codecs + '"';
+  if (!window.MediaSource || !MediaSource.isTypeSupported(type)) return false;
+  if (ctx && typeof ctx.canDisplayType === 'function') {
+    const v = codecs.split(',').map(c => c.trim()).find(c => /^(avc1|avc3|hvc1|hev1)\./.test(c));
+    try { if (v && !ctx.canDisplayType('video/mp4', v)) return false; } catch (_) {}
+  }
+  return true;
+}
 
 function show(text) { msg.textContent = text; msg.classList.toggle('hidden', !text); }
 
@@ -50,7 +66,7 @@ class LowLatencyPlayer {
 
   async start() {
     const type = 'video/mp4; codecs="' + this.codecs + '"';
-    if (!window.MediaSource || !MediaSource.isTypeSupported(type)) throw new Error('Unsupported stream: ' + type);
+    if (!canPlay(this.codecs)) throw new Error('Unsupported stream: ' + type);
     this.ms = new MediaSource();
     video.src = URL.createObjectURL(this.ms);
     await new Promise(resolve => this.ms.addEventListener('sourceopen', resolve, { once: true }));
@@ -152,7 +168,15 @@ function send(senderId, data) {
 
 function handle(data, senderId) {
   if (!data) return;
-  if (data.type === 'PLAY') {
+  if (data.type === 'CAPS') {
+    const codecs = String(data.codecs || '');
+    send(senderId, {
+      type: 'CAPS',
+      requestId: data.requestId,
+      supported: codecs ? canPlay(codecs) : false,
+      hevc: canPlay('hvc1.1.6.L120.90'),
+    });
+  } else if (data.type === 'PLAY') {
     if (player) player.stop();
     player = new LowLatencyPlayer(data.url, data.codecs || 'avc1.42E01F,mp4a.40.2',
       (state, message) => send(senderId, { type: 'STATUS', state: state, message: message || '' }));

@@ -82,4 +82,21 @@ class HlsSegmenter(
             }
         }
     }
+
+    companion object {
+        /**
+         * A master playlist with one variant (live.m3u8) that names its codecs, so
+         * players set up the right decoder (needed for HEVC: "hvc1...").
+         */
+        fun masterPlaylist(video: VideoConfig, withAudio: Boolean, bandwidth: Int): String = buildString {
+            val codecs = video.codecString + if (withAudio) ",mp4a.40.2" else ""
+            append("#EXTM3U\n")
+            append("#EXT-X-VERSION:7\n")
+            append("#EXT-X-INDEPENDENT-SEGMENTS\n")
+            append("#EXT-X-STREAM-INF:BANDWIDTH=").append(bandwidth + if (withAudio) 128_000 else 0)
+            append(",CODECS=\"").append(codecs).append('"')
+            append(",RESOLUTION=").append(video.width).append('x').append(video.height).append('\n')
+            append("live.m3u8\n")
+        }
+    }
 }

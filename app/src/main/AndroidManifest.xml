@@ -25,11 +25,13 @@
     <uses-permission android:name="android.permission.SYSTEM_ALERT_WINDOW" />
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
     <uses-permission android:name="android.permission.WAKE_LOCK" />
-    <!-- Only used to capture the sound of other apps (Android 10+), never the microphone -->
+    <!-- Captures the sound of other apps (Android 10+); the microphone only when you turn on
+         "Phone microphone" for mirroring -->
     <uses-permission android:name="android.permission.RECORD_AUDIO" />
     <!-- Support tools: keep playing with the screen off, update from GitHub -->
     <uses-permission android:name="android.permission.REQUEST_IGNORE_BATTERY_OPTIMIZATIONS" />
     <uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MICROPHONE" />
 
     <!-- The phone as a Bluetooth remote/keyboard for TV boxes (only asked for when you use it) -->
     <uses-permission android:name="android.permission.BLUETOOTH" android:maxSdkVersion="30" />
@@ -46,6 +48,15 @@
         <intent>
             <action android:name="android.intent.action.MAIN" />
             <category android:name="android.intent.category.LAUNCHER" />
+        </intent>
+        <!-- The TV receiver opens YouTube links in the TV's YouTube app -->
+        <package android:name="com.google.android.youtube.tv" />
+        <package android:name="com.google.android.youtube.googletv" />
+        <package android:name="com.amazon.firetv.youtube" />
+        <package android:name="com.google.android.youtube" />
+        <intent>
+            <action android:name="android.intent.action.VIEW" />
+            <data android:scheme="https" />
         </intent>
     </queries>
 
@@ -194,7 +205,7 @@
         <service
             android:name=".service.CastService"
             android:exported="false"
-            android:foregroundServiceType="mediaProjection|mediaPlayback" />
+            android:foregroundServiceType="mediaProjection|mediaPlayback|microphone" />
 
         <!-- Shares the debug log and the downloaded update (cache/support only) -->
         <provider
