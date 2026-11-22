@@ -35,6 +35,8 @@ import androidx.compose.material.icons.automirrored.rounded.ArrowBack
 import androidx.compose.material.icons.rounded.Add
 import androidx.compose.material.icons.rounded.Clear
 import androidx.compose.material.icons.rounded.Delete
+import androidx.compose.material.icons.rounded.FiberManualRecord
+import androidx.compose.material.icons.rounded.Lock
 import androidx.compose.material.icons.rounded.Info
 import androidx.compose.material.icons.rounded.Link
 import androidx.compose.material.icons.rounded.LiveTv
@@ -96,10 +98,15 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import io.github.patschgoo.castapp.iptv.Channel
 import io.github.patschgoo.castapp.iptv.ChannelEntry
 import io.github.patschgoo.castapp.iptv.EpgData
+import io.github.patschgoo.castapp.iptv.GuideGrid
 import io.github.patschgoo.castapp.iptv.GuideList
+import io.github.patschgoo.castapp.iptv.IptvExtrasHost
+import io.github.patschgoo.castapp.iptv.rememberIptvExtras
 import io.github.patschgoo.castapp.iptv.IptvRepository
 import io.github.patschgoo.castapp.iptv.LiveStream
 import io.github.patschgoo.castapp.iptv.NowNext
+import io.github.patschgoo.castapp.iptv.Programme
+import io.github.patschgoo.castapp.iptv.Protection
 import io.github.patschgoo.castapp.iptv.ScheduleSheet
 import io.github.patschgoo.castapp.iptv.VodPane
 import io.github.patschgoo.castapp.iptv.rememberNow
@@ -167,6 +174,12 @@ internal fun ChannelsScreen(repo: IptvRepository, onBack: () -> Unit) {
     val castState by CastController.state.collectAsStateWithLifecycle()
     val now by rememberNow()
     val time = rememberTimeFormat()
+    val context = androidx.compose.ui.platform.LocalContext.current
+    // Reminders, recording, parental lock (see iptv/IptvExtras.kt)
+    val extras = rememberIptvExtras()
+    val parental by extras.parental.state.collectAsStateWithLifecycle()
+    val extraReminders by extras.reminders.items.collectAsStateWithLifecycle()
+    val extraRecordings by extras.recordings.items.collectAsStateWithLifecycle()
 
     var selectedId by rememberSaveable { mutableStateOf<String?>(null) }
     val selected = playlists.firstOrNull { it.id == selectedId }
@@ -256,9 +269,11 @@ internal fun ChannelsScreen(repo: IptvRepository, onBack: () -> Unit) {
         val g = epg
         if (g != null) value = withContext(Dispatchers.Default) { channels.map { ChannelEntry(it, g.forChannel(it)) } }
     }
-    val entries = scheduled ?: plain
+    val allEntries = scheduled ?: plain
+    // Hidden channels (parental lock) are not shown until the PIN is entered.
+    val entries = remember(allEntries, parental, parental.unlocked(now)) { allEntries.filter { !parental.isHidden(it.channel, now) } }
 
-    val groups = remember(channels) { channels.mapNotNull { it.group }.distinct() }
+    val groups = remember(entries) { entries.mapNotNull { it.channel.group }.distinct() }
     val shown = remember(entries, group, query) {
         val q = query.trim()
         entries.filter { e ->
@@ -269,17 +284,22 @@ internal fun ChannelsScreen(repo: IptvRepository, onBack: () -> Unit) {
     val hasGuide = epg?.isEmpty == false && entries.any { it.schedule.isNotEmpty() }
     val guideShown = remember(shown) { shown.filter { it.schedule.isNotEmpty() } }
 
-    fun play(entry: ChannelEntry) {
-        // The shown list becomes the play list, so Next/Previous zap through it.
-        val index = shown.indexOfFirst { it === entry }.takeIf { it >= 0 } ?: return
-        val from = (index - TvChannelsActivity.MAX_QUEUE / 2).coerceIn(0, (shown.size - TvChannelsActivity.MAX_QUEUE).coerceAtLeast(0))
-        val window = shown.subList(from, minOf(shown.size, from + TvChannelsActivity.MAX_QUEUE)).map { it.channel }
+    fun playNow(entry: ChannelEntry) {
+        // The shown list becomes the play list, so Next/Previous zap through it (locked channels are left out while locked).
+        val ps = extras.parental.state.value
+        val open = ps.unlocked(System.currentTimeMillis())
+        val queue = if (open) shown else shown.filter { it === entry || ps.protectionOf(it.channel) == Protection.NONE }
+        val index = queue.indexOfFirst { it === entry }.takeIf { it >= 0 } ?: return
+        val from = (index - TvChannelsActivity.MAX_QUEUE / 2).coerceIn(0, (queue.size - TvChannelsActivity.MAX_QUEUE).coerceAtLeast(0))
+        val window = queue.subList(from, minOf(queue.size, from + TvChannelsActivity.MAX_QUEUE)).map { it.channel }
         launcher.cast(IptvRepository.toItems(window), index - from)
     }
 
+    fun play(entry: ChannelEntry) = extras.guarded(entry.channel) { playNow(entry) }
+
     // Catch-up information is only fetched when a schedule is opened.
-    LaunchedEffect(scheduleFor != null, selectedId) {
-        if (scheduleFor != null && archive == null && xtream != null) {
+    LaunchedEffect(scheduleFor != null || extras.programme != null, selectedId) {
+        if ((scheduleFor != null || extras.programme != null) && archive == null && xtream != null) {
             archive = try {
                 withContext(Dispatchers.IO) { xtream.archiveChannels() }
             } catch (_: Exception) {
@@ -297,6 +317,12 @@ internal fun ChannelsScreen(repo: IptvRepository, onBack: () -> Unit) {
                 },
                 actions = {
                     IconButton(onClick = { showAdd = true }) { Icon(Icons.Rounded.Add, contentDescription = stringResource(R.string.tvc_add_cd)) }
+                    IconButton(onClick = { extras.showParental = true }) {
+                        Icon(Icons.Rounded.Lock, contentDescription = stringResource(R.string.iptvx_menu_parental))
+                    }
+                    IconButton(onClick = { context.startActivity(Intent(context, RecordingsActivity::class.java)) }) {
+                        Icon(Icons.Rounded.FiberManualRecord, contentDescription = stringResource(R.string.iptvx_menu_recordings))
+                    }
                     if (selected != null) {
                         Box {
                             IconButton(onClick = { menu = true }) { Icon(Icons.Rounded.MoreVert, contentDescription = stringResource(R.string.net_more)) }
@@ -414,11 +440,11 @@ internal fun ChannelsScreen(repo: IptvRepository, onBack: () -> Unit) {
             }
             if (hasGuide) {
                 SingleChoiceSegmentedButtonRow(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 2.dp)) {
-                    listOf(R.string.iptvg_view_channels, R.string.iptvg_view_guide).forEachIndexed { i, label ->
+                    listOf(R.string.iptvg_view_channels, R.string.iptvg_view_guide, R.string.iptvx_view_grid).forEachIndexed { i, label ->
                         SegmentedButton(
                             selected = liveView == i,
                             onClick = { liveView = i },
-                            shape = SegmentedButtonDefaults.itemShape(i, 2),
+                            shape = SegmentedButtonDefaults.itemShape(i, 3),
                         ) { Text(stringResource(label)) }
                     }
                 }
@@ -474,13 +500,24 @@ internal fun ChannelsScreen(repo: IptvRepository, onBack: () -> Unit) {
                             modifier = Modifier.padding(horizontal = 20.dp),
                         )
                     }
-                    if (liveView == 1 && hasGuide) {
+                    if (liveView >= 1 && hasGuide) {
                         if (guideShown.isEmpty()) {
                             Text(
                                 stringResource(R.string.iptvg_guide_empty),
                                 style = MaterialTheme.typography.bodyMedium,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                                 modifier = Modifier.padding(24.dp),
+                            )
+                        } else if (liveView == 2) {
+                            GuideGrid(
+                                entries = guideShown,
+                                now = now,
+                                reminders = extraReminders,
+                                recordings = extraRecordings,
+                                onPlay = { play(it) },
+                                onProgramme = { entry, p -> extras.programme = entry to p },
+                                onChannelMenu = { extras.channelMenu = it },
+                                modifier = Modifier.weight(1f),
                             )
                         } else {
                             GuideList(
@@ -504,6 +541,7 @@ internal fun ChannelsScreen(repo: IptvRepository, onBack: () -> Unit) {
                                     onPlay = { play(e) },
                                     onFavorite = { repo.toggleFavorite(e.channel.url) },
                                     onInfo = { scheduleFor = e },
+                                    onMenu = { extras.channelMenu = e },
                                 )
                             }
                         }
@@ -513,39 +551,56 @@ internal fun ChannelsScreen(repo: IptvRepository, onBack: () -> Unit) {
         }
     }
 
+    /** Catch-up: the provider plays the programme again from its start (a little extra at the end). */
+    fun replay(entry: ChannelEntry, p: Programme) {
+        val account = selected?.let { repo.xtream(it) } ?: return
+        val streamId = account.liveStreamId(entry.channel.url) ?: return
+        val minutes = ((p.stop - p.start) / 60_000L).toInt().coerceAtLeast(1) + 5
+        launcher.cast(
+            listOf(
+                MediaItem(
+                    title = "${entry.channel.name} · ${p.title}",
+                    uri = account.timeshiftUrl(streamId, p.start, minutes),
+                    mimeType = "video/mp2t",
+                    headers = entry.channel.headers,
+                ),
+            ),
+        )
+    }
+
+    fun catchUpDays(entry: ChannelEntry): Int {
+        val streamId = selected?.let { repo.xtream(it) }?.liveStreamId(entry.channel.url) ?: return 0
+        return archive?.get(streamId)?.archiveDays ?: 0
+    }
+
     scheduleFor?.let { entry ->
-        val account = selected?.let { repo.xtream(it) }
-        val streamId = account?.liveStreamId(entry.channel.url)
-        val live = if (streamId != null) archive?.get(streamId) else null
         ScheduleSheet(
             entry = entry,
             now = now,
-            catchUpDays = live?.archiveDays ?: 0,
+            catchUpDays = catchUpDays(entry),
             onPlayLive = {
                 scheduleFor = null
                 play(entry)
             },
             onReplay = { p ->
                 scheduleFor = null
-                if (account != null && streamId != null) {
-                    // Catch-up: the provider plays the programme again from its start (a little extra at the end).
-                    val minutes = ((p.stop - p.start) / 60_000L).toInt().coerceAtLeast(1) + 5
-                    val url = account.timeshiftUrl(streamId, p.start, minutes)
-                    launcher.cast(
-                        listOf(
-                            MediaItem(
-                                title = "${entry.channel.name} · ${p.title}",
-                                uri = url,
-                                mimeType = "video/mp2t",
-                                headers = entry.channel.headers,
-                            ),
-                        ),
-                    )
-                }
+                replay(entry, p)
             },
             onDismiss = { scheduleFor = null },
         )
     }
+
+    IptvExtrasHost(
+        extras = extras,
+        now = now,
+        parental = parental,
+        groups = groups,
+        catchUpDays = ::catchUpDays,
+        onPlay = ::play,
+        onReplay = ::replay,
+        onSchedule = { scheduleFor = it },
+        message = { text -> scope.launch { snackbar.showSnackbar(text) } },
+    )
 
     if (showAdd) {
         AddPlaylistDialog(
@@ -627,11 +682,13 @@ private fun ChannelRow(
     onPlay: () -> Unit,
     onFavorite: () -> Unit,
     onInfo: () -> Unit,
+    onMenu: () -> Unit = {},
 ) {
     val channel = entry.channel
     val radio = IptvRepository.toItems(listOf(channel)).first().type == MediaType.AUDIO
     ListItem(
         onClick = onPlay,
+        onLongClick = onMenu,
         leadingContent = {
             Box(
                 Modifier.size(44.dp).clip(RoundedCornerShape(8.dp)).background(MaterialTheme.colorScheme.surfaceContainerHighest),

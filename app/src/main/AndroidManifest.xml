@@ -32,6 +32,8 @@
     <uses-permission android:name="android.permission.REQUEST_IGNORE_BATTERY_OPTIMIZATIONS" />
     <uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MICROPHONE" />
+    <!-- Recording TV channels in the background -->
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_DATA_SYNC" />
 
     <!-- The phone as a Bluetooth remote/keyboard for TV boxes (only asked for when you use it) -->
     <uses-permission android:name="android.permission.BLUETOOTH" android:maxSdkVersion="30" />
@@ -144,6 +146,12 @@
             android:windowSoftInputMode="adjustResize" />
 
         <activity
+            android:name=".RecordingsActivity"
+            android:exported="false"
+            android:label="@string/iptvx_recordings_title"
+            android:launchMode="singleTop" />
+
+        <activity
             android:name=".NetworkActivity"
             android:exported="false"
             android:label="@string/network_cloud"
@@ -206,6 +214,34 @@
             android:name=".service.CastService"
             android:exported="false"
             android:foregroundServiceType="mediaProjection|mediaPlayback|microphone" />
+
+        <!-- Recording TV channels (reminders and planned recordings wake the receiver) -->
+        <service
+            android:name=".iptv.RecordingService"
+            android:exported="false"
+            android:foregroundServiceType="dataSync" />
+
+        <receiver
+            android:name=".iptv.IptvAlarmReceiver"
+            android:exported="false">
+            <intent-filter>
+                <action android:name="android.intent.action.BOOT_COMPLETED" />
+                <action android:name="android.intent.action.MY_PACKAGE_REPLACED" />
+                <action android:name="android.intent.action.TIME_SET" />
+                <action android:name="android.intent.action.TIMEZONE_CHANGED" />
+            </intent-filter>
+        </receiver>
+
+        <!-- Lets a TV play a recording from the phone's app folder -->
+        <provider
+            android:name="androidx.core.content.FileProvider"
+            android:authorities="${applicationId}.recordings"
+            android:exported="false"
+            android:grantUriPermissions="true">
+            <meta-data
+                android:name="android.support.FILE_PROVIDER_PATHS"
+                android:resource="@xml/recording_file_paths" />
+        </provider>
 
         <!-- Shares the debug log and the downloaded update (cache/support only) -->
         <provider
