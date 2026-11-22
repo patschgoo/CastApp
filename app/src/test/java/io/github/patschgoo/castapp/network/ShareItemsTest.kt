@@ -4,12 +4,14 @@ import android.content.ContextWrapper
 import android.content.SharedPreferences
 import io.github.patschgoo.castapp.service.MediaItem
 import io.github.patschgoo.castapp.stream.Subtitles
+import io.github.patschgoo.castapp.subtitles.Sidecars
 import org.json.JSONObject
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
+import java.util.Locale
 
 /** The play list made from a share or cloud folder: which files play, their types and their subtitle files. */
 class ShareItemsTest {
@@ -120,6 +122,53 @@ class ShareItemsTest {
         assertEquals("video/mp4", list[1].mimeType) // the server's type wins
         assertEquals("video/x-msvideo", list[2].mimeType)
         assertFalse(list[0].headers.isEmpty())
+    }
+
+    @Test
+    fun webDavSubtitlesTypedAsSoundAreNoQueueItems() {
+        // Debian's mime.types (Apache, rclone, wsgidav…) calls .ass "audio/aac".
+        val ass = RemoteEntry("X.English.ass", "https://cloud.example/dav/X.English.ass", false, mimeType = "audio/aac")
+        val srt = RemoteEntry("X.German.srt", "https://cloud.example/dav/X.German.srt", false, mimeType = "application/x-subrip")
+        val video = RemoteEntry("X.mkv", "https://cloud.example/dav/X.mkv", false, mimeType = "video/x-matroska")
+        assertNull(NetworkSources.mimeOf(ass))
+        assertNull(NetworkSources.mimeOf(RemoteEntry("Y.srt", "https://cloud.example/dav/Y.srt", false, mimeType = "video/x-subrip")))
+        assertEquals("video/x-matroska", NetworkSources.mimeOf(video))
+        val list = network.itemsFor(dav, listOf(ass, srt, video).sortedWith(NaturalOrder.entries), listOf("en"))
+        assertEquals(listOf("X.mkv"), list.map { it.title })
+        assertEquals("https://cloud.example/dav/X.English.ass", list.single().subtitleUri)
+        assertEquals(listOf("https://cloud.example/dav/X.German.srt"), list.single().moreSubtitles)
+        // An .ass file on its own isn't music either.
+        assertEquals(emptyList<MediaItem>(), network.itemsFor(dav, listOf(ass), listOf("en")))
+    }
+
+    @Test
+    fun pickedSubtitleFilesKeepTheirNames() {
+        val doc = "content://com.android.providers.media.documents/document/msf%3A123"
+        val doc2 = "content://com.android.providers.media.documents/document/msf%3A124"
+        val named = listOf(
+            Triple("content://com.android.providers.media.documents/document/msf%3A122", "Rook 05.mkv", "video/x-matroska"),
+            Triple(doc, "Rook 05.English.srt", "application/x-subrip"),
+            Triple(doc2, "Rook 05.German.srt", "application/x-subrip"),
+        )
+        val item = MediaItem.fromNamed(named, listOf("en")).single()
+        assertEquals(doc, item.subtitleUri)
+        assertEquals("Rook 05.English.srt", item.subtitleName(doc))
+        assertEquals("Rook 05.German.srt", item.subtitleName(doc2))
+        // So the picker says "German", not "Subtitle file" (the address alone has no name).
+        assertEquals("German", Sidecars.label(item.title, item.subtitleName(doc2), Locale.ENGLISH))
+        assertNull(Sidecars.label(item.title, Sidecars.fileName(doc2), Locale.ENGLISH))
+        // They travel as JSON, beside the addresses.
+        val back = MediaItem.fromJson(JSONObject(item.toJson().toString()))
+        assertEquals(item, back)
+        assertEquals("Rook 05.German.srt", back.subtitleName(doc2))
+        // Names an address shows aren't stored twice; without a name, the address's.
+        val share = items("Rook 06.mkv", "Rook 06.English.srt").single()
+        assertEquals(emptyMap<String, String>(), share.subtitleNames)
+        assertEquals("Rook 06.English.srt", share.subtitleName(share.subtitleUri!!))
+        assertFalse(share.toJson().has("subName"))
+        val old = MediaItem.fromJson(JSONObject("""{"title":"Old","uri":"content://p/1","mime":"video/mp4","sub":"$doc","subs":["$doc2"]}"""))
+        assertEquals(listOf(doc, doc2), old.subtitleFiles)
+        assertEquals("123", old.subtitleName(doc))
     }
 
     @Test

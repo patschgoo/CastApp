@@ -278,6 +278,11 @@ class TvPlayerActivity : ComponentActivity() {
         exo?.volume = if (s.muted) 0f else s.volume / 100f
     }
 
+    /** Stops playing but keeps the screen: the phone usually sends the next address right after Stop. */
+    fun stopPlayback() {
+        exo?.stop()
+    }
+
     fun stopAndClose() {
         closing = true
         exo?.stop()
@@ -361,6 +366,8 @@ class TvPlayerActivity : ComponentActivity() {
     private val hideNotice = Runnable { noticeView.visibility = View.GONE }
 
     private fun reportState() {
+        // Let go of by TvReceiver.stop(): until it's gone this screen mustn't speak for a new one starting.
+        if (TvReceiver.player !== this) return
         val media = showing
         if (media == null) {
             TvReceiver.report(TransportState.NO_MEDIA_PRESENT, 0, 0)

@@ -245,7 +245,7 @@ internal fun NetworkScreen(network: NetworkSources, onBack: () -> Unit, startSer
             if (place == null) {
                 Home(
                     network = network,
-                    onPickFiles = { picker.launch(arrayOf("video/*", "audio/*", "image/*", "application/x-subrip", "text/vtt")) },
+                    onPickFiles = { picker.launch(arrayOf("video/*", "audio/*", "image/*", "application/x-subrip", "text/vtt", "text/x-ssa", "application/octet-stream")) },
                     onOpen = { stack.add(it) },
                     onOpenServers = { serverKind = it.name },
                 )

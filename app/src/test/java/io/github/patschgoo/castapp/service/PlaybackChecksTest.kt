@@ -1,14 +1,21 @@
 package io.github.patschgoo.castapp.service
 
+import io.github.patschgoo.castapp.capture.ConvertProblem
 import io.github.patschgoo.castapp.discovery.CastDevice
 import io.github.patschgoo.castapp.discovery.DeviceKind
 import io.github.patschgoo.castapp.dlna.Dlna
 import io.github.patschgoo.castapp.settings.ConvertMode
+import io.github.patschgoo.castapp.stream.MediaServer
+import io.github.patschgoo.castapp.stream.MediaSource
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
+import java.io.ByteArrayInputStream
+import java.net.HttpURLConnection
+import java.net.InetAddress
+import java.net.URL
 
 /** Which ways to deliver an item each TV gets, and what each TV is told about the file. */
 class PlaybackChecksTest {
@@ -132,17 +139,105 @@ class PlaybackChecksTest {
         val dtsHd = AudioTrackInfo(1, "eng", "audio/vnd.dts.hd", 8)
         val trueHd = AudioTrackInfo(0, "eng", "audio/true-hd", 8)
         val ac3 = AudioTrackInfo(1, "eng", "audio/ac3", 6)
-        assertEquals(CastSoundWarning("DTS", otherTrack = true), PlaybackChecks.castSoundWarning(DeviceKind.CAST, Delivery.SERVE, listOf(dts, ac3)))
-        assertEquals(CastSoundWarning("TrueHD", otherTrack = true), PlaybackChecks.castSoundWarning(DeviceKind.CAST, Delivery.DIRECT, listOf(trueHd, ac3)))
+        val phoneConverts: (AudioTrackInfo) -> Boolean = { true }
+        fun warning(kind: DeviceKind, delivery: Delivery, audio: List<AudioTrackInfo>) =
+            PlaybackChecks.castSoundWarning(kind, delivery, audio, phoneConverts)
+        assertEquals(CastSoundWarning("DTS", otherTrack = true), warning(DeviceKind.CAST, Delivery.SERVE, listOf(dts, ac3)))
+        assertEquals(CastSoundWarning("TrueHD", otherTrack = true), warning(DeviceKind.CAST, Delivery.DIRECT, listOf(trueHd, ac3)))
         // No other track it could play: CastApp TV or the media server instead.
-        assertEquals(CastSoundWarning("DTS", otherTrack = false), PlaybackChecks.castSoundWarning(DeviceKind.CAST, Delivery.SERVE, listOf(dts)))
-        assertEquals(CastSoundWarning("DTS", otherTrack = false), PlaybackChecks.castSoundWarning(DeviceKind.CAST, Delivery.SERVE, listOf(dts, dtsHd)))
+        assertEquals(CastSoundWarning("DTS", otherTrack = false), warning(DeviceKind.CAST, Delivery.SERVE, listOf(dts)))
+        assertEquals(CastSoundWarning("DTS", otherTrack = false), warning(DeviceKind.CAST, Delivery.SERVE, listOf(dts, dtsHd)))
         // Nothing to say: the TV plays the first track, which is fine; or the phone converts; or it's no Chromecast.
-        assertNull(PlaybackChecks.castSoundWarning(DeviceKind.CAST, Delivery.SERVE, listOf(ac3.copy(ordinal = 0), dts.copy(ordinal = 1))))
-        assertNull(PlaybackChecks.castSoundWarning(DeviceKind.CAST, Delivery.CONVERT, listOf(dts, ac3)))
-        assertNull(PlaybackChecks.castSoundWarning(DeviceKind.CAST, Delivery.PROXY, listOf(dts, ac3)))
-        assertNull(PlaybackChecks.castSoundWarning(DeviceKind.DLNA, Delivery.SERVE, listOf(dts, ac3)))
-        assertNull(PlaybackChecks.castSoundWarning(DeviceKind.CAST, Delivery.SERVE, emptyList()))
+        assertNull(warning(DeviceKind.CAST, Delivery.SERVE, listOf(ac3.copy(ordinal = 0), dts.copy(ordinal = 1))))
+        assertNull(warning(DeviceKind.CAST, Delivery.CONVERT, listOf(dts, ac3)))
+        assertNull(warning(DeviceKind.CAST, Delivery.PROXY, listOf(dts, ac3)))
+        assertNull(warning(DeviceKind.DLNA, Delivery.SERVE, listOf(dts, ac3)))
+        assertNull(warning(DeviceKind.CAST, Delivery.SERVE, emptyList()))
+    }
+
+    @Test
+    fun anotherSoundTrackOnlyWhenThePhoneCanConvertIt() {
+        // A German MKV with DTS first and AC-3 second, on a Pixel without an AC-3 decoder: picking the
+        // AC-3 track would convert it without sound, so the picker is no way out.
+        val dts = AudioTrackInfo(0, "ger", "audio/vnd.dts", 6)
+        val ac3 = AudioTrackInfo(1, "ger", "audio/ac3", 6)
+        val aac = AudioTrackInfo(2, "eng", "audio/mp4a-latm", 2)
+        val asked = mutableListOf<Int>()
+        val pixel: (AudioTrackInfo) -> Boolean = { t -> asked += t.ordinal; t.mimeType != "audio/ac3" }
+        assertEquals(CastSoundWarning("DTS", otherTrack = false), PlaybackChecks.castSoundWarning(DeviceKind.CAST, Delivery.SERVE, listOf(dts, ac3), pixel))
+        assertEquals(listOf(1), asked)
+        // A third track the phone converts with sound: that one is the way out.
+        asked.clear()
+        assertEquals(CastSoundWarning("DTS", otherTrack = true), PlaybackChecks.castSoundWarning(DeviceKind.CAST, Delivery.SERVE, listOf(dts, ac3, aac), pixel))
+        assertEquals(listOf(1, 2), asked)
+        // The phone isn't asked when there's nothing to warn about, nor about tracks a Chromecast can't play either.
+        asked.clear()
+        assertNull(PlaybackChecks.castSoundWarning(DeviceKind.CAST, Delivery.SERVE, listOf(ac3.copy(ordinal = 0), dts.copy(ordinal = 1)), pixel))
+        assertNull(PlaybackChecks.castSoundWarning(DeviceKind.DLNA, Delivery.SERVE, listOf(dts, ac3), pixel))
+        PlaybackChecks.castSoundWarning(DeviceKind.CAST, Delivery.SERVE, listOf(dts, AudioTrackInfo(1, "eng", "audio/true-hd", 8)), pixel)
+        assertEquals(emptyList<Int>(), asked)
+    }
+
+    @Test
+    fun noteWhenAConversionAskedForPlaysAsItIs() {
+        val noDecoder = ConvertProblem.NoVideoDecoder("video/mpeg2", "MPEG-2")
+        // A quality picked by hand, the phone can't convert, the file plays as it is: say why.
+        assertEquals(noDecoder, PlaybackChecks.playedAsIsNote(noDecoder, Delivery.SERVE, picked = true))
+        // Not asked for (Auto tried converting after the original failed): nothing to say when it plays.
+        assertNull(PlaybackChecks.playedAsIsNote(noDecoder, Delivery.SERVE, picked = false))
+        // A read error, but the conversion played after all; or nothing was refused.
+        assertNull(PlaybackChecks.playedAsIsNote(ConvertProblem.ReadFailed, Delivery.CONVERT, picked = true))
+        assertNull(PlaybackChecks.playedAsIsNote(null, Delivery.SERVE, picked = true))
+    }
+
+    @Test
+    fun fileAddressCarriesTheTypeTheTvWasTold() {
+        val forCast = PlaybackChecks.filePath("tok", 7, "SpongeBob.mkv", PlaybackChecks.mimeFor(smbMkv.mimeType, chromecast.kind))
+        val forSamsung = PlaybackChecks.filePath("tok", 7, "SpongeBob.mkv", PlaybackChecks.mimeFor(smbMkv.mimeType, samsung.kind))
+        assertEquals("/tok/file/7/SpongeBob.mkv", forCast)
+        assertEquals("/tok/file/7/m/SpongeBob.mkv", forSamsung)
+        assertEquals("video/webm", PlaybackChecks.servedMime(forCast, smbMkv.mimeType))
+        assertEquals("video/x-matroska", PlaybackChecks.servedMime(forSamsung, smbMkv.mimeType))
+        // Other files: no mark, the usual type.
+        val mp4 = PlaybackChecks.filePath("tok", 8, "Clip (1).mov", PlaybackChecks.mimeFor("video/quicktime", samsung.kind))
+        assertEquals("/tok/file/8/Clip__1_.mov", mp4)
+        assertEquals("video/mp4", PlaybackChecks.servedMime(mp4, "video/quicktime"))
+        // A file simply called "m" isn't the mark.
+        assertEquals("video/webm", PlaybackChecks.servedMime("/tok/file/7/m", smbMkv.mimeType))
+    }
+
+    @Test
+    fun fileRouteAnswersEachTvWithItsOwnType() {
+        val data = ByteArray(4000) { it.toByte() }
+        val source = object : MediaSource {
+            override val length = data.size.toLong()
+            override fun open(offset: Long) = ByteArrayInputStream(data, offset.toInt(), data.size - offset.toInt())
+        }
+        val server = MediaServer(0).also { it.start() }
+        try {
+            // As MediaCastSession serves files: the type from the address the TV got.
+            server.addPrefixRoute("file/") { request, socket, out ->
+                server.ranged(source, PlaybackChecks.servedMime(request.path, smbMkv.mimeType)).handle(request, socket, out)
+            }
+            fun contentType(path: String): String? {
+                val conn = URL(server.urlFor(InetAddress.getLoopbackAddress(), path)).openConnection() as HttpURLConnection
+                return try {
+                    assertEquals(200, conn.responseCode)
+                    conn.inputStream.use { it.readBytes() }
+                    conn.contentType
+                } finally {
+                    conn.disconnect()
+                }
+            }
+            val t = server.token
+            // A Chromecast and a Samsung fetching the same MKV at once.
+            assertEquals("video/webm", contentType(PlaybackChecks.filePath(t, 1, "SpongeBob.mkv", "video/webm")))
+            assertEquals("video/x-matroska", contentType(PlaybackChecks.filePath(t, 1, "SpongeBob.mkv", "video/x-matroska")))
+            // An address handed out before the mark existed still works, as before.
+            assertEquals("video/webm", contentType("/$t/file/1/SpongeBob.mkv"))
+        } finally {
+            server.stop()
+        }
     }
 
     @Test

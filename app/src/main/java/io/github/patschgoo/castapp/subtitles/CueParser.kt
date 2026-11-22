@@ -57,11 +57,16 @@ object CueParser {
         private val OVERRIDES = Regex("""\{[^}]*\}""")
         /** {\p1} turns on drawing mode: the text is vector shapes, not words. */
         private val DRAWING = Regex("""\{[^}]*\\p[1-9]""")
+        /** "WrapStyle: 2" in [Script Info]: no wrapping by the renderer, and \n breaks the line too. */
+        private val WRAP_STYLE = Regex("""^\s*wrapstyle\s*:\s*(\d+)""", setOf(RegexOption.IGNORE_CASE, RegexOption.MULTILINE))
+        private val SPACES = Regex(" {2,}")
 
         fun looksLike(text: String) = EVENTS.containsMatchIn(text) || DIALOGUE.containsMatchIn(text)
 
         fun parse(text: String): List<Cue> {
             val sectioned = EVENTS.containsMatchIn(text)
+            // libass and VSFilter break the line at \n only with WrapStyle 2; otherwise it is a space.
+            val noWrap = WRAP_STYLE.find(text)?.groupValues?.get(1)?.toIntOrNull() == 2
             var section = ""
             var format = DEFAULT_FORMAT
             val cues = ArrayList<Cue>()
@@ -81,14 +86,15 @@ object CueParser {
                         // [V4+ Styles] has a Format line too; only the events' one names Start, End and Text.
                         if ("start" in f && "end" in f && "text" in f) format = f
                     }
-                    "dialogue" -> event(value, format)?.let(cues::add)
+                    "dialogue" -> event(value, format, noWrap)?.let(cues::add)
                     // Comment lines and the rest are not shown.
                 }
             }
             return merge(cues)
         }
 
-        private fun event(value: String, format: List<String>): Cue? {
+        /** [noWrap] (WrapStyle 2): \n breaks the line, else it is a space; \N always breaks it. */
+        private fun event(value: String, format: List<String>, noWrap: Boolean): Cue? {
             // Text comes last and may hold commas: split only as often as there are fields.
             val fields = value.split(',', limit = format.size)
             if (fields.size < format.size) return null
@@ -97,8 +103,8 @@ object CueParser {
             val raw = fields[format.indexOf("text")]
             if (DRAWING.containsMatchIn(raw)) return null
             val body = OVERRIDES.replace(raw, "")
-                .replace("\\N", "\n").replace("\\n", "\n").replace("\\h", " ")
-                .lines().map { it.trim() }.filter { it.isNotEmpty() }
+                .replace("\\N", "\n").replace("\\n", if (noWrap) "\n" else " ").replace("\\h", " ")
+                .lines().map { SPACES.replace(it, " ").trim() }.filter { it.isNotEmpty() }
                 .joinToString("\n")
             if (body.isEmpty() || end <= start) return null
             return Cue(start, end, body)

@@ -20,6 +20,12 @@ data class SubtitleSourceOptions(
     val translateToEnglish: Boolean = false,
     /** Languages to look for online, e.g. "en,de" ("" = the phone's language). */
     val searchLanguages: String = "",
+    /**
+     * [searchLanguages] are in the order typed, the first preferred for subtitle files next to a
+     * video. Older versions saved them sorted by the alphabet ("en, de" became "de, en"); only
+     * saving them again (in the subtitle search dialog) sets this.
+     */
+    val searchLanguagesOrdered: Boolean = false,
 )
 
 /** Kept apart from [AppSettings] in its own preferences file. */
@@ -37,6 +43,7 @@ class SubtitleSourceSettings private constructor(context: Context) {
             whisperLanguage = prefs.getString("whisper_language", d.whisperLanguage) ?: "",
             translateToEnglish = prefs.getBoolean("translate_to_english", d.translateToEnglish),
             searchLanguages = prefs.getString("search_languages", d.searchLanguages) ?: "",
+            searchLanguagesOrdered = prefs.getBoolean("search_languages_ordered", d.searchLanguagesOrdered),
         )
     }
 
@@ -48,6 +55,7 @@ class SubtitleSourceSettings private constructor(context: Context) {
             putString("whisper_language", s.whisperLanguage)
             putBoolean("translate_to_english", s.translateToEnglish)
             putString("search_languages", s.searchLanguages)
+            putBoolean("search_languages_ordered", s.searchLanguagesOrdered)
         }
         _state.value = s
     }

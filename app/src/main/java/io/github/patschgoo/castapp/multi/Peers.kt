@@ -355,12 +355,12 @@ object Peers {
                 kind = kind,
                 audioOnly = state.audioOnly,
                 mode = mode,
-                items = if (mode == HandOverMode.TAKE_OVER) HandOverOffer.portable(items) else emptyList(),
+                items = if (mode == HandOverMode.TAKE_OVER) HandOverOffer.portable(items, queue?.second ?: 0) else emptyList(),
                 index = queue?.second ?: 0,
                 positionMs = state.positionNow(SystemClock.elapsedRealtime()),
                 title = if (kind == HandOverOffer.KIND_FILE) state.title.orEmpty() else app.getString(R.string.multi_title_screen),
                 requested = requested,
-            )
+            ).fitted()
             if (!hub.outgoing.offer(offer, peer.host)) {
                 CastController.message(app.getString(R.string.multi_handover_busy))
                 return@launch
@@ -371,7 +371,13 @@ object Peers {
                 hub.outgoing.cancel()
                 _activity.value = null
                 val reason = try { JSONObject(text).optString("message") } catch (_: Exception) { "" }
-                CastController.message(reason.ifBlank { app.getString(R.string.multi_unreachable, peer.name) })
+                CastController.message(
+                    when (code) {
+                        // Even without other languages' subtitle files the play list is too long for it.
+                        413 -> app.getString(R.string.multi_handover_too_big, peer.name)
+                        else -> reason.ifBlank { app.getString(R.string.multi_unreachable, peer.name) }
+                    },
+                )
             } else if (mode == HandOverMode.CONTROL) {
                 CastController.message(app.getString(R.string.multi_handover_control_explained))
             }

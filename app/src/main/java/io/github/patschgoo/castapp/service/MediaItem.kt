@@ -43,6 +43,11 @@ data class MediaItem(
     val originalMime: String? = null,
     /** More subtitle files that came with the video (other languages), offered in the subtitle picker after [subtitleUri]. */
     val moreSubtitles: List<String> = emptyList(),
+    /**
+     * The file names of [subtitleFiles] (by address) that their address doesn't show, such as a
+     * picked file's content://…/document/msf%3A123, for the subtitle picker ([subtitleName]).
+     */
+    val subtitleNames: Map<String, String> = emptyMap(),
 ) {
     val type: MediaType
         get() = when {
@@ -59,6 +64,9 @@ data class MediaItem(
     /** All subtitle files that came with the video, [subtitleUri] first. */
     val subtitleFiles: List<String> get() = subtitleUri?.let { listOf(it) + moreSubtitles } ?: emptyList()
 
+    /** The file name of the subtitle file [uri]: the one it was listed or picked with, else the one in its address. */
+    fun subtitleName(uri: String): String = subtitleNames[uri]?.takeIf { it.isNotBlank() } ?: Sidecars.fileName(uri)
+
     fun toJson(): JSONObject = JSONObject()
         .put("title", title)
         .put("uri", uri)
@@ -71,26 +79,43 @@ data class MediaItem(
         .put("orig", original ?: "")
         .put("origMime", originalMime ?: "")
         .also { o -> if (moreSubtitles.isNotEmpty()) o.put("subs", JSONArray(moreSubtitles)) }
+        .also { o ->
+            // Beside the addresses, so older versions read "sub" and "subs" as before: "" = the name is in the address.
+            subtitleUri?.let { subtitleNames[it] }?.let { o.put("subName", it) }
+            if (moreSubtitles.any { it in subtitleNames }) o.put("subsNames", JSONArray(moreSubtitles.map { subtitleNames[it].orEmpty() }))
+        }
 
     companion object {
         fun fromJson(o: JSONObject): MediaItem {
             val h = o.optJSONObject("headers")
             val headers = HashMap<String, String>()
             h?.keys()?.forEach { k -> headers[k] = h.optString(k) }
+            val subtitleUri = o.optString("sub").ifEmpty { null }
+            val more = o.optJSONArray("subs")?.let { a -> (0 until a.length()).mapNotNull { a.optString(it).ifEmpty { null } } }.orEmpty()
+            val names = HashMap<String, String>()
+            subtitleUri?.let { uri -> o.optString("subName").takeIf { it.isNotEmpty() }?.let { names[uri] = it } }
+            o.optJSONArray("subsNames")?.let { a ->
+                more.forEachIndexed { i, uri -> a.optString(i).takeIf { it.isNotEmpty() }?.let { names[uri] = it } }
+            }
             return MediaItem(
                 title = o.optString("title"),
                 uri = o.optString("uri"),
                 mimeType = o.optString("mime"),
-                subtitleUri = o.optString("sub").ifEmpty { null },
+                subtitleUri = subtitleUri,
                 headers = headers,
                 live = o.optBoolean("live"),
                 trustAll = o.optBoolean("trustAll"),
                 serverRef = o.optString("ref").ifEmpty { null },
                 original = o.optString("orig").ifEmpty { null },
                 originalMime = o.optString("origMime").ifEmpty { null },
-                moreSubtitles = o.optJSONArray("subs")?.let { a -> (0 until a.length()).mapNotNull { a.optString(it).ifEmpty { null } } }.orEmpty(),
+                moreSubtitles = more,
+                subtitleNames = names,
             )
         }
+
+        /** [subtitleNames] for subtitle files as (address, file name): the names their address doesn't show. */
+        fun subtitleNamesOf(files: List<Pair<String, String>>): Map<String, String> =
+            files.filter { (uri, name) -> name.isNotBlank() && Sidecars.fileName(uri) != name }.toMap()
 
         fun listToJson(items: List<MediaItem>): String = JSONArray().also { a -> items.forEach { a.put(it.toJson()) } }.toString()
 
@@ -160,8 +185,16 @@ data class MediaItem(
                     owned[v].isEmpty() && videos.size == 1 -> subtitleFiles
                     else -> owned[v].map { subtitleFiles[it] }
                 }
-                val subs = Sidecars.ranked(name, candidates, languages) { it.second }.map { it.first.toString() }
-                MediaItem(title = name, uri = uri.toString(), mimeType = mime, subtitleUri = subs.firstOrNull(), moreSubtitles = subs.drop(1))
+                val ranked = Sidecars.ranked(name, candidates, languages) { it.second }
+                val subs = ranked.map { it.first.toString() }
+                MediaItem(
+                    title = name,
+                    uri = uri.toString(),
+                    mimeType = mime,
+                    subtitleUri = subs.firstOrNull(),
+                    moreSubtitles = subs.drop(1),
+                    subtitleNames = subtitleNamesOf(ranked.map { it.first.toString() to it.second }),
+                )
             }
         }
 
