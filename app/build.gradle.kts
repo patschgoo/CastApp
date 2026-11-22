@@ -15,8 +15,11 @@ android {
         applicationId = "io.github.patschgoo.castapp"
         minSdk = 26
         targetSdk = 36
-        versionCode = 3
-        versionName = "2.0.0"
+        versionCode = 4
+        versionName = "3.0.0"
+
+        // Phones only; keeps the speech-recognition library small.
+        ndk { abiFilters += listOf("arm64-v8a", "armeabi-v7a") }
     }
 
     signingConfigs {
@@ -57,6 +60,14 @@ android {
         buildConfig = true
     }
 
+    packaging {
+        // Compressed native libraries keep the download small (they are unpacked on install).
+        jniLibs.useLegacyPackaging = true
+        resources {
+            excludes += listOf("META-INF/versions/9/OSGI-INF/MANIFEST.MF", "META-INF/DEPENDENCIES", "META-INF/INDEX.LIST")
+        }
+    }
+
     testOptions {
         unitTests.isReturnDefaultValues = true
     }
@@ -73,6 +84,12 @@ dependencies {
     implementation(libs.androidx.compose.material3)
     implementation(libs.androidx.compose.material.icons.extended)
     implementation(libs.kotlinx.coroutines.android)
+    // Windows / Samba network shares
+    implementation(libs.smbj)
+    // Offline speech recognition for generated subtitles
+    implementation(libs.vosk.android)
+    // The Android flavour of JNA (with its native part), needed by Vosk.
+    implementation(libs.jna) { artifact { type = "aar" } }
     debugImplementation(libs.androidx.compose.ui.tooling)
 
     testImplementation(libs.junit)

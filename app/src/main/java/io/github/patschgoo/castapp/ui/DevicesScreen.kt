@@ -108,6 +108,19 @@ import androidx.compose.runtime.mutableLongStateOf
 import io.github.patschgoo.castapp.service.CastKind
 import android.os.SystemClock
 import kotlinx.coroutines.delay
+import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.material.icons.rounded.ArrowDropDown
+import androidx.compose.material.icons.rounded.Check
+import androidx.compose.material.icons.rounded.HighQuality
+import androidx.compose.material.icons.rounded.Lan
+import androidx.compose.material.icons.rounded.LiveTv
+import androidx.compose.material.icons.rounded.Subtitles
+import androidx.compose.material3.AssistChip
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.material3.LinearProgressIndicator
+import androidx.compose.material3.OutlinedCard
 
 /** Callbacks of the device list, so the screen itself stays free of app wiring. */
 class DevicesActions(
@@ -134,6 +147,11 @@ class DevicesActions(
     val onNext: () -> Unit,
     val onPrevious: () -> Unit,
     val onToggleSubtitles: () -> Unit,
+    val onOpenTvChannels: () -> Unit = {},
+    val onOpenNetwork: () -> Unit = {},
+    val onQuality: (String) -> Unit = {},
+    val onCreateSubtitles: () -> Unit = {},
+    val onLiveCaption: () -> Unit = {},
 )
 
 @Composable
@@ -146,6 +164,8 @@ fun DevicesScreen(
     onCastSound: (CastDevice) -> Unit,
     onOpenBrowser: () -> Unit,
     onDarkScreen: () -> Unit,
+    onOpenTvChannels: () -> Unit = {},
+    onOpenNetwork: () -> Unit = {},
 ) {
     val context = LocalContext.current
     val allDevices by app.devices.devices.collectAsStateWithLifecycle()
@@ -185,6 +205,17 @@ fun DevicesScreen(
             onNext = { CastService.send(context, CastService.ACTION_NEXT) },
             onPrevious = { CastService.send(context, CastService.ACTION_PREVIOUS) },
             onToggleSubtitles = { CastService.send(context, CastService.ACTION_SUBTITLES) },
+            onOpenTvChannels = onOpenTvChannels,
+            onOpenNetwork = onOpenNetwork,
+            onQuality = { CastService.setQuality(context, it) },
+            onCreateSubtitles = { CastService.send(context, CastService.ACTION_CREATE_SUBTITLES) },
+            onLiveCaption = {
+                // Live Caption writes subtitles for any sound on the phone; they're on the screen, so on the TV too.
+                try {
+                    context.startActivity(android.content.Intent(android.provider.Settings.ACTION_CAPTIONING_SETTINGS).addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK))
+                } catch (_: Exception) {
+                }
+            },
         )
     }
     DevicesContent(devices, scanning, castState as? CastState.Active, snackbar, actions, audioMode)
@@ -257,6 +288,10 @@ fun DevicesContent(
                         icon = { Icon(Icons.Rounded.Speaker, contentDescription = null, modifier = Modifier.size(18.dp)) },
                     ) { Text(stringResource(R.string.mode_audio)) }
                 }
+            }
+
+            item(key = "sources") {
+                SourcesRow(actions)
             }
 
             item(key = "header") {
@@ -389,6 +424,7 @@ private fun CastingCard(state: CastState.Active, actions: DevicesActions) {
             }
             if (file && state.isPhoto) PhotoControls(state, actions)
             else if (file) PlaybackControls(state, actions)
+            ExtrasRow(state, actions)
             Spacer(Modifier.height(12.dp))
             Row(verticalAlignment = Alignment.CenterVertically) {
                 VolumeControls(state, actions)
@@ -425,6 +461,10 @@ private fun PlaybackControls(state: CastState.Active, actions: DevicesActions) {
             now = SystemClock.elapsedRealtime()
             delay(500)
         }
+    }
+    if (state.live) {
+        LiveControls(state, actions)
+        return
     }
     val duration = state.durationMs.coerceAtLeast(0)
     val position = state.positionNow(now)
@@ -486,6 +526,131 @@ private fun PlaybackControls(state: CastState.Active, actions: DevicesActions) {
                     )
                 }
             }
+        }
+    }
+}
+
+/** TV channels: no seeking; Previous/Next switch channels. */
+@Composable
+private fun LiveControls(state: CastState.Active, actions: DevicesActions) {
+    Row(Modifier.fillMaxWidth().padding(top = 8.dp), horizontalArrangement = Arrangement.Center, verticalAlignment = Alignment.CenterVertically) {
+        if (state.queueSize > 1) {
+            IconButton(onClick = actions.onPrevious, enabled = state.queueIndex > 0) {
+                Icon(Icons.Rounded.SkipPrevious, contentDescription = "Previous channel")
+            }
+            Spacer(Modifier.width(12.dp))
+        }
+        FilledIconButton(onClick = actions.onPlayPause, modifier = Modifier.size(56.dp)) {
+            val playing = state.phase == CastPhase.LIVE && !state.paused
+            Icon(
+                if (playing) Icons.Rounded.Pause else Icons.Rounded.PlayArrow,
+                contentDescription = stringResource(if (playing) R.string.action_pause else R.string.action_play),
+                modifier = Modifier.size(32.dp),
+            )
+        }
+        if (state.queueSize > 1) {
+            Spacer(Modifier.width(12.dp))
+            IconButton(onClick = actions.onNext, enabled = state.queueIndex + 1 < state.queueSize) {
+                Icon(Icons.Rounded.SkipNext, contentDescription = "Next channel")
+            }
+        }
+    }
+}
+
+/** Quality picker and subtitle helpers under the controls. */
+@Composable
+private fun ExtrasRow(state: CastState.Active, actions: DevicesActions) {
+    val mirroring = state.kind != CastKind.FILE && !state.audioOnly
+    val showQuality = state.qualityOptions.isNotEmpty()
+    val writing = state.subtitleProgress >= 0
+    if (!showQuality && !state.canCreateSubtitles && !writing && !mirroring) return
+    Column(Modifier.padding(top = 10.dp)) {
+        Row(
+            Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            if (showQuality) {
+                var open by remember { mutableStateOf(false) }
+                Box {
+                    AssistChip(
+                        onClick = { open = true },
+                        label = { Text("Quality: ${state.qualityLabel.ifEmpty { "–" }}") },
+                        leadingIcon = { Icon(Icons.Rounded.HighQuality, contentDescription = null, modifier = Modifier.size(18.dp)) },
+                        trailingIcon = { Icon(Icons.Rounded.ArrowDropDown, contentDescription = null, modifier = Modifier.size(18.dp)) },
+                    )
+                    DropdownMenu(expanded = open, onDismissRequest = { open = false }) {
+                        for (option in state.qualityOptions) {
+                            DropdownMenuItem(
+                                text = { Text(qualityText(option, mirroring)) },
+                                leadingIcon = if (option == state.qualityLabel) {
+                                    { Icon(Icons.Rounded.Check, contentDescription = null) }
+                                } else null,
+                                onClick = {
+                                    open = false
+                                    if (option != state.qualityLabel) actions.onQuality(option)
+                                },
+                            )
+                        }
+                    }
+                }
+            }
+            if (state.canCreateSubtitles && !writing) {
+                AssistChip(
+                    onClick = actions.onCreateSubtitles,
+                    label = { Text("Write subtitles") },
+                    leadingIcon = { Icon(Icons.Rounded.Subtitles, contentDescription = null, modifier = Modifier.size(18.dp)) },
+                )
+            }
+            if (mirroring) {
+                AssistChip(
+                    onClick = actions.onLiveCaption,
+                    label = { Text("Live Caption") },
+                    leadingIcon = { Icon(Icons.Rounded.ClosedCaption, contentDescription = null, modifier = Modifier.size(18.dp)) },
+                )
+            }
+        }
+        if (writing) {
+            Spacer(Modifier.height(8.dp))
+            Text("Writing subtitles from the speech… ${state.subtitleProgress}%", style = MaterialTheme.typography.bodySmall)
+            Spacer(Modifier.height(4.dp))
+            LinearProgressIndicator(
+                progress = { state.subtitleProgress / 100f },
+                modifier = Modifier.fillMaxWidth(),
+                color = MaterialTheme.colorScheme.onPrimaryContainer,
+            )
+        }
+    }
+}
+
+private fun qualityText(option: String, mirroring: Boolean): String = when {
+    option == "Original" -> "Original (no conversion)"
+    option == "Auto" -> "Auto (the TV adapts)"
+    mirroring && option == "4K" -> "4K (2160p)"
+    !mirroring && option.endsWith("p") -> "$option (converted on the phone)"
+    else -> option
+}
+
+/** Where to play from besides this phone's screen. */
+@Composable
+private fun SourcesRow(actions: DevicesActions) {
+    Row(Modifier.fillMaxWidth().padding(top = 2.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+        SourceTile(Icons.Rounded.LiveTv, stringResource(R.string.tv_channels), actions.onOpenTvChannels, Modifier.weight(1f))
+        SourceTile(Icons.Rounded.Lan, stringResource(R.string.network_cloud), actions.onOpenNetwork, Modifier.weight(1f))
+        SourceTile(Icons.Rounded.Public, "Web videos", actions.onOpenBrowser, Modifier.weight(1f))
+    }
+}
+
+@Composable
+private fun SourceTile(icon: ImageVector, label: String, onClick: () -> Unit, modifier: Modifier) {
+    OutlinedCard(onClick = onClick, modifier = modifier) {
+        Column(
+            Modifier.fillMaxWidth().padding(vertical = 12.dp, horizontal = 6.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+        ) {
+            Icon(icon, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
+            Spacer(Modifier.height(6.dp))
+            Text(label, style = MaterialTheme.typography.labelMedium, textAlign = TextAlign.Center, maxLines = 2)
         }
     }
 }

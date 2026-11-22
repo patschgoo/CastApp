@@ -89,7 +89,9 @@ class DeviceRepository(context: Context) {
         val ifaces = NetworkScanner.localNetworks().map { it.iface }.distinct()
         mdns = MdnsBrowser(onDevice).also { it.start(ifaces) }
         nsd = NsdBrowser(appContext, onDevice).also { it.start() }
-        ssdp = io.github.patschgoo.castapp.dlna.SsdpBrowser(onDevice).also { it.start(ifaces) }
+        ssdp = io.github.patschgoo.castapp.dlna.SsdpBrowser { location, d ->
+            io.github.patschgoo.castapp.dlna.SsdpBrowser.rendererDevice(location, d)?.let(onDevice)
+        }.also { it.start(ifaces) }
         checkSavedDevices()
         // If the normal discovery finds nothing quickly, scan the network automatically.
         autoScanJob = scope.launch {

@@ -30,10 +30,10 @@ class ScreenEncoder(
     private val context: Context,
     private val projection: MediaProjection,
     private val hub: StreamHub,
-    private val width: Int,
-    private val height: Int,
+    private var width: Int,
+    private var height: Int,
     private val fps: Int,
-    private val bitrate: Int,
+    private var bitrate: Int,
     private val densityDpi: Int,
     private val fill: Boolean,
     private val onError: (Throwable) -> Unit,
@@ -111,6 +111,45 @@ class ScreenEncoder(
         }
         dm.registerDisplayListener(listener, handler)
         displayListener = listener
+    }
+
+    /**
+     * Switches to a new picture size while casting. The capture (and the user's
+     * permission) stays; only the encoder is rebuilt. [beforeRestart] runs once the
+     * old encoder has stopped, so the stream can be reset in between.
+     */
+    fun reconfigure(newWidth: Int, newHeight: Int, newBitrate: Int, beforeRestart: () -> Unit) {
+        running = false
+        try { drainThread?.join(1000) } catch (_: InterruptedException) {}
+        drainThread = null
+        try { display?.surface = null } catch (_: Exception) {}
+        try { codec?.stop() } catch (_: Exception) {}
+        try { codec?.release() } catch (_: Exception) {}
+        scaler?.release()
+        scaler = null
+        try { inputSurface?.release() } catch (_: Exception) {}
+        beforeRestart()
+
+        width = newWidth
+        height = newHeight
+        bitrate = newBitrate
+        val c = createConfiguredCodec()
+        codec = c
+        val encoderSurface = c.createInputSurface()
+        inputSurface = encoderSurface
+        c.start()
+        running = true
+        if (fill) {
+            val gl = GlScaler(encoderSurface, encodedWidth, encodedHeight, fill = true)
+            display?.surface = gl.start(captureSize.x, captureSize.y)
+            scaler = gl
+        } else {
+            captureSize = Point(encodedWidth, encodedHeight)
+            try { display?.resize(encodedWidth, encodedHeight, densityDpi) } catch (_: Exception) {}
+            display?.surface = encoderSurface
+        }
+        drainThread = Thread({ drainLoop(c) }, "video-encoder").apply { start() }
+        requestKeyFrame()
     }
 
     /** Changes the bitrate on the fly (automatic quality). */

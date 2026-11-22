@@ -45,6 +45,14 @@ sealed interface CastState {
         val subtitlesOn: Boolean = false,
         /** The phone is converting this video because the TV couldn't play it. */
         val converting: Boolean = false,
+        /** A live stream (TV channel): no seeking. */
+        val live: Boolean = false,
+        /** Picture quality that can be switched at any time (mirroring resolution, file/stream quality). */
+        val qualityLabel: String = "",
+        val qualityOptions: List<String> = emptyList(),
+        /** Creating subtitles: 0..100, or -1 when not running. */
+        val subtitleProgress: Int = -1,
+        val canCreateSubtitles: Boolean = false,
         val darkScreen: Boolean = false,
         /** File casting: name, playback position and state as last reported by the TV. */
         val title: String? = null,
@@ -56,7 +64,7 @@ sealed interface CastState {
     ) : CastState {
         /** Current playback position, extrapolated while playing. */
         fun positionNow(nowElapsed: Long): Long {
-            if (kind != CastKind.FILE || phase != CastPhase.LIVE || paused) return positionMs
+            if (kind != CastKind.FILE || phase != CastPhase.LIVE || paused || live) return positionMs
             val p = positionMs + (nowElapsed - positionAt)
             return if (durationMs > 0) p.coerceAtMost(durationMs) else p
         }

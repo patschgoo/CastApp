@@ -2,15 +2,21 @@
 
 Android app that casts to a **Chromecast**, **NVIDIA Shield**, **Google TV**, **Google/Nest speakers** and **DLNA smart TVs** (Samsung, LG, Sony…). It can:
 
-- mirror your screen or a single app
+- mirror your screen or a single app, in a quality you can change at any moment
 - play the phone's sound
-- play videos, music and photos from the phone
+- play videos, music and photos from the phone, a NAS, a PC's shared folder, a media server (Plex, Jellyfin…) or a cloud folder
+- play TV channels and radio from IPTV / M3U channel lists
 - play videos it finds on websites
+- write subtitles for videos that have none, on the phone and offline
 
 No ads, no tracking, no account. It doesn't need Google Play Services or the phone's built-in Cast menu; it talks to your devices directly over your Wi-Fi.
 
 <p>
-  <img src="docs/video_mode.png" width="260" alt="TVs, including a DLNA TV">
+  <img src="docs/quality_subtitles.png" width="260" alt="Playing a video: quality picker and subtitles being written">
+  <img src="docs/tv_channels.png" width="260" alt="TV channels from an M3U list">
+  <img src="docs/network.png" width="260" alt="Media servers, network shares and cloud">
+</p>
+<p>
   <img src="docs/audio_mode.png" width="260" alt="Audio mode with speakers, dark theme">
   <img src="docs/file_queue.png" width="260" alt="Playing a play list with subtitles">
 </p>
@@ -40,6 +46,9 @@ Any device you've cast to once is **remembered**. If its IP address changes, Cas
   - **Photos** become a slideshow, shrunk to TV size; HEIC and huge photos work too.
   - **Subtitles**: pick an `.srt`/`.vtt` file with the same name as the video (or pick just one video and one subtitle file). They can be switched on and off.
   - Also available from any gallery or file app via **Share → Cast to TV**.
+- **TV channels (IPTV)**, **network shares, NAS, media servers and cloud folders**: see the sections below.
+- **Change the picture quality at any moment** with the **Quality** button on the casting card (see below).
+- **Subtitles written by the phone** for videos and music that have none (see below).
 - **Videos from websites**: the built-in browser (🌐 at the top) spots the videos a page plays and sends them to the TV. The TV then plays them by itself, so you can leave the app or lock the phone. A link shared from Firefox, Chrome and so on (**Share → Cast to TV**) opens in this browser.
 - **Converts videos the TV can't play** (e.g. HEVC or MKV on an older Chromecast). The phone re-encodes them to H.264/AAC on the fly. This happens automatically; you can choose Automatic, Always or Never in Settings.
 - **Dark screen** (Android 14+, single-app casting): the phone goes black at minimum brightness while the app keeps playing on the TV. Tap once for controls, double-tap to wake.
@@ -73,9 +82,9 @@ Any device you've cast to once is **remembered**. If its IP address changes, Cas
 
 ## Install
 
-**Download a ready-made APK:** open the repository's **Actions** tab, select the latest **Build APK** run and download the **CastApp** artifact. It's a zip containing `CastApp.apk`. If you push a tag such as `v2.0.0`, the APK is also attached to a GitHub Release.
+**Download a ready-made APK:** open the repository's **Actions** tab, select the latest **Build APK** run and download the **CastApp** artifact. It's a zip containing `CastApp.apk`. If you push a tag such as `v3.0.0`, the APK is also attached to a GitHub Release.
 
-To install, open the APK on your phone and allow "Install unknown apps" for your browser or file manager when Android asks.
+The APK is about 10 MB, most of it the offline speech recognition. To install, open the APK on your phone and allow "Install unknown apps" for your browser or file manager when Android asks.
 
 **Build it yourself:**
 
@@ -95,6 +104,8 @@ You need JDK 17+ and the Android SDK with platform `android-37.1`. Opening the p
    - in Audio mode, it casts the phone's sound.
 
    Tap the device's name for more options: a single app, files, web videos, or sound only.
+
+   Below the Video/Audio switch, **TV channels**, **Network & cloud** and **Web videos** open what you'd like to play; you pick the TV when you start it. While a file or channel is already playing, anything new goes straight to that TV.
 4. Confirm Android's "Start casting?" dialog. File and web-video casting doesn't need this dialog.
 5. Stop from the app, the notification, the Quick Settings tile, or the TV remote.
 
@@ -110,6 +121,53 @@ To add the tile, pull down Quick Settings, tap the pencil (edit) icon and drag *
 | **The entire screen** | **No.** If the screen is off there is nothing to mirror, and Android pauses most apps. |
 
 **Can I cast from Firefox and leave it playing?** Not by mirroring Firefox: as soon as you leave it or lock the phone, the video pauses. Instead, share the page from Firefox to **Cast to TV** (or open it in CastApp's browser) and cast the video it finds. The TV then plays it on its own, like YouTube's Cast button.
+
+## Change the quality at any moment
+
+While casting, tap **Quality** on the casting card:
+
+| What you cast | Choices | What happens |
+|---|---|---|
+| **Screen or app** | 480p, 540p, 720p, 1080p, 1440p, 4K | The phone switches its encoder on the fly and the TV reloads (about a second). The choice is remembered. 1440p and 4K only work if the phone's encoder can do them; otherwise the cast stops with a message. |
+| **Videos** (phone, network, web) | Original, 1080p, 720p, 480p | *Original* plays the file as it is. A smaller size is converted on the phone, which helps on weak Wi-Fi or with a TV that stutters. Playback continues where it was, and the choice also applies to the next videos in the list. |
+| **HLS streams** (most web videos and TV channels) | Auto, or each quality the stream offers | *Auto* lets the TV adapt to the Wi-Fi. Picking a level makes the TV play exactly that one. |
+
+## TV channels (IPTV / M3U)
+
+An **M3U** (or M3U8) file is a channel list: a name, an optional logo and group, and a stream address for every TV channel or radio station. IPTV providers give you one as a link; TVHeadend servers, some TV providers and public lists of free channels publish one as well. (Lists with `rtsp://` addresses, as some routers and SAT>IP boxes make, can't be played on Cast devices.)
+
+1. On the main screen, tap **TV channels**, then **+**.
+2. Add the list as a **link**, a **file** on the phone, or a provider **log-in** (server, user name and password of an "Xtream Codes" provider).
+3. Pick a channel. The list you see (the group or search you're in) becomes the play list, so **Previous / Next** on the phone, in the notification or on the lock screen switch channels.
+
+Groups, search and ★ favourites help with long lists. Channels play on the TV by themselves, so the phone can be locked. Radio stations work on speakers too. Channels that need a particular User-Agent or Referer (`#EXTVLCOPT` lines or Kodi-style `|User-Agent=…`) get it. Channels whose address doesn't say what they are are checked first; plain MPEG-TS channels, which Chromecasts can't play directly, are converted on the phone if possible (Convert setting). Only use channel lists you are allowed to watch.
+
+## Network shares, NAS, media servers and cloud
+
+Tap **Network & cloud** on the main screen.
+
+- **Media servers on this Wi-Fi** are found automatically: Plex, Jellyfin, Emby, Synology/QNAP media servers, Kodi, Windows Media sharing and other DLNA/UPnP servers. Browse their folders and play.
+  - *Plex* (also Plex Media Server on a Shield with your hard drives): turn on **Settings → DLNA → Enable the DLNA server** in Plex.
+  - *Jellyfin* 10.9 and newer: install the **DLNA** plugin.
+- **Network folders** you add with **+**:
+  - **Windows / Samba share** (SMB 2/3): most NAS boxes, a router's USB disk, a PC's shared folder, a Shield's shared drives. Enter the server name or IP, the share name and, unless it allows guests, user name and password. `\\nas\Media` also works as the address.
+  - **WebDAV**: Nextcloud and ownCloud (`https://your-server/remote.php/dav/files/USER/`, an app password is best), Synology/QNAP WebDAV, many other NAS and cloud services. You can allow a self-signed certificate for your own NAS.
+
+  CastApp checks the folder before saving it. Passwords are stored encrypted (Android Keystore) on the phone only.
+- **Phone & cloud** opens Android's file picker, which also shows installed cloud apps (Google Drive, OneDrive, Dropbox, Nextcloud…).
+
+Tapping a file plays the whole folder as a play list, starting with that file; **Play all** starts at the top. Subtitles with the same name as a video (`.srt`, `.vtt`) are picked up automatically. Files on shares and password-protected servers are streamed by the phone (with seeking); media servers are played by the TV directly.
+
+## Subtitles written by the phone
+
+For a video or music file without subtitles, CastApp can write them with **offline speech recognition** ([Vosk](https://alphacephei.com/vosk/)). Nothing is uploaded.
+
+1. **Settings → Subtitles → Spoken language**: pick the language spoken in your videos. It is downloaded once (30–50 MB): English, Deutsch, Français, Español, Italiano, Nederlands, Português, Polski, Русский, Türkçe, 日本語, 中文, हिन्दी.
+2. While a video plays, tap **Write subtitles** on the casting card. Or turn on **Write subtitles automatically**.
+
+The TV shows the first subtitles once a few minutes ahead of you are done, and the complete ones when the phone has finished (the TV reloads briefly at the same spot each time). Finished subtitles are kept, so the next time they are there right away. They are in the spoken language; there is no translation. Clear speech works well; music, noise, strong accents and people talking at once lead to mistakes.
+
+For **live TV, streams and screen mirroring** there's no file to read ahead, so use Android's **Live Caption** (Android 10+, on Pixel, Samsung and many other phones): it captions anything playing on the phone, and when you mirror the screen the captions show on the TV as well. The **Live Caption** button on the casting card and in Settings opens the caption settings.
 
 ## DLNA TVs (Samsung, LG, Sony, …)
 
@@ -146,8 +204,11 @@ If the player doesn't start, CastApp falls back to Google's standard player auto
                                     ├─► stream server :8090 ◄─ fetches live MP4 / HLS / AAC
  AudioPlaybackCapture ─► AAC ──────┘   (token in every URL)    DLNA TV: fetches live MPEG-TS
  Files / photos / subtitles ──────────►  byte-range file server ◄─ seeks
- Web videos ──► (direct, or via the phone's proxy for cookies/CORS)
+ SMB shares (smbj) / WebDAV ──────────►  (same server, with log-in)
+ Web videos, IPTV ──► (direct, or via the phone's proxy for cookies/CORS/log-in)
+ DLNA media servers ──► played by the TV directly
  Unplayable video ─► decode ─► GL scale ─► H.264/AAC ─► live MP4
+ Sound of a file ─► decode ─► 16 kHz ─► Vosk ─► timed WebVTT/SRT
 
  Control: Cast v2 (TLS :8009) to the Default Media Receiver or our own player,
           UPnP AVTransport (SOAP) for DLNA TVs
@@ -163,6 +224,9 @@ If the player doesn't start, CastApp falls back to Google's standard player auto
 - **Files.** The phone serves files with byte-range support, so the TV can seek. Photos are shrunk on the phone. SRT subtitles are converted to WebVTT, including old Windows-1252 files with umlauts.
 - **Web videos.** The browser watches the page's network traffic and `<video>` elements. If the TV can't fetch a video directly, the phone relays it: it adds the site's cookies and referrer and the CORS headers Cast devices need, and rewrites HLS playlists so every segment also goes through the phone.
 - **Converting.** `MediaExtractor` → hardware decoder → OpenGL scaling (max 1920×1080) → H.264 encoder. Audio is decoded, mixed down to stereo and re-encoded to AAC. The TV pulls the result as a stream, and seeking restarts the conversion at the new position.
+- **Network sources.** SMB 2/3 through [smbj](https://github.com/hierynomus/smbj) (with BouncyCastle for the NTLM log-in, which Android's crypto lacks); WebDAV through `PROPFIND`; media servers through UPnP ContentDirectory `Browse`. Files are read from any position, so seeking works.
+- **IPTV.** The M3U reader understands `#EXTINF` attributes (logo, group), `#EXTGRP`, `#EXTVLCOPT` and Kodi-style header options. HLS master playlists are read so a fixed quality can be chosen; the proxy then hands the TV a playlist with only that level.
+- **Subtitles.** The sound track is decoded with `MediaCodec`, mixed to mono and resampled to 16 kHz for Vosk; the recognised words with their times are grouped into subtitles of up to two lines of 42 characters, split at pauses. A converted video starts its clock at 0, so subtitles are shifted to match.
 - **Privacy.** Every URL contains a random token, so other devices on your network can't watch. The servers only run while you're casting.
 
 ## Limitations
@@ -170,19 +234,24 @@ If the player doesn't start, CastApp falls back to Google's standard player auto
 - **Protected video shows black.** Netflix, Disney+, Prime Video and banking apps block screen capture (an Android rule). Their websites use DRM, so the browser can't cast them either. Use their own Cast button.
 - **YouTube** uses streams that only its own apps can play. Use YouTube's Cast button, or the YouTube app on the Shield.
 - **Some apps block audio capture** (often streaming or music apps). For music, Spotify Connect and similar built-in features work better.
-- **Converting** uses battery and only works while the phone is on Wi-Fi. Seeking in a converted video takes a moment.
+- **Converting** uses battery and only works while the phone is on Wi-Fi. Seeking in a converted video takes a moment. The same goes for choosing a smaller quality for a file.
+- **Writing subtitles** uses the processor and battery while it runs. It needs a file (not live TV or an HLS stream).
+- **IPTV**: no programme guide (EPG) yet, and DRM-protected channels can't be played.
+- **Network folders**: Kerberos-only Windows domains aren't supported (user name and password log-in is).
 - **Untested on real hardware.** Everything is built and unit-tested. The streams were also checked in a real browser player:
   - live MP4 in Chromium;
   - the low-latency player at about 0.35 s of buffer;
   - AAC and MPEG-TS in ffmpeg;
-  - file seeking in Chromium.
+  - file seeking in Chromium;
+  - SMB browsing, reading and log-in against a real Samba server.
 
   These couldn't be checked without real phones and TVs:
   - the Cast and DLNA handshakes with real devices;
   - screen capture and the permission flow on each Android version;
   - hardware encoders and decoders (also used for converting);
   - Dark screen and Turn apps sideways;
-  - lock-screen controls.
+  - lock-screen controls;
+  - speech recognition on a phone, real IPTV providers, and Plex/Jellyfin servers.
 
 ## Troubleshooting
 
@@ -197,19 +266,26 @@ If the player doesn't start, CastApp falls back to Google's standard player auto
 | Choppy picture | Keep **Automatic quality** on, lower the quality to 540p, or move closer to the router. |
 | Lips and sound don't match | Settings → **Sound sync**. |
 | Port conflict | Change **Stream port** in settings. |
+| Plex / Jellyfin not under "Media servers" | Turn on DLNA in Plex (Settings → DLNA) or install Jellyfin's DLNA plugin. Phone and server must be on the same network. Or add the server's shared folder as a **network folder**. |
+| A network folder says "Wrong user name or password" / "Access denied" | Use the account of the NAS or PC (for a Microsoft account on Windows, the e-mail address and its password). Check the share name in the NAS's settings. |
+| A TV channel doesn't play | Many free lists contain dead channels; CastApp skips to the next one. For MPEG-TS channels on a Chromecast keep **Convert videos** on Automatic. |
+| Subtitles have many mistakes | Check that the spoken language is right in Settings. Recognition works best with clear speech. |
 
 ## Project layout
 
 ```
 app/src/main/java/io/github/patschgoo/castapp/
 ├── cast/          Cast v2 protocol (protobuf framing, TLS client)
-├── dlna/          UPnP/DLNA discovery (SSDP) and SOAP control
+├── dlna/          UPnP/DLNA discovery (SSDP), SOAP control, media-server browsing
 ├── discovery/     NSD, raw mDNS, network scan, remembered devices
 ├── render/        "play this URL" for Cast and DLNA devices
 ├── stream/        MP4/TS/ADTS muxers, stream & media servers, HLS, web proxy, subtitles
 ├── capture/       screen and audio encoders, OpenGL scaler, video converter
 ├── service/       foreground service, screen/sound and media sessions, overlays
 ├── browser/       video detection for the built-in browser
+├── iptv/          M3U channel lists, favourites
+├── network/       SMB shares, WebDAV, saved network folders, encrypted passwords
+├── subtitles/     speech recognition (Vosk), language downloads, subtitle timing
 ├── tile/          Quick Settings tile
 ├── ui/            Jetpack Compose screens
 receiver/          optional low-latency TV player (web app for Cast devices)

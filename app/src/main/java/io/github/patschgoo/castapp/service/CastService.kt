@@ -83,6 +83,15 @@ class CastService : Service() {
             ACTION_NEXT -> (session as? MediaCastSession)?.next()
             ACTION_PREVIOUS -> (session as? MediaCastSession)?.previous()
             ACTION_SUBTITLES -> (session as? MediaCastSession)?.toggleSubtitles()
+            ACTION_CREATE_SUBTITLES -> (session as? MediaCastSession)?.createSubtitles()
+            ACTION_PLAY_INDEX -> (session as? MediaCastSession)?.playAt(intent.getIntExtra(EXTRA_INDEX, 0))
+            ACTION_QUALITY -> intent.getStringExtra(EXTRA_QUALITY)?.let { q ->
+                when (val s = session) {
+                    is MediaCastSession -> s.setQuality(q)
+                    is CastSession -> s.setQuality(q)
+                    else -> Unit
+                }
+            }
             ACTION_DARK_SCREEN -> setDarkScreen(intent.getBooleanExtra(EXTRA_ON, overlay == null))
             else -> if (session == null) stopSelfCompletely()
         }
@@ -141,14 +150,21 @@ class CastService : Service() {
 
     private fun handleStartFile(intent: Intent) {
         val device = deviceFrom(intent)
-        val items = intent.getStringExtra(EXTRA_ITEMS)?.let { runCatching { MediaItem.listFromJson(it) }.getOrNull() }.orEmpty()
+        val items = intent.getStringExtra(EXTRA_ITEMS_KEY)?.let { pendingItems.remove(it) }
+            ?: intent.getStringExtra(EXTRA_ITEMS)?.let { runCatching { MediaItem.listFromJson(it) }.getOrNull() }.orEmpty()
         if (!goForeground(device, if (Build.VERSION.SDK_INT >= 29) ServiceInfo.FOREGROUND_SERVICE_TYPE_MEDIA_PLAYBACK else 0)) return
         if (device == null || items.isEmpty()) {
             stopIfIdle()
             return
         }
-        replaceSession(device)
         val app = CastApp.get(this)
+        // Already playing files on this TV: switch over without connecting again.
+        val running = session as? MediaCastSession
+        if (running != null && running.device.id == device.id && running.replaceQueue(items, intent.getIntExtra(EXTRA_INDEX, 0))) {
+            app.devices.markUsed(device)
+            return
+        }
+        replaceSession(device)
         val newSession = MediaCastSession(this, device, items, intent.getIntExtra(EXTRA_INDEX, 0), app.settings.state, ::onSessionEnded)
         session = newSession
         app.devices.markUsed(device)
@@ -373,12 +389,17 @@ class CastService : Service() {
         const val ACTION_NEXT = "io.github.patschgoo.castapp.action.NEXT"
         const val ACTION_PREVIOUS = "io.github.patschgoo.castapp.action.PREVIOUS"
         const val ACTION_SUBTITLES = "io.github.patschgoo.castapp.action.SUBTITLES"
+        const val ACTION_CREATE_SUBTITLES = "io.github.patschgoo.castapp.action.CREATE_SUBTITLES"
+        const val ACTION_PLAY_INDEX = "io.github.patschgoo.castapp.action.PLAY_INDEX"
+        const val ACTION_QUALITY = "io.github.patschgoo.castapp.action.QUALITY"
         private const val EXTRA_DEVICE = "device"
         private const val EXTRA_RESULT_CODE = "result_code"
         private const val EXTRA_RESULT_DATA = "result_data"
         private const val EXTRA_SINGLE_APP = "single_app"
         private const val EXTRA_AUDIO_ONLY = "audio_only"
         private const val EXTRA_ITEMS = "items"
+        private const val EXTRA_ITEMS_KEY = "items_key"
+        private const val EXTRA_QUALITY = "quality"
         private const val EXTRA_INDEX = "index"
         private const val EXTRA_POSITION = "position"
         private const val EXTRA_ON = "on"
@@ -405,8 +426,16 @@ class CastService : Service() {
             val intent = Intent(context, CastService::class.java)
                 .setAction(ACTION_START_FILE)
                 .putExtra(EXTRA_DEVICE, device.toJson().toString())
-                .putExtra(EXTRA_ITEMS, MediaItem.listToJson(items))
                 .putExtra(EXTRA_INDEX, startIndex)
+            val json = MediaItem.listToJson(items)
+            if (json.length < 200_000) {
+                intent.putExtra(EXTRA_ITEMS, json)
+            } else {
+                // Long channel lists don't fit into an Intent; the service runs in this process.
+                val key = java.util.UUID.randomUUID().toString()
+                pendingItems[key] = items
+                intent.putExtra(EXTRA_ITEMS_KEY, key)
+            }
             val localUris = items.flatMap { listOfNotNull(it.uri, it.subtitleUri) }.filter { it.startsWith("content:") }.map(Uri::parse)
             if (localUris.isNotEmpty()) {
                 val clip = android.content.ClipData.newRawUri("media", localUris.first())
@@ -426,6 +455,13 @@ class CastService : Service() {
         }
 
         fun stop(context: Context) = send(context, ACTION_STOP)
+
+        /** Changes the mirroring resolution or the picture quality of what's playing. */
+        fun setQuality(context: Context, label: String) = send(context, ACTION_QUALITY) { it.putExtra(EXTRA_QUALITY, label) }
+
+        fun playIndex(context: Context, index: Int) = send(context, ACTION_PLAY_INDEX) { it.putExtra(EXTRA_INDEX, index) }
+
+        private val pendingItems = java.util.concurrent.ConcurrentHashMap<String, List<MediaItem>>()
 
         fun seek(context: Context, positionMs: Long) = send(context, ACTION_SEEK) { it.putExtra(EXTRA_POSITION, positionMs) }
 

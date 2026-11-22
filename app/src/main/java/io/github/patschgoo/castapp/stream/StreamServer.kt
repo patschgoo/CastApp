@@ -35,6 +35,13 @@ class StreamServer(private val hub: StreamHub, preferredPort: Int) : TokenHttpSe
         return segmenter
     }
 
+    /** Ends every stream connection (the TV reloads and gets the new format). */
+    fun restartStreams() {
+        hls?.let { hub.unsubscribe(it) }
+        hls = null
+        synchronized(liveClients) { liveClients.forEach { it.close() } }
+    }
+
     override fun stop() {
         hls?.let { hub.unsubscribe(it) }
         hls = null

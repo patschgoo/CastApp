@@ -160,6 +160,8 @@ private fun AppRoot(app: CastApp, activity: MainActivity) {
             onCastSound = { cast(it, ProjectionActivity.MODE_AUDIO) },
             onOpenBrowser = { context.startActivity(Intent(context, BrowserActivity::class.java)) },
             onDarkScreen = { activity.startDarkScreen() },
+            onOpenTvChannels = { context.startActivity(Intent(context, TvChannelsActivity::class.java)) },
+            onOpenNetwork = { context.startActivity(Intent(context, NetworkActivity::class.java)) },
         )
         Route.SETTINGS -> SettingsScreen(
             settings = app.settings,

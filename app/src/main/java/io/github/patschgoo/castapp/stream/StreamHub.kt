@@ -126,6 +126,19 @@ class StreamHub {
 
     fun currentInitSegment(): ByteArray? = initSegment
 
+    /**
+     * Forgets the video format (the picture size is about to change): the next
+     * codec config starts a new stream. Audio settings are kept.
+     */
+    fun resetVideo() {
+        initLock.withLock {
+            videoConfig = null
+            initSegment = null
+            initHasAudio = false
+        }
+        synchronized(videoLock) { pendingVideo = null }
+    }
+
     fun subscribe(subscriber: StreamSubscriber) {
         subscribers.add(subscriber)
         requestKeyFrame()
