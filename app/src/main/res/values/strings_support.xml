@@ -1,0 +1,109 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Settings: Help & support -->
+    <string name="support_section">Help &amp; support</string>
+    <string name="send_log_title">Send debug log</string>
+    <string name="send_log_summary">Collects this app\'s own log, versions, settings and the devices found into one file and opens the share sheet. Nothing is sent automatically; you choose where it goes.</string>
+    <string name="send_log_preparing">Preparing the log…</string>
+    <string name="send_log_failed">Could not create the log</string>
+    <string name="send_log_subject">CastApp debug log</string>
+    <string name="network_check_title">Why can\'t I find my TV?</string>
+    <string name="network_check_summary">Checks Wi-Fi, router and TV searches and explains what is wrong</string>
+    <string name="check_updates_title">Check for updates</string>
+    <string name="check_updates_summary">CastApp is installed from GitHub, so it checks there. Only github.com is contacted and nothing about you is sent.</string>
+    <string name="auto_update_title">Check for updates automatically</string>
+    <string name="auto_update_summary">Looks once a day when the app starts</string>
+    <string name="battery_title">Battery &amp; background</string>
+    <string name="battery_summary_exempt">CastApp is allowed to run in the background. Tap for phone-specific tips.</string>
+    <string name="battery_summary_limited">Needed so casting a file keeps playing with the screen off</string>
+    <string name="dnd_title">Do not disturb while mirroring</string>
+    <string name="dnd_summary">Turns on Do Not Disturb while the screen is mirrored and puts your previous mode back afterwards. Android 15 and newer already hide sensitive notifications in screen shares.</string>
+    <string name="dnd_needs_access">Needs Do Not Disturb access</string>
+    <string name="dnd_grant">Allow</string>
+    <string name="dnd_access_hint">Allow CastApp under \"Do Not Disturb access\" in the next screen, then come back.</string>
+
+    <!-- Network check -->
+    <string name="check_button">Why can\'t I find my TV?</string>
+    <string name="check_title">Network check</string>
+    <string name="check_running">Checking your network… this takes about 6 seconds.</string>
+    <string name="check_again">Check again</string>
+    <string name="support_close">Close</string>
+    <string name="check_phone_address">This phone: %1$s</string>
+    <string name="check_intro">Results, most important first:</string>
+    <string name="finding_no_network_title">No network connection</string>
+    <string name="finding_no_network_text">The phone is not connected to any network. Connect it to the same Wi-Fi as your TV.</string>
+    <string name="finding_mobile_data_title">You are on mobile data</string>
+    <string name="finding_mobile_data_text">Casting only works over Wi-Fi: phone and TV must be on the same network. Switch Wi-Fi on and connect to your home network.</string>
+    <string name="finding_no_local_address_title">No local network address</string>
+    <string name="finding_no_local_address_text">The phone has no address on a local network. Reconnect to Wi-Fi, or switch Wi-Fi off and on. If a VPN is running, turn it off.</string>
+    <string name="finding_vpn_title">A VPN is active</string>
+    <string name="finding_vpn_text">A VPN often hides the local network, so TVs are not found. Pause the VPN (or allow local network access in the VPN app) while casting.</string>
+    <string name="finding_router_title">The router does not answer</string>
+    <string name="finding_router_text">The phone (%1$s) could not reach the router. The Wi-Fi may have no real connection, or it is a guest network. Reconnect, or move closer to the router.</string>
+    <string name="finding_nothing_title">Nothing answered on this Wi-Fi</string>
+    <string name="finding_nothing_text">No TV or other device replied to the searches. Guest networks and \"AP isolation\" (also called client isolation) block casting; so can a router that filters multicast. Check that the TV is switched on and on the same Wi-Fi, switch off AP isolation in the router, or try \"Add by IP\" with the TV\'s address.</string>
+    <string name="finding_mdns_title">Chromecast and AirPlay search got no answer</string>
+    <string name="finding_mdns_text">Google Cast and AirPlay devices are found with mDNS, and nothing replied. Smart TVs found another way still work. If a Chromecast or Apple TV is missing, the router may block multicast: look for \"IGMP snooping\" or \"multicast\" settings, or use \"Add by IP\".</string>
+    <string name="finding_ssdp_title">The DLNA search got no answer</string>
+    <string name="finding_ssdp_text">No smart TV (DLNA) replied to the search. If your TV is a Samsung, LG, Sony or Philips model, check that it is on, awake and on this Wi-Fi.</string>
+    <string name="finding_found_title">Devices found</string>
+    <string name="finding_saved_off_title">Remembered TVs not reachable</string>
+    <string name="finding_saved_off_text">These TVs did not answer: %1$s. They may be off, asleep or on another network. Switch them on (a TV in standby can be woken with \"Wake up\" in its menu), then search again.</string>
+    <string name="finding_saved_subnet_title">TV on a different network</string>
+    <string name="finding_saved_subnet_text">%1$s has an address outside this Wi-Fi\'s network. Phone and TV need to be on the same network; for example, the TV may be on Ethernet behind another router, or the phone on a guest or 5 GHz network with a separate address range.</string>
+    <string name="finding_saved_silent_title">TV reachable but does not answer searches</string>
+    <string name="finding_saved_silent_text">%1$s can be reached directly but did not answer the search. Multicast is probably blocked on this network. Use \"Scan network\" or \"Add by IP\"; remembered TVs stay in the list.</string>
+    <string name="finding_data_saver_title">Data Saver is on</string>
+    <string name="finding_data_saver_text">Android\'s Data Saver can limit background network use. If casting stops by itself, turn it off or allow CastApp unrestricted data.</string>
+    <string name="finding_battery_saver_title">Battery Saver is on</string>
+    <string name="finding_battery_saver_text">Battery Saver slows down or stops background work, which can interrupt casting with the screen off. Turn it off while casting.</string>
+    <string name="finding_ok_title">Everything looks fine</string>
+    <string name="finding_ok_text">The network is set up correctly for casting. If something still fails, use \"Send debug log\" in Settings.</string>
+
+    <!-- Battery prompt -->
+    <string name="battery_dialog_title">Keep playing with the screen off</string>
+    <string name="battery_dialog_text">When you cast a video or music file, CastApp plays it from this phone. To keep that going with the screen off, Android must not put the app to sleep. Allow it to run without battery restrictions.</string>
+    <string name="battery_allow">Allow</string>
+    <string name="battery_not_now">Not now</string>
+    <string name="battery_already">CastApp is already allowed to run in the background.</string>
+    <string name="battery_tips_title">Tips for your phone</string>
+    <string name="battery_tip_xiaomi">Xiaomi / Redmi / POCO: open Settings > Apps > Manage apps > CastApp, switch on \"Autostart\", then open \"Battery saver\" and choose \"No restrictions\".</string>
+    <string name="battery_tip_samsung">Samsung: open Settings > Battery > Background usage limits, and make sure CastApp is not in \"Sleeping apps\" or \"Deep sleeping apps\". Add it to \"Never sleeping apps\".</string>
+    <string name="battery_tip_huawei">Huawei / Honor: open Settings > Apps > App launch > CastApp, switch to \"Manage manually\" and allow Auto-launch, Secondary launch and Run in background.</string>
+    <string name="battery_tip_oneplus">OnePlus / Oppo / Realme: open Settings > Battery > CastApp (or App battery management) and allow background activity; also switch on \"Allow auto-launch\" if you see it.</string>
+
+    <!-- Update dialog -->
+    <string name="update_checking">Checking for updates…</string>
+    <string name="update_title_available">Update available: %1$s</string>
+    <string name="update_current">You have %1$s.</string>
+    <string name="update_no_notes">No release notes.</string>
+    <string name="update_install">Download and install</string>
+    <string name="update_later">Later</string>
+    <string name="update_skip">Skip this version</string>
+    <string name="update_uptodate_title">You\'re up to date</string>
+    <string name="update_uptodate_text">CastApp %1$s is the newest version.</string>
+    <string name="update_norelease_title">No release found</string>
+    <string name="update_norelease_text">GitHub says there is no published release. Either no release exists yet, or the repository is private. You can open the releases page to look yourself.</string>
+    <string name="update_open_releases">Open releases page</string>
+    <string name="update_failed_title">Update check failed</string>
+    <string name="update_downloading">Downloading %1$s…</string>
+    <string name="update_no_apk">This release has no CastApp.apk file. Open the releases page to download it.</string>
+    <string name="update_permission_title">Allow installing</string>
+    <string name="update_permission_text">Android needs your permission before CastApp can install the update. Allow \"Install unknown apps\" for CastApp on the next screen, come back and tap Download again.</string>
+    <string name="update_open_settings">Open settings</string>
+
+    <!-- Wake-on-LAN -->
+    <string name="wol_wake">Wake up</string>
+    <string name="wol_wake_hint">Sends a Wake-on-LAN signal to %1$s, then searches again</string>
+    <string name="wol_set_mac">Set MAC address to wake up</string>
+    <string name="wol_edit_mac">MAC address: %1$s</string>
+    <string name="wol_edit_hint">Tap to change</string>
+    <string name="wol_set_hint">Needed to wake the TV from standby. Find it in the TV\'s network settings; the TV must have Wake-on-LAN switched on.</string>
+    <string name="wol_dialog_title">MAC address</string>
+    <string name="wol_dialog_label">MAC address</string>
+    <string name="wol_dialog_invalid">Not a valid MAC address. Example: AA:BB:CC:DD:EE:FF</string>
+    <string name="wol_sent">Wake-up signal sent, searching…</string>
+    <string name="wol_failed">Could not send the signal</string>
+    <string name="wol_save">Save</string>
+    <string name="wol_remove">Remove</string>
+</resources>

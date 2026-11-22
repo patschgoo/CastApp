@@ -128,6 +128,7 @@ private fun AppRoot(app: CastApp, activity: MainActivity) {
                 return@rememberLauncherForActivityResult
             }
             CastService.startMedia(context, device, items)
+            io.github.patschgoo.castapp.support.BatteryPrompt.onBackgroundCastStarted(context)
             if (Build.VERSION.SDK_INT >= 33 &&
                 context.checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED
             ) {
@@ -138,6 +139,7 @@ private fun AppRoot(app: CastApp, activity: MainActivity) {
     }
 
     BackHandler(enabled = route != Route.DEVICES) { route = Route.DEVICES }
+    io.github.patschgoo.castapp.support.SupportHost()
 
     when (route) {
         Route.DEVICES -> DevicesScreen(

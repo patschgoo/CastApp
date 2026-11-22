@@ -47,6 +47,7 @@ class CastLauncher(private val context: Context) {
     }
 
     internal fun started() {
+        io.github.patschgoo.castapp.support.BatteryPrompt.onBackgroundCastStarted(context)
         if (Build.VERSION.SDK_INT >= 33 &&
             context.checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED
         ) {
