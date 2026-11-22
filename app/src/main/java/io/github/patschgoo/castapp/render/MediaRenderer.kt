@@ -21,6 +21,11 @@ data class RendererMedia(
     val lowLatency: Boolean = false,
     /** How the subtitles should look, where the TV can be told (Google Cast, CastApp TV). */
     val subtitleStyle: io.github.patschgoo.castapp.subtitles.SubtitleStyle? = null,
+    /**
+     * Several screens: where a CastApp receiver reads the shared timeline to keep in sync
+     * (only ever sent to CastApp TVs; other TVs never see it).
+     */
+    val syncUrl: String? = null,
 )
 
 enum class PlayState { PLAYING, PAUSED, BUFFERING, IDLE, FINISHED, ERROR, STOPPED }

@@ -61,11 +61,14 @@ class TvPlayerActivity : ComponentActivity() {
     private var failed = false
     private var closing = false
     private var speed = 1f
+    /** Synced playback: follows the host's shared timeline (several screens, joined viewers). */
+    private var follower: io.github.patschgoo.castapp.multi.SyncFollower? = null
 
     private val ticker = object : Runnable {
         override fun run() {
             reportState()
             catchUp()
+            followTimeline()
             swapButton.visibility = if (io.github.patschgoo.castapp.service.SwapDirection.partner != null) View.VISIBLE else View.GONE
             handler.postDelayed(this, 500)
         }
@@ -155,6 +158,8 @@ class TvPlayerActivity : ComponentActivity() {
     }
 
     override fun onDestroy() {
+        follower?.stop()
+        follower = null
         handler.removeCallbacksAndMessages(null)
         photoLoader?.interrupt()
         exo?.release()
@@ -171,6 +176,7 @@ class TvPlayerActivity : ComponentActivity() {
     fun load(media: TvMedia, autoPlay: Boolean) {
         showing = media
         failed = false
+        startFollowing(media)
         infoView.visibility = View.GONE
         if (media.kind == TvMediaKind.PHOTO) {
             exo?.stop()
@@ -322,6 +328,54 @@ class TvPlayerActivity : ComponentActivity() {
         }
         val position = if (p.playbackState == Player.STATE_ENDED && duration > 0) duration else p.currentPosition.coerceAtLeast(0)
         TvReceiver.report(state, position, duration)
+    }
+
+    // ---- synced playback ---------------------------------------------------------------------------
+
+    private fun startFollowing(media: TvMedia) {
+        val url = media.syncUrl
+        if (follower?.syncUrl == url) return
+        follower?.stop()
+        follower = null
+        if (url == null || media.kind == TvMediaKind.PHOTO) return
+        val f = io.github.patschgoo.castapp.multi.SyncFollower(url, android.os.SystemClock::elapsedRealtime)
+        val joinedFrom = media.joinedFrom
+        if (joinedFrom != null) {
+            f.onHostChanged = { itemChanged, stopped ->
+                handler.post {
+                    if (follower !== f) return@post
+                    when {
+                        stopped -> {
+                            infoView.text = getString(io.github.patschgoo.castapp.R.string.multi_host_stopped)
+                            infoView.visibility = View.VISIBLE
+                            exo?.stop()
+                        }
+                        // The host moved on to the next item: get its stream.
+                        itemChanged -> io.github.patschgoo.castapp.multi.Peers.rejoin(joinedFrom)
+                    }
+                }
+            }
+        }
+        follower = f
+        f.start()
+    }
+
+    /** Keeps this screen with the host's timeline: small differences by speed, big ones with a jump. */
+    private fun followTimeline() {
+        val f = follower ?: return
+        val p = exo ?: return
+        if (exoLowLatency || failed || p.playbackState != Player.STATE_READY) return
+        val c = f.correction(p.currentPosition, p.isPlaying, speed) ?: return
+        c.seekToMs?.let { p.seekTo(it) }
+        if (c.rate != speed) {
+            speed = c.rate
+            p.playbackParameters = PlaybackParameters(c.rate)
+        }
+        when (c.play) {
+            true -> if (!p.playWhenReady) p.play()
+            false -> if (p.playWhenReady) p.pause()
+            null -> Unit
+        }
     }
 
     /** Mirroring: if frames pile up (Wi-Fi hiccup), play a little faster until we're live again. */

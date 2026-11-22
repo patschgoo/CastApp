@@ -91,6 +91,7 @@ class DlnaRenderer(
             media.title, media.url, media.mimeType, media.live, media.subtitleSrtUrl ?: media.subtitleUrl, media.lowLatency,
             // Only CastApp's own receiver understands the subtitle look; other TVs keep theirs.
             subtitleStyle = media.subtitleStyle?.takeIf { device.isCastAppTv }?.encode(),
+            syncUrl = media.syncUrl?.takeIf { device.isCastAppTv },
         )
         val setUri = {
             soapCall(

@@ -1,0 +1,94 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Mehrere Bildschirme, bei einem anderen Gerät zuschauen, synchrone Wiedergabe und Übergabe. -->
+<resources>
+    <!-- Mehrere Bildschirme -->
+    <string name="multi_add_screen">Bildschirm hinzufügen</string>
+    <string name="multi_add_screen_title">Bildschirm hinzufügen</string>
+    <string name="multi_add_screen_text">Der neue Bildschirm bekommt dasselbe Bild und denselben Ton. Jeder Fernseher und Lautsprecher geht; CastApp-TVs haben die kürzeste Verzögerung.</string>
+    <string name="multi_add_screen_file_text">Der neue Bildschirm spielt dasselbe ab, ab der aktuellen Stelle. Wiedergabe, Pause und Springen gehen an alle Bildschirme.</string>
+    <string name="multi_add_screen_none">Keine weiteren Fernseher oder Lautsprecher gefunden. Tippe auf dem Hauptbildschirm auf Aktualisieren und versuch es noch mal.</string>
+    <string name="multi_screens_header">Bildschirme (%1$d)</string>
+    <string name="multi_state_connecting">Verbinden…</string>
+    <string name="multi_state_buffering">Puffern…</string>
+    <string name="multi_state_playing">Läuft</string>
+    <string name="multi_state_paused">Pausiert</string>
+    <string name="multi_state_error">Spielt nicht</string>
+    <string name="multi_volume">Lautstärke %1$d %%</string>
+    <string name="multi_muted">Stumm</string>
+    <string name="multi_in_sync">Synchron</string>
+    <string name="multi_volume_down">Leiser auf %1$s</string>
+    <string name="multi_volume_up">Lauter auf %1$s</string>
+    <string name="multi_mute">%1$s stummschalten</string>
+    <string name="multi_remove_screen">%1$s entfernen</string>
+    <string name="multi_screen_left">%1$s ist nicht mehr dabei</string>
+    <string name="multi_best_effort">Fernseher ohne CastApp bleiben so gut es geht im Takt; sie können etwa eine Sekunde auseinander liegen.</string>
+    <string name="multi_synced_note">CastApp-TVs spielen synchron zum ersten Bildschirm.</string>
+    <string name="multi_phone_sound">Handy-Ton</string>
+    <string name="multi_cancel">Abbrechen</string>
+
+    <!-- Zuschauen -->
+    <string name="multi_title_screen">den Handy-Bildschirm</string>
+    <string name="multi_title_sound">den Handy-Ton</string>
+    <string name="multi_peer_casting">%1$s streamt %2$s</string>
+    <string name="multi_peer_on">Auf %1$s</string>
+    <string name="multi_join">Zuschauen</string>
+    <string name="multi_joining">Frage %1$s, ob du zuschauen darfst…</string>
+    <plurals name="multi_watching">
+        <item quantity="one">%1$d schaut zu</item>
+        <item quantity="other">%1$d schauen zu</item>
+    </plurals>
+    <string name="multi_policy_chip">Zuschauen: %1$s</string>
+    <string name="multi_policy_ask">Erst fragen</string>
+    <string name="multi_policy_allow">Alle in diesem WLAN</string>
+    <string name="multi_policy_off">Aus</string>
+    <string name="multi_join_prompt_title">%1$s zuschauen lassen?</string>
+    <string name="multi_join_prompt_text">%1$s möchte auf dem eigenen Bildschirm sehen, was du gerade streamst.</string>
+    <string name="multi_join_no_answer">%1$s hat nicht geantwortet. Versuch es gleich noch mal.</string>
+    <string name="multi_join_off">%1$s lässt gerade niemanden zuschauen.</string>
+    <string name="multi_join_ended">%1$s streamt nichts mehr.</string>
+    <string name="multi_join_denied">%1$s hat das Zuschauen nicht erlaubt.</string>
+    <string name="multi_host_stopped">Die Übertragung, bei der du zugeschaut hast, ist beendet.</string>
+    <string name="multi_unreachable">%1$s ist nicht erreichbar. Ist es im selben WLAN?</string>
+    <string name="multi_other_device">Das andere Gerät</string>
+
+    <!-- Übergeben -->
+    <string name="multi_hand_over_menu">Übergeben…</string>
+    <string name="multi_hand_over_title">Übergeben an…</string>
+    <string name="multi_hand_over_text">Das Handy oder Tablet, das du auswählst, wird zuerst gefragt. Sagt es ja, streamt es auf dieselben Bildschirme weiter und dieses hört auf.</string>
+    <string name="multi_handing_over">Wird übergeben…</string>
+    <string name="multi_offering">Warte auf eine Antwort von %1$s…</string>
+    <string name="multi_offer_title">%1$s bietet dir %2$s an</string>
+    <string name="multi_screens_and">%1$s und %2$s</string>
+    <string name="multi_offer_screen_text">Dann würdest du deinen eigenen Bildschirm dorthin streamen. Android fragt dich vorher nach der Erlaubnis für die Bildschirmaufnahme.</string>
+    <string name="multi_offer_file_text">Du würdest „%1$s“ ab der aktuellen Stelle weiterspielen.</string>
+    <string name="multi_offer_control_text">„%1$s“ liegt auf dem anderen Gerät und wird weiter von dort abgespielt. Du bekommst die Steuerung.</string>
+    <string name="multi_offer_question">Übernehmen?</string>
+    <string name="multi_take_over">Übernehmen</string>
+    <string name="multi_take_controls">Steuerung übernehmen</string>
+    <string name="multi_decline">Nein, danke</string>
+    <string name="multi_handover_accepted">%1$s übernimmt…</string>
+    <string name="multi_handover_declined">%1$s hat abgelehnt. Du streamst weiter.</string>
+    <string name="multi_handover_done">An %1$s übergeben</string>
+    <string name="multi_handover_failed_other">%1$s konnte nicht übernehmen. Du streamst weiter.</string>
+    <string name="multi_handover_failed_here">Übernehmen hat nicht geklappt. Das andere Gerät streamt weiter.</string>
+    <string name="multi_handover_timeout">Keine rechtzeitige Antwort. Du streamst weiter.</string>
+    <string name="multi_handover_busy">Es läuft schon eine Übergabe.</string>
+    <string name="multi_handover_gone">%1$s bietet das nicht mehr an.</string>
+    <string name="multi_handover_control_given">%1$s hat jetzt die Steuerung. Lass dieses Handy im WLAN: Es spielt die Dateien weiter ab.</string>
+    <string name="multi_handover_control_explained">Diese Dateien gibt es nur auf diesem Handy, deshalb spielt es sie weiter ab; das andere Gerät bekommt die Steuerung.</string>
+
+    <!-- Um Übergabe bitten -->
+    <string name="multi_ask_to_cast">Selbst streamen</string>
+    <string name="multi_asking">Bitte %1$s um die Übergabe…</string>
+    <string name="multi_request_sent">%1$s um die Übergabe gebeten</string>
+    <string name="multi_request_title">%1$s möchte streamen</string>
+    <string name="multi_request_question">Deine Übertragung übergeben?</string>
+    <string name="multi_hand_over">Übergeben</string>
+    <string name="multi_request_declined">%1$s streamt vorerst weiter.</string>
+
+    <!-- Steuerung einer Übertragung auf einem anderen Gerät -->
+    <string name="multi_remote_title">Du steuerst %1$s</string>
+    <string name="multi_remote_text">Abgespielt von %1$s auf %2$s</string>
+    <string name="multi_remote_release">Steuerung zurückgeben</string>
+    <string name="multi_remote_ended">Die Übertragung auf %1$s ist beendet.</string>
+</resources>
