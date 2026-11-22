@@ -1,5 +1,6 @@
 package io.github.patschgoo.castapp.remote
 
+import io.github.patschgoo.castapp.Txt
 import android.Manifest
 import android.annotation.SuppressLint
 import android.bluetooth.BluetoothAdapter
@@ -32,7 +33,7 @@ import java.util.concurrent.Executor
  * keyboard. The report layout lives in [HidReports].
  */
 object BluetoothRemote : RemoteProvider {
-    override val title = "Bluetooth"
+    override val title: String get() = Txt.s(R.string.bt_remote_label)
 
     private const val PREFS = "bluetooth_remote"
     private const val KEY_HOST = "host"

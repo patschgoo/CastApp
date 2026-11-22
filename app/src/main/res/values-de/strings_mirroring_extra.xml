@@ -1,0 +1,50 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Video codec (HEVC) -->
+    <string name="codec_setting_title">Videocodec</string>
+    <string name="codec_auto">Automatisch</string>
+    <string name="codec_h264">H.264</string>
+    <string name="codec_hevc">HEVC (H.265)</string>
+    <string name="codec_auto_desc">HEVC auf Fernsehern, die es nachweislich abspielen (CastApp-TVs mit Unterstützung, Chromecast Ultra, Chromecast mit Google TV HD, Google TV Streamer, Shield), überall sonst H.264</string>
+    <string name="codec_h264_desc">Läuft auf jedem Fernseher</string>
+    <string name="codec_hevc_desc">Dasselbe Bild mit etwa einem Drittel weniger Bitrate. Wechselt zu H.264, wenn der Fernseher es nicht abspielt. DLNA-Fernseher bekommen immer H.264.</string>
+    <string name="codec_no_hevc_encoder">Dieses Handy kann kein HEVC kodieren, daher wird H.264 verwendet</string>
+    <string name="hevc_fallback_message">%1$s hat HEVC nicht abgespielt, es wurde zu H.264 gewechselt</string>
+
+    <!-- Phone microphone -->
+    <string name="mic_setting_title">Handymikrofon</string>
+    <string name="mic_setting_off">Aus. Mischt deine Stimme in den Ton auf dem Fernseher: für Präsentationen, Spielkommentare, Karaoke.</string>
+    <string name="mic_setting_on">Deine Stimme wird in den Ton auf dem Fernseher gemischt. Stell den Fernseher leiser oder halte das Handy vom Fernseher fern, sonst hörst du ein Echo.</string>
+    <string name="mic_setting_on_no_apps">Nur deine Stimme wird gestreamt (der Ton von Apps erfordert Android 10). Stell den Fernseher leiser, um ein Echo zu vermeiden.</string>
+    <string name="mic_setting_permission">Tippen, um das Mikrofon zu erlauben</string>
+    <string name="mic_level_title">Mikrofonpegel</string>
+    <string name="mic_level_value">%1$d %%</string>
+    <string name="mic_permission_denied">Ohne Mikrofonberechtigung startet das Spiegeln ohne deine Stimme</string>
+    <string name="mic_unavailable">Das Mikrofon ist belegt oder nicht verfügbar; es wird ohne Mikrofon gespiegelt</string>
+    <string name="mic_echo_warning">Der Fernseher ist laut: Das Handymikrofon nimmt ihn auf und es entsteht ein Echo. Stell den Fernseher leiser oder halte das Handy weiter weg.</string>
+    <string name="mic_on_short">Mikro an</string>
+
+    <!-- YouTube on the TV -->
+    <string name="yt_play_on_tv">In YouTube auf dem Fernseher abspielen</string>
+    <string name="yt_browser_button">YouTube auf TV</string>
+    <string name="yt_video">Video %1$s</string>
+    <string name="yt_starts_at">beginnt bei %1$s</string>
+    <string name="yt_with_playlist">mit Wiedergabeliste</string>
+    <string name="yt_no_devices">Suche nach Chromecast, Google TV oder CastApp TV …</string>
+    <string name="yt_via_cast">YouTube-App über Google Cast</string>
+    <string name="yt_via_tv_app">Öffnet sich in der YouTube-App des Fernsehers</string>
+    <string name="yt_open_in_browser">Browser</string>
+    <string name="yt_starting">YouTube wird auf %1$s gestartet …</string>
+    <string name="yt_started">Wiedergabe in YouTube auf %1$s</string>
+    <string name="yt_tv_opened">Video wird in YouTube auf %1$s geöffnet</string>
+    <string name="yt_error_device">%1$s hat keine YouTube-App, die CastApp starten kann. Wähle einen Chromecast, Google TV oder CastApp TV.</string>
+    <string name="yt_error_unreachable">%1$s ist nicht erreichbar. Ist das Gerät im selben WLAN?</string>
+    <string name="yt_error_no_app">%1$s konnte YouTube nicht starten. Ist die YouTube-App auf dem Fernseher installiert und aktuell?</string>
+    <string name="yt_error_no_screen">YouTube auf %1$s hat nicht geantwortet. Versuche es in einem Moment noch einmal.</string>
+    <string name="yt_error_internet">YouTube war nicht erreichbar. Prüfe die Internetverbindung des Handys.</string>
+    <string name="yt_error_refused">YouTube hat die Anfrage nicht akzeptiert (%1$s). Nutze stattdessen die Cast-Schaltfläche der YouTube-App.</string>
+    <string name="yt_error_old_tv">Aktualisiere CastApp auf %1$s, um dort YouTube-Links zu öffnen.</string>
+    <string name="yt_tv_no_app">Auf diesem Fernseher ist keine YouTube-App installiert</string>
+    <string name="yt_tv_notification_title">YouTube-Video von einem Handy</string>
+    <string name="yt_tv_notification_text">Auswählen, um es in YouTube zu öffnen</string>
+</resources>

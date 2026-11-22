@@ -1,0 +1,88 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="close">Schließen</string>
+
+    <!-- Continue watching -->
+    <string name="continue_watching">Weiterschauen</string>
+    <string name="continue_clear">Leeren</string>
+    <string name="continue_clear_title">„Weiterschauen“ leeren?</string>
+    <string name="continue_clear_text">CastApp vergisst, wo du bei jedem Video aufgehört hast. Die Dateien selbst bleiben unverändert.</string>
+    <string name="continue_remove">Aus „Weiterschauen“ entfernen</string>
+    <string name="continue_left">Noch %1$s</string>
+    <string name="continue_at">Aufgehört bei %1$s</string>
+    <string name="resumed_at">Fortgesetzt bei %1$s</string>
+    <string name="start_over">Von vorn beginnen</string>
+
+    <!-- Queue -->
+    <string name="queue_chip">Warteschlange %1$d/%2$d</string>
+    <string name="queue_title">Warteschlange</string>
+    <string name="queue_title_channels">Sender</string>
+    <string name="queue_shuffle">Zufällig</string>
+    <string name="queue_repeat_off">Wiederholen aus</string>
+    <string name="queue_repeat_all">Alle wiederholen</string>
+    <string name="queue_repeat_one">Titel wiederholen</string>
+    <string name="queue_add">Dateien hinzufügen</string>
+    <string name="queue_up">Nach oben</string>
+    <string name="queue_down">Nach unten</string>
+    <string name="queue_remove">Aus der Warteschlange entfernen</string>
+    <string name="queue_playing">Läuft gerade</string>
+    <string name="queue_empty">Die Warteschlange ist leer</string>
+
+    <!-- Sleep timer -->
+    <string name="sleep_chip">Einschlaftimer</string>
+    <string name="sleep_chip_left">Stoppt in %1$s</string>
+    <string name="sleep_chip_item_end">Stoppt nach diesem Titel</string>
+    <string name="sleep_title">Streamen beenden</string>
+    <plurals name="sleep_minutes">
+        <item quantity="one">In %1$d Minute</item>
+        <item quantity="other">In %1$d Minuten</item>
+    </plurals>
+    <string name="sleep_item_end">Am Ende dieses Videos</string>
+    <string name="sleep_cancel">Timer ausschalten</string>
+    <string name="sleep_stopped">Einschlaftimer: Streamen beendet</string>
+
+    <!-- Subtitles and sound tracks -->
+    <string name="subs_chip">Untertitel: %1$s</string>
+    <string name="subs_title">Untertitel</string>
+    <string name="subs_off">Aus</string>
+    <string name="subs_file">Untertiteldatei</string>
+    <string name="subs_in_file">In der Videodatei enthalten</string>
+    <string name="subs_online">Online gefunden</string>
+    <string name="subs_written">Aus der Sprache erstellt</string>
+    <string name="subs_writing">Wird erstellt … %1$d %%</string>
+    <string name="subs_partly_written">Teilweise erstellt</string>
+    <string name="subs_write_hint">Noch nicht erstellt: Zum Starten auswählen (funktioniert offline)</string>
+    <string name="subs_probing">Suche nach Untertitelspuren in der Datei …</string>
+    <plurals name="subs_picture_note">
+        <item quantity="one">%1$d Untertitelspur besteht aus Bildern (PGS/VobSub) und kann nicht angezeigt werden</item>
+        <item quantity="other">%1$d Untertitelspuren bestehen aus Bildern (PGS/VobSub) und können nicht angezeigt werden</item>
+    </plurals>
+    <string name="subs_reading">Untertitel werden aus der Datei gelesen … %1$d %%</string>
+    <string name="subs_track_empty">Diese Untertitelspur enthält keinen Text</string>
+    <string name="subs_track_failed">Diese Untertitelspur konnte nicht gelesen werden</string>
+    <string name="subtitles_busy">Für eine andere Datei werden noch Untertitel erstellt</string>
+    <string name="subs_timing">Untertitel-Timing</string>
+    <string name="subs_earlier">Untertitel früher</string>
+    <string name="subs_later">Untertitel später</string>
+    <string name="audio_chip">Ton: %1$s</string>
+    <string name="audio_title">Tonspur</string>
+    <string name="audio_hint">Jede Tonspur außer der ersten wird auf dem Handy umgewandelt, damit der Fernseher sie abspielen kann.</string>
+
+    <!-- Subtitle look (Settings) -->
+    <string name="style_title">Aussehen der Untertitel auf dem Fernseher</string>
+    <string name="style_hint">Chromecast und CastApp TV; die meisten anderen Fernseher verwenden ihr eigenes Aussehen</string>
+    <string name="style_size">Größe</string>
+    <string name="style_size_small">Klein</string>
+    <string name="style_size_normal">Normal</string>
+    <string name="style_size_large">Groß</string>
+    <string name="style_size_huge">Riesig</string>
+    <string name="style_color">Farbe</string>
+    <string name="style_color_white">Weiß</string>
+    <string name="style_color_yellow">Gelb</string>
+    <string name="style_color_cyan">Cyan</string>
+    <string name="style_color_green">Grün</string>
+    <string name="style_background">Hintergrund</string>
+    <string name="style_bg_none">Kein Hintergrund</string>
+    <string name="style_bg_shadow">Schatten</string>
+    <string name="style_bg_box">Dunkles Feld</string>
+</resources>

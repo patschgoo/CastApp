@@ -1,5 +1,7 @@
 package io.github.patschgoo.castapp.network
 
+import io.github.patschgoo.castapp.Txt
+import io.github.patschgoo.castapp.R
 import com.hierynomus.msdtyp.AccessMask
 import com.hierynomus.msfscc.FileAttributes
 import com.hierynomus.mssmb2.SMB2CreateDisposition
@@ -58,7 +60,7 @@ class SmbConnection(private val target: SmbTarget) : AutoCloseable {
             else AuthenticationContext(target.user, target.password.toCharArray(), target.domain.ifEmpty { null })
             val s = c.authenticate(auth)
             session = s
-            val d = s.connectShare(target.share) as? DiskShare ?: throw IOException("\"${target.share}\" is not a folder share")
+            val d = s.connectShare(target.share) as? DiskShare ?: throw IOException(Txt.s(R.string.err_not_folder_share, target.share))
             disk = d
             return d
         } catch (e: IOException) {
@@ -142,9 +144,9 @@ class SmbConnection(private val target: SmbTarget) : AutoCloseable {
         private fun friendly(e: Exception): String {
             val text = e.message ?: e.javaClass.simpleName
             return when {
-                text.contains("STATUS_LOGON_FAILURE") -> "Wrong user name or password"
-                text.contains("STATUS_BAD_NETWORK_NAME") -> "There is no share with that name"
-                text.contains("STATUS_ACCESS_DENIED") -> "Access denied"
+                text.contains("STATUS_LOGON_FAILURE") -> Txt.s(R.string.err_wrong_login)
+                text.contains("STATUS_BAD_NETWORK_NAME") -> Txt.s(R.string.err_no_share)
+                text.contains("STATUS_ACCESS_DENIED") -> Txt.s(R.string.err_access_denied)
                 else -> text
             }
         }

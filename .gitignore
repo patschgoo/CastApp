@@ -14,3 +14,4 @@ build/
 # Local configuration
 local.properties
 *.log
+.kotlin/
