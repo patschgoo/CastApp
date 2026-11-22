@@ -8,6 +8,7 @@ import android.media.MediaExtractor
 import android.media.MediaFormat
 import android.net.Uri
 import android.util.Log
+import io.github.patschgoo.castapp.network.HttpMediaSource
 import io.github.patschgoo.castapp.stream.AudioConfig
 import io.github.patschgoo.castapp.stream.AvcUtils
 import io.github.patschgoo.castapp.stream.FragmentedMp4
@@ -438,13 +439,11 @@ class Transcoder(
          */
         fun probe(context: Context, input: TranscodeInput, audioOrdinal: Int = 0, fileType: String? = null): ConvertCheck {
             val ex = try {
-                input.open(context)
+                // A second try covers a share or server connection that had gone stale.
+                ConvertChecks.openTwice { input.open(context) }
             } catch (e: Exception) {
                 Log.i(TAG, "Can't open the file for converting: ${e.message}")
-                return ConvertChecks.decide(
-                    null, audioOrdinal, readable = input.readable(context), fileType = fileType,
-                    videoDecoder = { false }, audioDecoder = { false },
-                )
+                return ConvertCheck(ConvertChecks.openFailed(fileType) { input.readable(context) })
             }
             return try {
                 check((0 until ex.trackCount).map { ex.getTrackFormat(it) }, audioOrdinal)
@@ -553,8 +552,18 @@ sealed class TranscodeInput {
             if (web) setDataSource(uri.toString(), headers) else setDataSource(context, uri, headers)
         }
 
-        override fun readable(context: Context): Boolean = web || try {
-            context.contentResolver.openInputStream(uri)?.use { it.read() >= 0 } == true
+        override fun readable(context: Context): Boolean = try {
+            if (web) {
+                // A real request with the item's log-in headers, for its first byte only.
+                val conn = HttpMediaSource.connect(uri.toString(), headers, trustAll = false, range = "bytes=0-0")
+                try {
+                    conn.responseCode in 200..299 && conn.inputStream.use { it.read() >= 0 }
+                } finally {
+                    conn.disconnect()
+                }
+            } else {
+                context.contentResolver.openInputStream(uri)?.use { it.read() >= 0 } == true
+            }
         } catch (_: Exception) {
             false
         }

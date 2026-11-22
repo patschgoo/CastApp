@@ -115,7 +115,13 @@ object TvReceiver : RendererBackend, CastAppCommands {
 
     override fun stop() {
         _state.value = _state.value.copy(state = TransportState.STOPPED)
-        main.post { player?.stopAndClose() }
+        main.post {
+            // Let go of the closing screen at once: a phone trying its next way sends Stop, SetAVTransportURI
+            // and Play in a row, and those must open a new player, not go to the one that is finishing.
+            val p = player
+            player = null
+            p?.stopAndClose()
+        }
     }
 
     override fun seek(positionMs: Long) {

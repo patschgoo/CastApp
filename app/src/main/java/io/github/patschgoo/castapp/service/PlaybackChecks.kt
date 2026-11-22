@@ -1,8 +1,10 @@
 package io.github.patschgoo.castapp.service
 
+import io.github.patschgoo.castapp.capture.ConvertProblem
 import io.github.patschgoo.castapp.discovery.CastDevice
 import io.github.patschgoo.castapp.discovery.DeviceKind
 import io.github.patschgoo.castapp.settings.ConvertMode
+import io.github.patschgoo.castapp.stream.MediaServer
 
 /**
  * How [MediaCastSession] gets an item to a TV.
@@ -72,7 +74,37 @@ internal object PlaybackChecks {
      * DLNA TVs (Samsung, LG), Roku and the rest know "video/x-matroska" and may refuse "webm".
      */
     fun mimeFor(mime: String, kind: DeviceKind): String =
-        if (kind != DeviceKind.CAST && (mime == "video/x-matroska" || mime == "video/mkv")) "video/x-matroska" else CastService.normalizeMime(mime)
+        if (kind != DeviceKind.CAST && (mime == "video/x-matroska" || mime == "video/mkv")) MATROSKA else CastService.normalizeMime(mime)
+
+    private const val MATROSKA = "video/x-matroska"
+
+    /** The path part that marks a file address given out as [MATROSKA]: file/<id>/m/<name>. */
+    private const val MATROSKA_PART = "m"
+
+    /**
+     * Where the phone serves the file of queue entry [id] ([title]: its name) to a TV that was told it's
+     * of type [told] ([mimeFor]). TVs told "video/x-matroska" get "m/" in the address, so the file/ route
+     * answers them with that type while a Chromecast fetches the same file as "video/webm".
+     */
+    fun filePath(token: String, id: Long, title: String, told: String): String =
+        "/$token/file/$id/" + (if (told == MATROSKA) "$MATROSKA_PART/" else "") + MediaServer.safeName(title)
+
+    /**
+     * The type the file/ route answers for [path] ([filePath]) of a file of type [mime]: what the TV was
+     * told. Addresses without the mark (also those handed out before it) get [CastService.normalizeMime].
+     */
+    fun servedMime(path: String, mime: String): String {
+        val parts = path.substringAfter("/file/").split('/')
+        return if (parts.size >= 3 && parts[1] == MATROSKA_PART) MATROSKA else CastService.normalizeMime(mime)
+    }
+
+    /**
+     * Why the file plays as it is ([played]) though the phone was to convert it: the conversion it
+     * refused ([refused]), worth a word only when converting was asked for by hand ([picked]: a quality
+     * or sound track). Null when there's nothing to say.
+     */
+    fun playedAsIsNote(refused: ConvertProblem?, played: Delivery, picked: Boolean): ConvertProblem? =
+        refused?.takeIf { picked && played != Delivery.CONVERT }
 
     /** Sound Chromecasts (Default Media Receiver) can't play: DTS in all its forms and Dolby TrueHD. */
     fun castCantPlaySound(mime: String): Boolean = mime.lowercase().let {
@@ -82,14 +114,21 @@ internal object PlaybackChecks {
     /**
      * A Chromecast playing the file as it is ([Delivery.SERVE], [Delivery.DIRECT]) takes its first sound
      * track: when that's DTS or TrueHD the video plays without sound. Null when there's nothing to say.
+     * Picking another sound track converts the file on the phone, so it's only offered for a track
+     * [canPlayInstead] says the phone can convert with its sound (asked only when it comes to that).
      */
-    fun castSoundWarning(kind: DeviceKind, delivery: Delivery, audio: List<AudioTrackInfo>): CastSoundWarning? {
+    fun castSoundWarning(
+        kind: DeviceKind,
+        delivery: Delivery,
+        audio: List<AudioTrackInfo>,
+        canPlayInstead: (AudioTrackInfo) -> Boolean,
+    ): CastSoundWarning? {
         if (kind != DeviceKind.CAST || (delivery != Delivery.SERVE && delivery != Delivery.DIRECT)) return null
         val playing = audio.firstOrNull() ?: return null
         if (!castCantPlaySound(playing.mimeType)) return null
         return CastSoundWarning(
             codec = TrackNames.codec(playing.mimeType) ?: playing.mimeType,
-            otherTrack = audio.any { it.ordinal != playing.ordinal && !castCantPlaySound(it.mimeType) },
+            otherTrack = audio.any { it.ordinal != playing.ordinal && !castCantPlaySound(it.mimeType) && canPlayInstead(it) },
         )
     }
 }
