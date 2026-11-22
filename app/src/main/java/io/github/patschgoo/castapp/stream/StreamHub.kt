@@ -106,14 +106,15 @@ class StreamHub {
 
     /**
      * Waits for the init segment. If audio was expected but never showed up,
-     * the stream falls back to video-only after [audioGraceMs].
+     * the stream falls back to video-only after [audioGraceMs]. [failed]: the source gave up
+     * (the converter's decoder broke), so there's no point waiting out [timeoutMs].
      */
-    fun awaitInitSegment(timeoutMs: Long, audioGraceMs: Long = 2500): ByteArray? {
+    fun awaitInitSegment(timeoutMs: Long, audioGraceMs: Long = 2500, failed: () -> Boolean = { false }): ByteArray? {
         val start = System.nanoTime()
         initLock.withLock {
             while (initSegment == null) {
                 val elapsedMs = (System.nanoTime() - start) / 1_000_000
-                if (elapsedMs >= timeoutMs) return null
+                if (elapsedMs >= timeoutMs || failed()) return null
                 if (elapsedMs >= audioGraceMs && videoConfig != null) {
                     maybeBuildInit(forceWithoutAudio = true)
                     continue
