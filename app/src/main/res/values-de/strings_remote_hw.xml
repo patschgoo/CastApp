@@ -1,0 +1,31 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Bluetooth and infrared remotes -->
+<resources>
+    <!-- Bluetooth remote -->
+    <string name="bt_remote_name">Dieses Handy als Bluetooth-Fernbedienung</string>
+    <string name="bt_remote_label">Bluetooth</string>
+    <string name="bt_remote_too_old">Die Bluetooth-Fernbedienung benötigt Android 9 oder neuer.</string>
+    <string name="bt_remote_no_bluetooth">Dieses Handy hat kein Bluetooth.</string>
+    <string name="bt_remote_need_permission">CastApp braucht die Berechtigung „Geräte in der Nähe“, um als Bluetooth-Fernbedienung zu funktionieren. Du kannst sie in den Handyeinstellungen unter Apps → CastApp → Berechtigungen erteilen.</string>
+    <string name="bt_remote_need_bluetooth">Schalte Bluetooth ein, um das Handy als Fernbedienung zu verwenden.</string>
+    <string name="bt_remote_unsupported">Das Bluetooth dieses Handys kann nicht als Fernbedienung oder Tastatur dienen (das HID-Device-Profil wird nicht unterstützt). Probiere stattdessen die Netzwerk- oder die Infrarot-Fernbedienung.</string>
+    <string name="bt_remote_busy">Die Bluetooth-Fernbedienung konnte nicht gestartet werden. Möglicherweise nutzt eine andere App das Handy als Bluetooth-Tastatur oder -Maus. Schließe sie und versuche es noch einmal.</string>
+    <string name="bt_remote_starting">Bluetooth-Fernbedienung wird gestartet …</string>
+    <string name="bt_remote_reconnecting">Verbindung mit %1$s wird hergestellt …</string>
+    <string name="bt_remote_connected">Mit %1$s verbunden</string>
+    <string name="bt_remote_make_visible">Erlaube, dass das Handy sichtbar ist, damit der Fernseher es finden kann.</string>
+    <string name="bt_remote_not_visible">Das Handy muss kurz sichtbar sein, damit der Fernseher es finden kann. Versuche es noch einmal und tippe auf „Zulassen“.</string>
+    <string name="bt_remote_pair_steps">Füge am Fernseher ein Bluetooth-Gerät hinzu, wähle „%1$s“ und akzeptiere dann die Kopplungsanfrage auf dem Handy.\n• Fire TV: Einstellungen → Controller &amp; Bluetooth-Geräte → Andere Bluetooth-Geräte\n• Shield, Android TV, Google TV: Einstellungen → Fernbedienungen &amp; Zubehör → Zubehör hinzufügen (oder Fernbedienung oder Zubehör koppeln)\nWenn das Handy nicht auftaucht, koppele den Fernseher in den Bluetooth-Einstellungen des Handys und öffne die Fernbedienung erneut.</string>
+    <string name="bt_remote_timeout">Der Fernseher hat sich nicht rechtzeitig verbunden. Öffne die Bluetooth-Einstellungen am Fernseher und versuche es noch einmal.</string>
+    <string name="bt_remote_lost">Die Bluetooth-Verbindung zum Fernseher wurde unterbrochen. Öffne die Fernbedienung erneut, um die Verbindung wiederherzustellen.</string>
+    <string name="bt_remote_this_phone">dieses Handy</string>
+    <string name="bt_remote_the_tv">dem Fernseher</string>
+
+    <!-- Infrared remotes -->
+    <string name="ir_remote_label">Infrarot</string>
+    <string name="ir_remote_tv">%1$s-Fernseher</string>
+    <string name="ir_remote_tv_older">%1$s-Fernseher (ältere Modelle)</string>
+    <string name="ir_remote_aim">Richte die Oberseite des Handys auf den Fernseher.</string>
+    <string name="ir_remote_no_emitter">Dieses Handy hat keinen Infrarotsender.</string>
+    <string name="ir_remote_failed">Das Infrarotsignal konnte nicht gesendet werden.</string>
+</resources>
