@@ -139,7 +139,7 @@ class CastService : Service() {
             null
         }
         if (projection == null) {
-            CastController.message("Screen capture permission was not granted")
+            CastController.message(getString(R.string.svc_no_projection))
             stopIfIdle()
             return
         }
@@ -195,7 +195,7 @@ class CastService : Service() {
         if (on) {
             if (orientationLock != null) return
             if (!Settings.canDrawOverlays(this)) {
-                CastController.message("Allow CastApp to \"display over other apps\" to turn apps sideways")
+                CastController.message(getString(R.string.svc_overlay_landscape))
                 return
             }
             orientationLock = OrientationLock(this).also { it.show() }
@@ -213,7 +213,7 @@ class CastService : Service() {
         if (on && state.canDarkScreen) {
             if (overlay != null) return
             if (!Settings.canDrawOverlays(this)) {
-                CastController.message("Allow CastApp to \"display over other apps\" to use Dark screen")
+                CastController.message(getString(R.string.svc_overlay_dark))
                 return
             }
             val o = DarkScreenOverlay(this, object : DarkScreenOverlay.Callbacks {
@@ -243,7 +243,7 @@ class CastService : Service() {
             ServiceCompat.startForeground(this, NOTIFICATION_ID, buildNotification(placeholder), type)
             true
         } catch (e: Exception) {
-            CastController.message("Android did not allow casting to start")
+            CastController.message(getString(R.string.svc_not_allowed))
             stopIfIdle()
             false
         }
@@ -312,9 +312,9 @@ class CastService : Service() {
 
         val text = buildString {
             append(state.phase.label)
-            if (state.compatibilityMode) append(" · compatibility mode")
-            if (state.lowLatencyPlayer) append(" · low-latency player")
-            state.volume?.let { append(" · volume ").append((it * 100).toInt()).append('%') }
+            if (state.compatibilityMode) append(getString(R.string.svc_compat_mode))
+            if (state.lowLatencyPlayer) append(getString(R.string.svc_lowlat_player))
+            state.volume?.let { append(getString(R.string.svc_volume, (it * 100).toInt())) }
         }
         val builder = NotificationCompat.Builder(this, CHANNEL_ID)
             .setSmallIcon(R.drawable.ic_cast_connected)
@@ -357,8 +357,8 @@ class CastService : Service() {
             append(
                 when {
                     state.phase != CastPhase.LIVE -> state.phase.label
-                    state.paused -> "Paused on ${state.device.name}"
-                    else -> "Playing on ${state.device.name}"
+                    state.paused -> getString(R.string.svc_paused_on, state.device.name)
+                    else -> getString(R.string.svc_playing_on, state.device.name)
                 },
             )
             if (state.queueSize > 1) append(" · ${state.queueIndex + 1}/${state.queueSize}")
@@ -367,7 +367,7 @@ class CastService : Service() {
         file.mediaSession?.sessionToken?.let { style.setMediaSession(it) }
         val builder = (if (Build.VERSION.SDK_INT >= 26) Notification.Builder(this, CHANNEL_ID) else @Suppress("DEPRECATION") Notification.Builder(this))
             .setSmallIcon(R.drawable.ic_cast_connected)
-            .setContentTitle(state.title ?: "Video")
+            .setContentTitle(state.title ?: getString(R.string.svc_video))
             .setContentText(status)
             .setContentIntent(openAppIntent())
             .setOngoing(true)

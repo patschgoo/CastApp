@@ -86,7 +86,7 @@ internal fun RecordingsScreen(onBack: () -> Unit) {
             TopAppBar(
                 title = { Text(stringResource(R.string.iptvx_recordings_title)) },
                 navigationIcon = {
-                    IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Rounded.ArrowBack, contentDescription = stringResource(R.string.iptvx_back)) }
+                    IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Rounded.ArrowBack, contentDescription = stringResource(R.string.back)) }
                 },
                 actions = {
                     IconButton(onClick = { showSettings = true }) { Icon(Icons.Rounded.Settings, contentDescription = stringResource(R.string.iptvx_recording_settings)) }

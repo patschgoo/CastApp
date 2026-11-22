@@ -1,5 +1,7 @@
 package io.github.patschgoo.castapp.iptv
 
+import io.github.patschgoo.castapp.Txt
+import io.github.patschgoo.castapp.R
 import java.io.IOException
 import java.io.Reader
 import java.io.StringReader
@@ -175,7 +177,7 @@ object XtreamJson {
 
     /** `get_series_info`: episodes either as `{"1": [..], "2": [..]}` (by season) or as a list of lists. */
     fun seriesInfo(text: String): SeriesInfo {
-        val root = MiniJson.parse(StringReader(text)) as? Map<*, *> ?: throw IOException("Unexpected answer for the series")
+        val root = MiniJson.parse(StringReader(text)) as? Map<*, *> ?: throw IOException(Txt.s(R.string.err_series_answer))
         val info = root["info"] as? Map<*, *>
         val episodes = ArrayList<Episode>()
         fun addSeason(seasonKey: Int?, list: Any?) {
@@ -187,7 +189,7 @@ object XtreamJson {
                 val number = o.str("episode_num")?.toIntOrNull() ?: (episodes.count { it.season == season } + 1)
                 episodes += Episode(
                     id = id,
-                    title = o.str("title")?.takeIf { it.isNotBlank() } ?: "Episode $number",
+                    title = o.str("title")?.takeIf { it.isNotBlank() } ?: Txt.sOr(R.string.xtream_episode, "Episode %d", number),
                     season = season,
                     number = number,
                     extension = o.str("container_extension") ?: "mp4",

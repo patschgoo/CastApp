@@ -1,5 +1,7 @@
 package io.github.patschgoo.castapp.opensubtitles
 
+import io.github.patschgoo.castapp.Txt
+import io.github.patschgoo.castapp.R
 import org.json.JSONArray
 import org.json.JSONObject
 import java.io.IOException
@@ -54,7 +56,7 @@ class OpenSubtitlesClient(
     fun login(username: String, password: String): Login {
         val body = JSONObject().put("username", username).put("password", password)
         val json = request("POST", "$baseUrl/login", body = body, isLogin = true)
-        val token = json.optString("token").ifEmpty { throw Failure(Problem.LOGIN, "OpenSubtitles didn't log you in") }
+        val token = json.optString("token").ifEmpty { throw Failure(Problem.LOGIN, Txt.sOr(R.string.os_err_login_failed, "OpenSubtitles didn't log you in")) }
         val host = json.optString("base_url")
         val newBase = when {
             host.isEmpty() -> baseUrl
@@ -98,7 +100,7 @@ class OpenSubtitlesClient(
             }
             byName.forEach { found.putIfAbsent(it.fileId, it) }
         }
-        if (found.isEmpty()) throw Failure(Problem.NOTHING_FOUND, "No subtitles found for this video")
+        if (found.isEmpty()) throw Failure(Problem.NOTHING_FOUND, Txt.sOr(R.string.os_err_nothing_found, "No subtitles found for this video"))
         return found.values.sortedWith(compareByDescending<Result> { it.hashMatch }.thenByDescending { it.downloads })
     }
 
@@ -106,7 +108,7 @@ class OpenSubtitlesClient(
     fun requestDownload(fileId: Long, token: String?): DownloadLink {
         val body = JSONObject().put("file_id", fileId).put("sub_format", "srt")
         val json = request("POST", "$baseUrl/download", body = body, token = token, isDownload = true)
-        val link = json.optString("link").ifEmpty { throw Failure(Problem.SERVER, json.optString("message").ifEmpty { "OpenSubtitles gave no download" }) }
+        val link = json.optString("link").ifEmpty { throw Failure(Problem.SERVER, json.optString("message").ifEmpty { Txt.sOr(R.string.os_err_no_download, "OpenSubtitles gave no download") }) }
         return DownloadLink(
             url = link,
             fileName = json.optString("file_name"),
@@ -123,7 +125,7 @@ class OpenSubtitlesClient(
             conn.readTimeout = timeoutMs
             conn.instanceFollowRedirects = true
             conn.setRequestProperty("User-Agent", userAgent)
-            if (conn.responseCode !in 200..299) throw Failure(Problem.SERVER, "The subtitle download failed (${conn.responseCode})")
+            if (conn.responseCode !in 200..299) throw Failure(Problem.SERVER, Txt.sOr(R.string.os_err_download_failed, "The subtitle download failed (%d)", conn.responseCode))
             conn.inputStream.use { readLimited(it, maxBytes) }
         } finally {
             conn.disconnect()
@@ -177,13 +179,13 @@ class OpenSubtitlesClient(
         }.trim()
         return when {
             isDownload && (code == 406 || (json.has("remaining") && json.optInt("remaining", 0) < 0)) ->
-                Failure(Problem.LIMIT, "Daily download limit reached. " + serverMessage.ifEmpty { "Try again tomorrow." })
-            code == 401 && isLogin -> Failure(Problem.LOGIN, "Wrong OpenSubtitles username or password")
-            code == 401 -> Failure(Problem.LOGIN, "OpenSubtitles wants you to log in again. Check the username and password in Settings → Subtitles.")
-            code == 403 -> Failure(Problem.BAD_KEY, "OpenSubtitles didn't accept the API key. Check it in Settings → Subtitles.")
-            code == 429 -> Failure(Problem.BUSY, "OpenSubtitles is busy. Try again in a moment.")
-            code == 404 -> Failure(Problem.NOTHING_FOUND, "No subtitles found for this video")
-            else -> Failure(Problem.SERVER, "OpenSubtitles answered with an error ($code)" + if (serverMessage.isNotEmpty()) ": $serverMessage" else "")
+                Failure(Problem.LIMIT, Txt.sOr(R.string.os_err_limit, "Daily download limit reached. %s", serverMessage.ifEmpty { Txt.sOr(R.string.os_err_limit_tomorrow, "Try again tomorrow.") }))
+            code == 401 && isLogin -> Failure(Problem.LOGIN, Txt.sOr(R.string.os_err_wrong_login, "Wrong OpenSubtitles username or password"))
+            code == 401 -> Failure(Problem.LOGIN, Txt.sOr(R.string.os_err_relogin, "OpenSubtitles wants you to log in again. Check the username and password in Settings → Subtitles."))
+            code == 403 -> Failure(Problem.BAD_KEY, Txt.sOr(R.string.os_err_bad_key, "OpenSubtitles didn't accept the API key. Check it in Settings → Subtitles."))
+            code == 429 -> Failure(Problem.BUSY, Txt.sOr(R.string.os_err_busy, "OpenSubtitles is busy. Try again in a moment."))
+            code == 404 -> Failure(Problem.NOTHING_FOUND, Txt.sOr(R.string.os_err_nothing_found, "No subtitles found for this video"))
+            else -> Failure(Problem.SERVER, Txt.sOr(R.string.os_err_server, "OpenSubtitles answered with an error (%d)", code) + if (serverMessage.isNotEmpty()) ": $serverMessage" else "")
         }
     }
 
@@ -203,8 +205,8 @@ class OpenSubtitlesClient(
 
     companion object {
         const val DEFAULT_BASE_URL = "https://api.opensubtitles.com/api/v1"
-        const val NO_KEY_MESSAGE = "Enter your OpenSubtitles API key in Settings → Subtitles first"
-        const val OFFLINE_MESSAGE = "Couldn't reach OpenSubtitles.com. Check the internet connection."
+        val NO_KEY_MESSAGE: String get() = Txt.sOr(R.string.os_err_no_key, "Enter your OpenSubtitles API key in Settings → Subtitles first")
+        val OFFLINE_MESSAGE: String get() = Txt.sOr(R.string.os_err_offline, "Couldn't reach OpenSubtitles.com. Check the internet connection.")
 
         /** "en, DE ,pt" → ["de", "en", "pt-br", "pt-pt"]: lower case, sorted, in the codes the API knows. */
         fun normalizeLanguages(languages: List<String>): List<String> = languages
@@ -249,7 +251,7 @@ class OpenSubtitlesClient(
                 val n = input.read(buf)
                 if (n < 0) break
                 out.write(buf, 0, n)
-                if (out.size() > max) throw Failure(Problem.SERVER, "The answer from OpenSubtitles was too big")
+                if (out.size() > max) throw Failure(Problem.SERVER, Txt.sOr(R.string.os_err_too_big, "The answer from OpenSubtitles was too big"))
             }
             return out.toByteArray()
         }

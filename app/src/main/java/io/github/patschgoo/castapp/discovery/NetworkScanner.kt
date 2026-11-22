@@ -1,5 +1,7 @@
 package io.github.patschgoo.castapp.discovery
 
+import io.github.patschgoo.castapp.Txt
+import io.github.patschgoo.castapp.R
 import android.annotation.SuppressLint
 import io.github.patschgoo.castapp.cast.CastClient
 import kotlinx.coroutines.Dispatchers
@@ -130,7 +132,7 @@ object NetworkScanner {
             return@withContext device.copy(host = ip, port = if (info.port > 0) info.port else port)
         }
         eurekaInfo(ip)?.let { return@withContext it.copy(port = port) }
-        if (castHandshake(ip, port)) CastDevice(id = "host:$ip", name = "Cast device $ip", host = ip, port = port) else null
+        if (castHandshake(ip, port)) CastDevice(id = "host:$ip", name = Txt.s(R.string.dev_cast_device_ip, ip), host = ip, port = port) else null
     }
 
     /** Sends a DNS-SD query straight to the device's mDNS port (no multicast needed). */

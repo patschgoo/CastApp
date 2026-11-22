@@ -1,0 +1,89 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Remote control screen -->
+    <string name="remote_title">Fernbedienung</string>
+    <string name="remote_pick_tv">Fernseher auswählen</string>
+    <string name="remote_switch">Fernseher wechseln</string>
+    <string name="remote_list_hint">Dein Handy und der Fernseher müssen im selben WLAN sein.</string>
+    <string name="remote_searching">Suche nach Fernsehern …</string>
+    <string name="remote_none_found">Noch nichts gefunden</string>
+    <string name="remote_connecting">Verbindung mit %1$s wird hergestellt …</string>
+    <string name="remote_lost">Die Verbindung zu %1$s wurde unterbrochen.</string>
+    <string name="remote_reconnect">Neu verbinden</string>
+    <string name="remote_not_found">%1$s wurde gerade nicht gefunden. Ist das Gerät eingeschaltet?</string>
+    <string name="remote_cant_reach">%1$s ist nicht erreichbar. Ist das Gerät eingeschaltet und im selben WLAN?</string>
+    <string name="remote_failed">Die Verbindung mit %1$s ist fehlgeschlagen.</string>
+    <string name="remote_code_label">Code</string>
+    <string name="remote_ok">OK</string>
+
+    <!-- Typing on the TV -->
+    <string name="remote_type_title">Am Fernseher tippen</string>
+    <string name="remote_type_hint">Öffne zuerst eine Suche oder ein Textfeld auf dem Fernseher.</string>
+    <string name="remote_type_label">Text</string>
+    <string name="remote_send">Senden</string>
+
+    <!-- Voice search -->
+    <string name="remote_voice">Sprachsuche</string>
+    <string name="remote_voice_starting">Der Fernseher wird auf das Zuhören vorbereitet …</string>
+    <string name="remote_voice_listening">Ich höre zu … sag, wonach gesucht werden soll.</string>
+    <string name="remote_voice_hint">Lass das Mikrofon los oder tippe auf „Fertig“, wenn du fertig bist.</string>
+    <string name="remote_voice_done">Fertig</string>
+    <string name="remote_voice_unsupported">%1$s unterstützt keine Sprachsuche vom Handy aus. Nutze stattdessen die Tastaturschaltfläche.</string>
+    <string name="remote_voice_permission">Für die Sprachsuche wird das Mikrofon benötigt. Erlaube es für CastApp und versuche es dann noch einmal.</string>
+    <string name="remote_voice_open_settings">Einstellungen öffnen</string>
+    <string name="remote_voice_mic_failed">Das Mikrofon kann gerade nicht verwendet werden. Möglicherweise nutzt es eine andere App.</string>
+    <string name="remote_voice_lost">Sprachsuche beendet: Die Verbindung zu %1$s wurde unterbrochen.</string>
+
+    <!-- Android TV / Google TV -->
+    <string name="remote_atv_preparing">Wird vorbereitet (nur beim ersten Mal) …</string>
+    <string name="remote_atv_pairing">Kopplung mit %1$s …</string>
+    <string name="remote_atv_pair_title">Mit %1$s koppeln</string>
+    <string name="remote_atv_pair_text">Gib den Code ein, der auf dem Fernseher angezeigt wird.</string>
+    <string name="remote_atv_pair_wrong">Der Code stimmt nicht überein. Prüfe den Code auf dem Fernseher und gib ihn noch einmal ein.</string>
+    <string name="remote_atv_rejected">Der Fernseher hat den Code nicht akzeptiert. Versuche es noch einmal.</string>
+    <string name="remote_atv_cancelled">Die Kopplung wurde abgebrochen.</string>
+    <string name="remote_atv_pair_failed">Die Kopplung mit %1$s ist fehlgeschlagen. Schalte den Fernseher ein und versuche es noch einmal.</string>
+
+    <!-- Samsung, LG -->
+    <string name="remote_allow_on_tv">Wähle auf dem Fernseher „Zulassen“.</string>
+    <string name="remote_accept_on_tv">Wähle auf dem Fernseher „Akzeptieren“.</string>
+    <string name="remote_samsung_denied">%1$s hat die Fernbedienung nicht zugelassen. Öffne am Fernseher Einstellungen → Allgemein → Externer Geräte-Manager → Geräteverbindungs-Manager → Geräteliste, erlaube CastApp und versuche es dann noch einmal.</string>
+    <string name="remote_lg_denied">%1$s hat die Fernbedienung nicht akzeptiert. Versuche es noch einmal und wähle auf dem Fernseher „Akzeptieren“.</string>
+    <string name="remote_no_answer">Der Fernseher hat nicht geantwortet. Versuche es noch einmal und bestätige am Fernseher.</string>
+
+    <!-- Roku -->
+    <string name="remote_roku_blocked">%1$s blockiert die Steuerung per Handy. Auf dem Roku: Einstellungen → System → Erweiterte Systemeinstellungen → Steuerung durch mobile Apps: einschalten.</string>
+
+    <!-- Buttons -->
+    <string name="remote_key_power">Ein/Aus</string>
+    <string name="remote_key_up">Hoch</string>
+    <string name="remote_key_down">Runter</string>
+    <string name="remote_key_left">Links</string>
+    <string name="remote_key_right">Rechts</string>
+    <string name="remote_key_ok">OK</string>
+    <string name="remote_key_back">Zurück</string>
+    <string name="remote_key_home">Start</string>
+    <string name="remote_key_menu">Menü</string>
+    <string name="remote_key_volume_up">Lauter</string>
+    <string name="remote_key_volume_down">Leiser</string>
+    <string name="remote_key_mute">Stummschalten</string>
+    <string name="remote_key_channel_up">Sender hoch</string>
+    <string name="remote_key_channel_down">Sender runter</string>
+    <string name="remote_key_play_pause">Wiedergabe oder Pause</string>
+    <string name="remote_key_stop">Stopp</string>
+    <string name="remote_key_rewind">Zurückspulen</string>
+    <string name="remote_key_fast_forward">Vorspulen</string>
+    <string name="remote_key_previous">Zurück</string>
+    <string name="remote_key_next">Weiter</string>
+    <string name="remote_key_input">Eingang</string>
+    <string name="remote_key_info">Info</string>
+    <string name="remote_key_guide">Programm</string>
+    <string name="remote_key_settings">Einstellungen</string>
+    <string name="remote_numbers">Zahlen</string>
+    <string name="remote_keyboard">Tastatur</string>
+    <string name="remote_vol">VOL</string>
+    <string name="remote_ch">PROG</string>
+    <string name="remote_open">Fernbedienung</string>
+    <string name="remote_open_short">Fernbedienung</string>
+    <string name="remote_open_hint">Steuere den Fernseher mit diesem Handy: über WLAN, Bluetooth oder Infrarot</string>
+</resources>

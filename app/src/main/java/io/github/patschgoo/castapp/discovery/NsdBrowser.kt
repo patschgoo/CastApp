@@ -1,5 +1,7 @@
 package io.github.patschgoo.castapp.discovery
 
+import io.github.patschgoo.castapp.Txt
+import io.github.patschgoo.castapp.R
 import android.content.Context
 import android.net.nsd.NsdManager
 import android.net.nsd.NsdServiceInfo
@@ -111,6 +113,6 @@ class NsdBrowser(context: Context, private val onDevice: (CastDevice) -> Unit) {
             for ((k, v) in info.attributes) txt[k.lowercase()] = v?.toString(Charsets.UTF_8) ?: ""
         } catch (_: Exception) {
         }
-        MdnsCastInfo(info.serviceName ?: "Cast device", host, info.port, txt).toDevice()?.let(onDevice)
+        MdnsCastInfo(info.serviceName ?: Txt.s(R.string.dev_cast_device), host, info.port, txt).toDevice()?.let(onDevice)
     }
 }
