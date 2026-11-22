@@ -1,13 +1,13 @@
 # CastApp
 
-Mirror your Android phone's screen, or a single app, to a **Chromecast**, **NVIDIA Shield**, **Google TV** or any other TV with Google Cast built in.
+Android app that mirrors your phone's screen, a single app, or plays a video/music file on a **Chromecast**, **NVIDIA Shield**, **Google TV** or any other TV with Google Cast built in.
 
 No ads, no tracking, no account. CastApp doesn't need Google Play Services or the phone's built-in Cast menu. It talks to the TV directly over your Wi-Fi.
 
 <p>
   <img src="docs/devices_idle.png" width="260" alt="Device list">
-  <img src="docs/devices_casting.png" width="260" alt="Casting">
-  <img src="docs/settings.png" width="260" alt="Settings">
+  <img src="docs/light_file_cast.png" width="260" alt="Playing a video file on the TV">
+  <img src="docs/dark_app_cast.png" width="260" alt="Casting a single app, dark theme, with Dark screen">
 </p>
 
 ## Why it finds TVs the built-in Cast menu misses
@@ -27,6 +27,8 @@ Any TV you've cast to once is **remembered** and reached by its IP address, so i
 - **Cast a single app.**
   - Android 14 and newer: Android's own picker lets you choose one app, and only that app is shown on the TV.
   - Android 13 and older: pick an app in CastApp. The screen is mirrored and that app opens right away.
+- **Cast a video or music file** with the phone's screen off. The TV plays the file itself, so you can lock the phone. Play, pause and seek from the app, the lock screen or the notification; the phone's volume buttons change the TV volume. Start it from a TV's menu in the app, or from any gallery/files app via **Share → Cast to TV**.
+- **Dark screen** (Android 14+, single-app casting): turns the phone black at minimum brightness while the shared app keeps playing on the TV. Tap once for controls, double-tap to wake.
 - **Sound on the TV** (Android 10+): captures what other apps play. The microphone is never used.
 - **Low latency.** The live stream reaches the TV with well under a second of buffering. If a TV can't play that format, CastApp switches to a compatible HLS stream automatically.
 - **Quick access:**
@@ -34,7 +36,8 @@ Any TV you've cast to once is **remembered** and reached by its IP address, so i
   - **Launcher shortcuts**: long-press the app icon for "Mirror screen to *your TV*".
   - **Notification** with Volume −, Volume + and Stop while casting.
 - **TV volume and mute** from the app or the notification.
-- **Simple settings:** quality (540p / 720p / 1080p), 30 or 60 fps, bitrate, audio on/off, stream mode and port.
+- **Simple settings:** quality (540p / 720p / 1080p), 30 or 60 fps, bitrate, audio on/off, stream mode, port and theme.
+- **Light and dark mode.** Follows the system setting by default and uses your wallpaper colors (Material You) on Android 12+. You can force Light or Dark in Settings.
 
 ## Install
 
@@ -61,6 +64,16 @@ You need JDK 17+ and the Android SDK with platform `android-37.1`. Opening the p
 
 To add the tile, pull down Quick Settings, tap the pencil (edit) icon and drag **Cast screen** into your tiles.
 
+## Casting with the phone's screen off
+
+| What you cast | Screen off / locked? |
+|---|---|
+| **A video or music file** (Cast a video or music file, or Share → Cast to TV) | **Yes.** The TV streams the file from the phone; the phone only serves it. Lock it, pocket it. |
+| **A single app** (Android 14+) | **Use Dark screen.** The display stays technically on but black at minimum brightness, so the app keeps playing. The dark overlay isn't part of the shared app, so the TV doesn't see it. |
+| **The entire screen** | **No.** If the screen is off there is nothing to mirror, and Android pauses most apps and shows the lock screen. |
+
+Don't press the power button while mirroring: that really turns the screen off and locks the phone, and Android stops the app you're casting. Dark screen needs the "Display over other apps" permission once; Android asks for it the first time you use it.
+
 ## How it works
 
 ```
@@ -76,11 +89,13 @@ To add the tile, pull down Quick Settings, tap the pencil (edit) icon and drag *
 - **Cast protocol.** CastApp speaks Cast v2 itself (`cast/CastClient.kt`): length-prefixed protobuf messages over TLS on port 8009. It starts Google's **Default Media Receiver** on the TV, which every Cast device has, and asks it to play a URL served by the phone.
 - **Stream.** The screen is encoded to H.264 with the phone's hardware encoder and sent as a live fragmented-MP4 stream (`stream/`). Each fragment holds one frame, which keeps latency low. If the TV falls behind, buffered frames are dropped so the delay doesn't keep growing. The **Compatible** mode serves the same data as 1-second HLS segments.
 - **Picture shape.** The stream is always 16:9, like a TV. A portrait phone shows up centred with bars, and rotating the phone never interrupts the stream.
+- **Files.** When you cast a file, the phone runs a small web server that hands the file to the TV with byte-range support, so the TV can seek and read the file's index. The phone doesn't convert anything.
 - **Privacy.** Stream URLs contain a random token, so other devices on your network can't watch your screen. The server only runs while you're casting.
 
 ## Limitations
 
 - **Protected video shows black.** Netflix, Disney+, Prime Video and similar apps block screen capture, and so do banking apps. That's an Android rule. Use those apps' own Cast button instead.
+- **File formats.** For files, the TV's own decoder decides what plays. MP4 (H.264/AAC) and WebM play everywhere. HEVC/H.265 (many recent phone cameras) and 4K need a newer device such as Chromecast with Google TV or a Shield. If a file won't play, mirror the gallery app instead.
 - **Some apps block audio capture.** Many streaming apps opt out of audio capture. Their picture is still cast.
 - **Delay.** Low latency mode is fine for presentations, photos, browsing and video. Fast games will still feel a bit of lag. Compatible (HLS) mode adds a few seconds of delay.
 - **Phone sound.** The phone keeps playing sound while casting audio. You can turn the phone's volume down. On many phones that doesn't change the sound on the TV, but on some it does.
@@ -88,6 +103,7 @@ To add the tile, pull down Quick Settings, tap the pencil (edit) icon and drag *
   - the Cast handshake with real devices
   - the MediaProjection permission flow on each Android version
   - how each phone's hardware encoder behaves
+  - Dark screen and lock-screen media controls on real phones
 
 ## Troubleshooting
 
@@ -105,12 +121,12 @@ To add the tile, pull down Quick Settings, tap the pencil (edit) icon and drag *
 app/src/main/java/io/github/patschgoo/castapp/
 ├── cast/          Cast v2 protocol (protobuf framing, TLS client)
 ├── discovery/     NSD, raw mDNS, network scan, remembered devices
-├── stream/        fragmented MP4 muxer, live HTTP server, HLS segmenter
+├── stream/        fragmented MP4 muxer, live HTTP server, HLS segmenter, file server
 ├── capture/       screen (H.264) and audio (AAC) encoders
-├── service/       foreground service and casting session logic
+├── service/       foreground service, screen and file sessions, dark screen overlay
 ├── tile/          Quick Settings tile
 ├── ui/            Jetpack Compose screens
-├── MainActivity.kt, ProjectionActivity.kt, Shortcuts.kt
+├── MainActivity.kt, ProjectionActivity.kt, CastFileActivity.kt, Shortcuts.kt
 ```
 
 ## Signing key

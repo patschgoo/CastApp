@@ -43,11 +43,13 @@ import java.util.concurrent.atomic.AtomicBoolean
  */
 class CastSession(
     private val context: Context,
-    val device: CastDevice,
+    override val device: CastDevice,
     private val projection: MediaProjection,
     private val settings: CastSettings,
-    private val onEnded: (CastSession) -> Unit,
-) {
+    /** The user shared a single app (Android 14+), so the phone screen may be blacked out. */
+    private val singleApp: Boolean,
+    private val onEnded: (ActiveCast) -> Unit,
+) : ActiveCast {
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
     private val mainHandler = Handler(Looper.getMainLooper())
     private val ended = AtomicBoolean(false)
@@ -80,6 +82,7 @@ class CastSession(
                 phase = CastPhase.CONNECTING,
                 compatibilityMode = settings.streamMode == StreamMode.COMPATIBLE,
                 resolution = settings.resolution.label,
+                canDarkScreen = singleApp && Build.VERSION.SDK_INT >= 34,
             ),
         )
         scope.launch { run() }
@@ -283,7 +286,7 @@ class CastSession(
 
     // ---- user controls ----------------------------------------------------------
 
-    fun changeVolume(delta: Double) {
+    override fun changeVolume(delta: Double) {
         val c = client ?: return
         scope.launch {
             try {
@@ -297,7 +300,7 @@ class CastSession(
         }
     }
 
-    fun toggleMute() {
+    override fun toggleMute() {
         val c = client ?: return
         scope.launch {
             try { c.setMuted(!muted) } catch (_: Exception) {}
@@ -311,7 +314,7 @@ class CastSession(
      * [stopReceiver] closes the player on the TV; it is skipped when a new session is
      * about to take over the same TV.
      */
-    fun finish(message: String?, stopReceiver: Boolean = true) {
+    override fun finish(message: String?, stopReceiver: Boolean) {
         if (!ended.compareAndSet(false, true)) return
         Thread({ teardown(message, stopReceiver) }, "cast-teardown").start()
     }

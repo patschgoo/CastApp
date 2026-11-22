@@ -45,8 +45,9 @@ import io.github.patschgoo.castapp.R
 import io.github.patschgoo.castapp.settings.AppSettings
 import io.github.patschgoo.castapp.settings.Resolution
 import io.github.patschgoo.castapp.settings.StreamMode
+import io.github.patschgoo.castapp.settings.ThemeMode
 
-private enum class SettingDialog { RESOLUTION, FPS, BITRATE, MODE, PORT }
+private enum class SettingDialog { RESOLUTION, FPS, BITRATE, MODE, PORT, THEME }
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -117,6 +118,15 @@ fun SettingsScreen(
             item { SettingItem("Stream mode", s.streamMode.label + " — " + s.streamMode.description) { dialog = SettingDialog.MODE } }
             item { SettingItem("Stream port", "${s.port} (only change if something else uses it)") { dialog = SettingDialog.PORT } }
 
+            item { SectionTitle("Appearance") }
+            item {
+                val summary = when (s.theme) {
+                    ThemeMode.SYSTEM -> "Follows your phone's light/dark setting"
+                    else -> s.theme.label
+                } + if (Build.VERSION.SDK_INT >= 31) " · colors from your wallpaper" else ""
+                SettingItem("Theme", summary) { dialog = SettingDialog.THEME }
+            }
+
             item { SectionTitle("About") }
             item {
                 ListItem(
@@ -162,6 +172,13 @@ fun SettingsScreen(
             descriptions = StreamMode.entries.associateWith { it.description },
             selected = s.streamMode,
             onSelect = { m -> settings.update { it.copy(streamMode = m) } },
+            onDismiss = { dialog = null },
+        )
+        SettingDialog.THEME -> ChoiceDialog(
+            title = "Theme",
+            options = ThemeMode.entries.map { it to it.label },
+            selected = s.theme,
+            onSelect = { t -> settings.update { it.copy(theme = t) } },
             onDismiss = { dialog = null },
         )
         SettingDialog.PORT -> PortDialog(

@@ -15,6 +15,7 @@ class CastApp : Application() {
     override fun onCreate() {
         super.onCreate()
         settings = AppSettings(this)
+        settings.applyTheme()
         devices = DeviceRepository(this)
         CastService.createChannel(this)
     }

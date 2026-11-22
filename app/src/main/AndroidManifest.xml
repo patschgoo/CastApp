@@ -10,6 +10,10 @@
     <!-- Screen capture runs in a foreground service -->
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MEDIA_PROJECTION" />
+    <!-- Casting a file keeps running with the screen off -->
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MEDIA_PLAYBACK" />
+    <!-- "Dark screen" while casting a single app (only requested when you use it) -->
+    <uses-permission android:name="android.permission.SYSTEM_ALERT_WINDOW" />
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
     <uses-permission android:name="android.permission.WAKE_LOCK" />
     <!-- Only used to capture the sound of other apps (Android 10+), never the microphone -->
@@ -59,10 +63,33 @@
             </intent-filter>
         </activity>
 
+        <!-- "Cast to TV" in the share sheet / "Open with" for video and music files -->
+        <activity
+            android:name=".CastFileActivity"
+            android:excludeFromRecents="true"
+            android:exported="true"
+            android:label="@string/share_label"
+            android:taskAffinity=""
+            android:theme="@style/Theme.CastApp.Transparent">
+            <intent-filter>
+                <action android:name="android.intent.action.SEND" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <data android:mimeType="video/*" />
+                <data android:mimeType="audio/*" />
+            </intent-filter>
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <data android:scheme="content" />
+                <data android:mimeType="video/*" />
+                <data android:mimeType="audio/*" />
+            </intent-filter>
+        </activity>
+
         <service
             android:name=".service.CastService"
             android:exported="false"
-            android:foregroundServiceType="mediaProjection" />
+            android:foregroundServiceType="mediaProjection|mediaPlayback" />
 
         <service
             android:name=".tile.CastTileService"

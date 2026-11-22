@@ -35,7 +35,7 @@ class ProjectionActivity : ComponentActivity() {
         val d = device
         val data = result.data
         if (result.resultCode == Activity.RESULT_OK && data != null && d != null) {
-            CastService.start(this, d, result.resultCode, data)
+            CastService.start(this, d, result.resultCode, data, singleApp = mode == MODE_APP && Build.VERSION.SDK_INT >= 34)
             launchPackage?.let { pkg ->
                 packageManager.getLaunchIntentForPackage(pkg)?.let { launch ->
                     try {

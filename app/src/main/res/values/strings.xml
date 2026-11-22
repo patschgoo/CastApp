@@ -28,11 +28,23 @@
     <string name="action_volume_up">Volume up</string>
     <string name="action_volume_down">Volume down</string>
     <string name="action_mute">Mute</string>
+    <string name="action_play">Play</string>
+    <string name="action_pause">Pause</string>
+    <string name="action_rewind">Back 10 s</string>
+    <string name="action_forward">Forward 30 s</string>
+    <string name="action_dark_screen">Dark screen</string>
+    <string name="action_wake_screen">Wake screen</string>
+    <string name="dark_screen_hint">Turns the phone screen black while the app keeps playing on the TV. Double-tap to wake.</string>
+    <string name="dark_screen_overlay_text">Screen is dark — still casting.\nDouble-tap anywhere to wake it.</string>
+    <string name="action_stop_casting">Stop casting</string>
+    <string name="dark_screen_permission">Allow CastApp to display over other apps, then tap Dark screen again.</string>
     <string name="mirror_screen">Mirror entire screen</string>
     <string name="mirror_screen_hint">Everything on your phone shows on the TV</string>
     <string name="cast_app">Cast a single app</string>
     <string name="cast_app_hint_system">Pick the app in the next screen — only that app is shown on the TV</string>
     <string name="cast_app_hint_legacy">Choose an app — your screen is mirrored and the app opens right away</string>
+    <string name="cast_file">Cast a video or music file</string>
+    <string name="cast_file_hint">The TV plays the file itself, so your phone\'s screen can be off</string>
     <string name="forget_tv">Forget this TV</string>
     <string name="pick_a_tv_first">Pick a TV first</string>
     <string name="no_screen_capture">This phone does not support screen casting</string>
@@ -41,6 +53,11 @@
     <string name="pick_app_title">Choose an app</string>
     <string name="pick_app_hint">Your screen will be mirrored to the TV and the app opens. (Android 14+ can show only one app.)</string>
     <string name="search_apps">Search apps</string>
+
+    <!-- Share / open with -->
+    <string name="share_label">Cast to TV</string>
+    <string name="share_title">Cast to TV</string>
+    <string name="share_unsupported">Only video and music files can be cast</string>
 
     <!-- Notification -->
     <string name="channel_casting">Casting</string>
