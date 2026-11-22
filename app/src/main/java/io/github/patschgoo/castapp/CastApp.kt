@@ -20,6 +20,7 @@ class CastApp : Application() {
 
     override fun onCreate() {
         super.onCreate()
+        instance = this
         settings = AppSettings(this)
         settings.applyTheme()
         devices = DeviceRepository(this)
@@ -30,6 +31,10 @@ class CastApp : Application() {
     }
 
     companion object {
+        /** For code without a Context at hand (e.g. asking for an AirPlay code). */
+        lateinit var instance: CastApp
+            private set
+
         fun get(context: Context): CastApp = context.applicationContext as CastApp
     }
 }

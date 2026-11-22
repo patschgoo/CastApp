@@ -6,7 +6,7 @@ import java.io.OutputStream
 import java.net.HttpURLConnection
 import java.net.URI
 import java.net.URL
-import java.util.Base64
+import kotlin.io.encoding.Base64
 
 /**
  * Relays web videos through the phone. Many sites only hand out their videos with
@@ -32,7 +32,7 @@ class WebProxy(private val server: MediaServer, @Volatile var headers: Map<Strin
     /** Path on our server that serves [url] through the proxy. */
     fun pathFor(url: String): String {
         val name = url.substringBefore('?').substringAfterLast('/').let(MediaServer::safeName).take(60)
-        return "/${server.token}/$PREFIX" + ENCODER.encodeToString(url.toByteArray()) + "/" + name
+        return "/${server.token}/$PREFIX" + ENCODER.encode(url.toByteArray()) + "/" + name
     }
 
     private fun handle(request: TokenHttpServer.Request, socket: java.net.Socket, out: OutputStream) {
@@ -110,8 +110,8 @@ class WebProxy(private val server: MediaServer, @Volatile var headers: Map<Strin
 
     companion object {
         const val PREFIX = "p/"
-        private val ENCODER = Base64.getUrlEncoder().withoutPadding()
-        private val DECODER = Base64.getUrlDecoder()
+        private val ENCODER = Base64.UrlSafe.withPadding(Base64.PaddingOption.ABSENT)
+        private val DECODER = Base64.UrlSafe.withPadding(Base64.PaddingOption.ABSENT_OPTIONAL)
     }
 }
 

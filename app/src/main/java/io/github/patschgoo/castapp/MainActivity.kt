@@ -38,6 +38,12 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         enableEdgeToEdge()
         super.onCreate(savedInstanceState)
+        if (io.github.patschgoo.castapp.tv.TvReceiver.isTv(this)) {
+            // On a Fire TV / Android TV this app is the receiver.
+            startActivity(Intent(this, io.github.patschgoo.castapp.tv.TvHomeActivity::class.java))
+            finish()
+            return
+        }
         val app = CastApp.get(this)
         setContent {
             val settings by app.settings.state.collectAsStateWithLifecycle()

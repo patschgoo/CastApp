@@ -3,7 +3,7 @@ package io.github.patschgoo.castapp.network
 import android.security.keystore.KeyGenParameterSpec
 import android.security.keystore.KeyProperties
 import java.security.KeyStore
-import java.util.Base64
+import kotlin.io.encoding.Base64
 import javax.crypto.Cipher
 import javax.crypto.KeyGenerator
 import javax.crypto.SecretKey
@@ -32,13 +32,13 @@ object Secrets {
         val cipher = Cipher.getInstance("AES/GCM/NoPadding")
         cipher.init(Cipher.ENCRYPT_MODE, key())
         val data = cipher.iv + cipher.doFinal(plain.toByteArray())
-        return Base64.getEncoder().encodeToString(data)
+        return Base64.Default.encode(data)
     }
 
     fun decrypt(stored: String): String {
         if (stored.isEmpty()) return ""
         return try {
-            val data = Base64.getDecoder().decode(stored)
+            val data = Base64.Default.decode(stored)
             val cipher = Cipher.getInstance("AES/GCM/NoPadding")
             cipher.init(Cipher.DECRYPT_MODE, key(), GCMParameterSpec(128, data, 0, 12))
             String(cipher.doFinal(data, 12, data.size - 12))

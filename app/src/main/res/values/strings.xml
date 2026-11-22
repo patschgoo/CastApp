@@ -16,7 +16,7 @@
     <string name="tv_channels">TV channels</string>
     <string name="network_cloud">Network &amp; cloud</string>
     <string name="web_video_hint">Open a site in the built-in browser; found videos play on the TV by themselves</string>
-    <string name="mirror_screen_hint_dlna">Experimental on DLNA TVs: works on many, with a few seconds of delay</string>
+    <string name="mirror_screen_hint_dlna">Experimental on this TV: works on many, with a few seconds of delay</string>
     <string name="refresh">Search again</string>
     <string name="settings">Settings</string>
     <string name="back">Back</string>
@@ -105,4 +105,38 @@
     <string name="shortcut_mirror_long">Mirror screen to %1$s</string>
     <string name="shortcut_app_short">Cast an app</string>
     <string name="shortcut_app_long">Cast an app to %1$s</string>
+
+    <!-- TV receiver mode (Fire TV, Android TV, Google TV) -->
+    <string name="tv_title">CastApp TV</string>
+    <string name="tv_ready">Ready to cast</string>
+    <string name="tv_ready_hint">Cast to \"%1$s\" from CastApp on your phone</string>
+    <string name="tv_starting">Starting…</string>
+    <string name="tv_playing">Playing from your phone</string>
+    <string name="tv_name_label">This TV shows up as</string>
+    <string name="tv_address">Address: %1$s</string>
+    <string name="tv_rename">Rename</string>
+    <string name="tv_boot_on">Start with the TV: on</string>
+    <string name="tv_boot_off">Start with the TV: off</string>
+    <string name="tv_how_title">How to cast to this TV</string>
+    <string name="tv_step1">1. Put your phone on the same Wi-Fi as this TV.</string>
+    <string name="tv_step2">2. Open CastApp on the phone and pick \"%1$s\" (marked CastApp TV).</string>
+    <string name="tv_step3">3. Mirror the screen with low delay, or play videos, music, photos, TV channels, network files and web videos.</string>
+    <string name="tv_other_apps">Other DLNA apps (BubbleUPnP, Web Video Caster, a NAS app…) can cast to this TV as well.</string>
+    <string name="tv_background_title">Start playing while another app is open</string>
+    <string name="tv_background_text">On this Android version the TV only lets CastApp open the player by itself if it may display over other apps. Without it, keep CastApp open on the TV while casting.</string>
+    <string name="tv_background_allow">Allow</string>
+    <string name="tv_background_unavailable">This TV has no setting for that. Keep CastApp open while casting.</string>
+    <string name="tv_incoming">Cast from your phone: %1$s</string>
+    <string name="tv_incoming_hint">Select to watch</string>
+    <string name="tv_now_playing_audio">♪  %1$s</string>
+    <string name="tv_cant_play">Can\'t play this (%1$s)</string>
+    <string name="tv_cant_show_photo">Can\'t show this photo</string>
+    <string name="tv_channel_receiver">Receiver</string>
+    <string name="tv_channel_play">Incoming casts</string>
+
+    <!-- AirPlay pairing -->
+    <string name="pin_title">Code on the TV</string>
+    <string name="pin_text">%1$s shows a code. Type it in to let this phone cast to it. This is only needed once.</string>
+    <string name="pin_label">Code</string>
+    <string name="pin_pair">Pair</string>
 </resources>

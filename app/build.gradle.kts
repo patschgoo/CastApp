@@ -13,10 +13,10 @@ android {
 
     defaultConfig {
         applicationId = "io.github.patschgoo.castapp"
-        minSdk = 26
+        minSdk = 25
         targetSdk = 36
-        versionCode = 4
-        versionName = "3.0.0"
+        versionCode = 5
+        versionName = "3.1.0"
 
         // Phones only; keeps the speech-recognition library small.
         ndk { abiFilters += listOf("arm64-v8a", "armeabi-v7a") }
@@ -86,10 +86,17 @@ dependencies {
     implementation(libs.kotlinx.coroutines.android)
     // Windows / Samba network shares
     implementation(libs.smbj)
+    // Crypto for AirPlay pairing (Ed25519, X25519, ChaCha20-Poly1305); also used by smbj
+    implementation(libs.bouncycastle)
     // Offline speech recognition for generated subtitles
     implementation(libs.vosk.android)
     // The Android flavour of JNA (with its native part), needed by Vosk.
     implementation(libs.jna) { artifact { type = "aar" } }
+    // Player of the TV receiver mode (Fire TV, Android TV)
+    implementation(libs.media3.exoplayer)
+    implementation(libs.media3.exoplayer.hls)
+    implementation(libs.media3.exoplayer.dash)
+    implementation(libs.media3.ui)
     debugImplementation(libs.androidx.compose.ui.tooling)
 
     testImplementation(libs.junit)

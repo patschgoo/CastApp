@@ -60,6 +60,7 @@ class DeviceRepository(context: Context) {
     private var mdns: MdnsBrowser? = null
     private var nsd: NsdBrowser? = null
     private var ssdp: io.github.patschgoo.castapp.dlna.SsdpBrowser? = null
+    private var roku: io.github.patschgoo.castapp.dlna.SsdpBrowser? = null
     private var multicastLock: WifiManager.MulticastLock? = null
     private var autoScanJob: Job? = null
     private var scanJob: Job? = null
@@ -92,6 +93,9 @@ class DeviceRepository(context: Context) {
         ssdp = io.github.patschgoo.castapp.dlna.SsdpBrowser { location, d ->
             io.github.patschgoo.castapp.dlna.SsdpBrowser.rendererDevice(location, d)?.let(onDevice)
         }.also { it.start(ifaces) }
+        roku = io.github.patschgoo.castapp.dlna.SsdpBrowser(io.github.patschgoo.castapp.render.RokuRenderer.SSDP_TARGET) { location, _ ->
+            io.github.patschgoo.castapp.render.RokuRenderer.deviceFrom(location)?.let(onDevice)
+        }.also { it.start(ifaces) }
         checkSavedDevices()
         // If the normal discovery finds nothing quickly, scan the network automatically.
         autoScanJob = scope.launch {
@@ -110,6 +114,7 @@ class DeviceRepository(context: Context) {
         mdns?.stop(); mdns = null
         nsd?.stop(); nsd = null
         ssdp?.stop(); ssdp = null
+        roku?.stop(); roku = null
         try { multicastLock?.release() } catch (_: Exception) {}
         multicastLock = null
     }
@@ -118,6 +123,7 @@ class DeviceRepository(context: Context) {
     fun refresh() {
         mdns?.queryNow()
         ssdp?.searchAgain()
+        roku?.searchAgain()
         checkSavedDevices()
         scanNetwork()
     }
@@ -245,9 +251,15 @@ class DeviceRepository(context: Context) {
         val entries = LinkedHashMap<String, DeviceEntry>()
         for ((id, d) in discovered) entries[id] = DeviceEntry(d, savedCopy.containsKey(id), true)
         for ((id, d) in savedCopy) if (id !in entries) entries[id] = DeviceEntry(d, true, id in reachable)
-        // A TV with Chromecast built in often also answers as DLNA; show it once, as Cast.
-        val castHosts = entries.values.filter { !it.device.isDlna && it.device.video }.map { it.device.host }.toSet()
-        entries.values.removeAll { it.device.isDlna && it.device.host in castHosts }
+        // Many TVs answer in several ways (Chromecast built in, DLNA, AirPlay, Roku); show each once,
+        // the best way first: Cast, DLNA, Roku, AirPlay. CastApp TV receivers are always listed.
+        val rank = mapOf(DeviceKind.CAST to 0, DeviceKind.DLNA to 1, DeviceKind.ROKU to 2, DeviceKind.AIRPLAY to 3)
+        val best = entries.values.filter { it.device.video && !it.device.isCastAppTv }
+            .groupBy { it.device.host }
+            .mapValues { (_, list) -> list.minOf { rank.getValue(it.device.kind) } }
+        entries.values.removeAll { e ->
+            e.device.video && !e.device.isCastAppTv && (best[e.device.host] ?: Int.MAX_VALUE) < rank.getValue(e.device.kind)
+        }
         val lastId = prefs.getString(KEY_LAST, null)
         _devices.value = entries.values.sortedWith(
             compareByDescending<DeviceEntry> { it.online }

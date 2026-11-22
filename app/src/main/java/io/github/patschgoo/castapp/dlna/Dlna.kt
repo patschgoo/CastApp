@@ -91,7 +91,7 @@ object Dlna {
      * DIDL-Lite metadata describing what to play. Samsung TVs pick up SRT
      * subtitles from the sec:CaptionInfoEx element.
      */
-    fun didl(title: String, url: String, mimeType: String, live: Boolean, srtUrl: String? = null): String {
+    fun didl(title: String, url: String, mimeType: String, live: Boolean, srtUrl: String? = null, lowLatency: Boolean = false): String {
         val upnpClass = when {
             mimeType.startsWith("audio/") -> "object.item.audioItem.musicTrack"
             mimeType.startsWith("image/") -> "object.item.imageItem.photo"
@@ -110,9 +110,12 @@ object Dlna {
             append("<res protocolInfo=\"http-get:*:").append(mimeType).append(':').append(features).append("\">")
             append(escape(url)).append("</res>")
             if (srtUrl != null) {
-                append("<res protocolInfo=\"http-get:*:text/srt:*\">").append(escape(srtUrl)).append("</res>")
-                append("<sec:CaptionInfoEx sec:type=\"srt\">").append(escape(srtUrl)).append("</sec:CaptionInfoEx>")
+                val type = if (srtUrl.substringBefore('?').endsWith(".vtt", ignoreCase = true)) "vtt" else "srt"
+                append("<res protocolInfo=\"http-get:*:text/").append(type).append(":*\">").append(escape(srtUrl)).append("</res>")
+                append("<sec:CaptionInfoEx sec:type=\"").append(type).append("\">").append(escape(srtUrl)).append("</sec:CaptionInfoEx>")
             }
+            // CastApp TV receivers play the screen stream with minimal buffering when they see this.
+            if (lowLatency) append("<desc id=\"castapp\" nameSpace=\"urn:castapp\">castapp:lowlatency</desc>")
             append("</item></DIDL-Lite>")
         }
     }
@@ -129,7 +132,7 @@ object Dlna {
 
     fun formatTime(ms: Long): String {
         val total = (ms / 1000).coerceAtLeast(0)
-        return "%02d:%02d:%02d".format(total / 3600, (total % 3600) / 60, total % 60)
+        return "%02d:%02d:%02d".format(java.util.Locale.ROOT, total / 3600, (total % 3600) / 60, total % 60)
     }
 
     /** Value of the first `<name>` element (namespace prefixes are ignored). */

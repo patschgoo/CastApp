@@ -743,7 +743,7 @@ private fun DeviceCard(entry: DeviceEntry, casting: Boolean, onClick: () -> Unit
                     if (casting) add("Casting now")
                     else if (!entry.online) add("Not found right now")
                     else d.status?.let { add(it) }
-                    if (d.isDlna) add("DLNA")
+                    d.kindLabel?.let { add(it) }
                     if (d.group) add("Speaker group")
                     d.model?.let { add(it) }
                     add(d.host)
@@ -837,7 +837,7 @@ private fun DeviceSheet(
                 SheetAction(
                     Icons.AutoMirrored.Rounded.ScreenShare,
                     stringResource(R.string.mirror_screen),
-                    stringResource(if (d.isDlna) R.string.mirror_screen_hint_dlna else R.string.mirror_screen_hint),
+                    stringResource(if (d.slowMirroring) R.string.mirror_screen_hint_dlna else R.string.mirror_screen_hint),
                     onMirror,
                 )
                 SheetAction(
