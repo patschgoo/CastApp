@@ -1,5 +1,6 @@
 package io.github.patschgoo.castapp.service
 
+import io.github.patschgoo.castapp.mediaservers.ServerReporting
 import io.github.patschgoo.castapp.Txt
 import android.content.ContentResolver
 import android.content.Context
@@ -901,6 +902,7 @@ class MediaCastSession(
                     started = true
                     skipped = 0
                     refreshExtras()
+                    reportStarted(item)
                     if (d == Delivery.CONVERT && convertHeight == 0 && (audioChoice[item.uri] ?: 0) == 0) {
                         CastController.message(Txt.s(R.string.msg_converting, item.title))
                     }
@@ -1258,7 +1260,18 @@ class MediaCastSession(
         if (s.kind != CastKind.FILE || s.isPhoto) return
         val item = current
         if (item.live) return
-        history.record(item, s.positionNow(SystemClock.elapsedRealtime()), s.durationMs, force)
+        val position = s.positionNow(SystemClock.elapsedRealtime())
+        history.record(item, position, s.durationMs, force)
+        // Plex / Jellyfin: keep the server's resume position and watched state in step.
+        if (force) ServerReporting.stopped(context, item, position, s.durationMs, finished = false)
+        else ServerReporting.progress(context, item, position, s.durationMs, s.paused)
+    }
+
+    /** The TV started the file: tell the server it is being watched (only for Plex / Jellyfin items). */
+    private fun reportStarted(item: MediaItem) {
+        if (item.serverRef == null || item.live) return
+        val s = CastController.state.value as? CastState.Active
+        ServerReporting.started(context, item, s?.positionNow(SystemClock.elapsedRealtime()) ?: 0, s?.durationMs ?: 0)
     }
 
     private fun control(action: suspend (MediaRenderer) -> Unit) {
@@ -1323,7 +1336,11 @@ class MediaCastSession(
                 else if (started && current.type != MediaType.PHOTO) scope.launch { recoverFromError() }
             }
             PlayState.FINISHED -> if (started && current.type != MediaType.PHOTO && waiter == null) {
-                if (!current.live) history.markFinished(current, (CastController.state.value as? CastState.Active)?.durationMs ?: 0)
+                if (!current.live) {
+                    val duration = (CastController.state.value as? CastState.Active)?.durationMs ?: 0
+                    history.markFinished(current, duration)
+                    ServerReporting.stopped(context, current, duration, duration, finished = true)
+                }
                 val following = queue.nextIndex(auto = true)
                 when {
                     // A TV channel doesn't end: it dropped out, so tune in again.
