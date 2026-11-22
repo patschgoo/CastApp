@@ -197,6 +197,9 @@ fun SettingsScreen(
                 ) { dialog = SettingDialog.RECEIVER }
             }
 
+            item { SectionTitle(stringResource(R.string.automation_section)) }
+            item { io.github.patschgoo.castapp.automation.AutomationSettingsItem() }
+
             item { SectionTitle(stringResource(R.string.set_sec_appearance)) }
             item {
                 val summary = when (s.theme) {

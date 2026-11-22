@@ -136,6 +136,15 @@ dependencies {
     implementation(libs.media3.exoplayer.hls)
     implementation(libs.media3.exoplayer.dash)
     implementation(libs.media3.ui)
+    // Wear OS remote: messages to and from a paired watch (every call is guarded; the app also
+    // runs on phones without Google Play services)
+    implementation(project(":wear-protocol"))
+    implementation(libs.play.services.wearable)
+    // The Data Layer library pulls in an ancient androidx.fragment (1.1.0), which lint rejects
+    // for the Activity Result API used by ProjectionActivity; keep it at a current version.
+    constraints {
+        implementation(libs.androidx.fragment) { because("play-services-base asks for androidx.fragment 1.1.0") }
+    }
     debugImplementation(libs.androidx.compose.ui.tooling)
 
     testImplementation(libs.junit)

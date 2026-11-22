@@ -1,0 +1,26 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Settings: automation API -->
+    <string name="automation_section">Automation</string>
+    <string name="automation_title">Let other apps control CastApp</string>
+    <string name="automation_summary_off">Off. Tasker, MacroDroid, Home Assistant and similar apps cannot start or control casts.</string>
+    <string name="automation_summary_secret">On. Callers must send your secret.</string>
+    <string name="automation_summary_open">On without a secret: every app on this phone can control CastApp. Set a secret below.</string>
+    <string name="automation_secret_title">Secret</string>
+    <string name="automation_secret_not_set">Not set. Tap to choose one.</string>
+    <string name="automation_secret_is_set">Set. Tap to show, change or remove it.</string>
+    <string name="automation_secret_hint">Callers pass it as the extra \"secret\". Leave it empty to accept every caller.</string>
+    <string name="automation_secret_field">Secret</string>
+    <string name="automation_secret_generate">Generate</string>
+    <string name="automation_secret_copy">Copy</string>
+    <string name="automation_secret_copied">Secret copied</string>
+    <string name="automation_secret_remove">Remove</string>
+    <string name="automation_secret_save">Save</string>
+    <string name="automation_docs_hint">Examples for Tasker, MacroDroid, Home Assistant and adb are in AUTOMATION.md in the CastApp repository.</string>
+
+    <!-- Mirroring asked for from the background (another app or a watch) -->
+    <string name="automation_channel">Remote requests</string>
+    <string name="automation_channel_description">Asks for your permission when another app or your watch wants to mirror your screen</string>
+    <string name="automation_prompt_title">Mirror your screen to %1$s?</string>
+    <string name="automation_prompt_text">Tap to confirm screen capture.</string>
+</resources>
