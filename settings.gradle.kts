@@ -22,3 +22,5 @@ dependencyResolutionManagement {
 
 rootProject.name = "CastApp"
 include(":app")
+include(":wear-protocol")
+include(":wear")

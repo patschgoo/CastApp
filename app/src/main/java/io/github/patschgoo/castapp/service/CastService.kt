@@ -61,6 +61,7 @@ class CastService : Service() {
                     getSystemService(NotificationManager::class.java)?.notify(NOTIFICATION_ID, buildNotification(state))
                 }
                 requestTileUpdate()
+                io.github.patschgoo.castapp.wear.WearSync.onState(applicationContext, state)
             }
         }
     }
@@ -76,6 +77,7 @@ class CastService : Service() {
             ACTION_VOLUME_UP -> session?.changeVolume(+VOLUME_STEP)
             ACTION_VOLUME_DOWN -> session?.changeVolume(-VOLUME_STEP)
             ACTION_TOGGLE_MUTE -> session?.toggleMute()
+            ACTION_SET_VOLUME -> setVolume(intent.getDoubleExtra(EXTRA_LEVEL, -1.0))
             ACTION_PLAY_PAUSE -> (session as? MediaCastSession)?.togglePlay()
             ACTION_REWIND -> (session as? MediaCastSession)?.seekBy(-MediaCastSession.REWIND_MS)
             ACTION_FORWARD -> (session as? MediaCastSession)?.seekBy(MediaCastSession.FORWARD_MS)
@@ -97,6 +99,13 @@ class CastService : Service() {
             else -> if (session == null) stopSelfCompletely()
         }
         return START_NOT_STICKY
+    }
+
+    /** Sets the TV volume to [level] (0..1) by changing it by the difference to what the TV reported. */
+    private fun setVolume(level: Double) {
+        if (level !in 0.0..1.0) return
+        val current = (CastController.state.value as? CastState.Active)?.volume?.toDouble() ?: 0.5
+        session?.changeVolume(level - current)
     }
 
     // ---- screen mirroring ----------------------------------------------------------
@@ -285,6 +294,7 @@ class CastService : Service() {
         session = null
         io.github.patschgoo.castapp.support.DoNotDisturb.onMirroringEnded(this)
         requestTileUpdate()
+        io.github.patschgoo.castapp.wear.WearSync.onState(applicationContext, CastState.Idle)
         scope.cancel()
         super.onDestroy()
     }
@@ -406,6 +416,8 @@ class CastService : Service() {
         const val ACTION_VOLUME_UP = "io.github.patschgoo.castapp.action.VOLUME_UP"
         const val ACTION_VOLUME_DOWN = "io.github.patschgoo.castapp.action.VOLUME_DOWN"
         const val ACTION_TOGGLE_MUTE = "io.github.patschgoo.castapp.action.TOGGLE_MUTE"
+        /** Sets the volume to [EXTRA_LEVEL] (a Double, 0..1). Used by the automation API. */
+        const val ACTION_SET_VOLUME = "io.github.patschgoo.castapp.action.SET_VOLUME"
         const val ACTION_PLAY_PAUSE = "io.github.patschgoo.castapp.action.PLAY_PAUSE"
         const val ACTION_REWIND = "io.github.patschgoo.castapp.action.REWIND"
         const val ACTION_FORWARD = "io.github.patschgoo.castapp.action.FORWARD"
@@ -426,7 +438,8 @@ class CastService : Service() {
         private const val EXTRA_AUDIO_ONLY = "audio_only"
         private const val EXTRA_ITEMS = "items"
         private const val EXTRA_ITEMS_KEY = "items_key"
-        private const val EXTRA_QUALITY = "quality"
+        const val EXTRA_QUALITY = "quality"
+        const val EXTRA_LEVEL = "level"
         private const val EXTRA_INDEX = "index"
         private const val EXTRA_POSITION = "position"
         private const val EXTRA_ON = "on"
