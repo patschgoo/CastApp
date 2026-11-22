@@ -1,5 +1,10 @@
 package io.github.patschgoo.castapp.automation
 
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.FlowRow
+import androidx.compose.foundation.selection.toggleable
+import androidx.compose.ui.semantics.Role
+
 import android.content.ClipData
 import android.content.ClipboardManager
 import android.content.Context
@@ -40,7 +45,7 @@ fun AutomationSettingsItem() {
 
     Column {
         ListItem(
-            onClick = { settings.setEnabled(!config.enabled) },
+            modifier = Modifier.toggleable(value = config.enabled, role = Role.Switch) { settings.setEnabled(it) },
             supportingContent = {
                 Text(
                     stringResource(
@@ -52,8 +57,9 @@ fun AutomationSettingsItem() {
                     ),
                 )
             },
-            trailingContent = { Switch(checked = config.enabled, onCheckedChange = { settings.setEnabled(it) }) },
-        ) { Text(stringResource(R.string.automation_title)) }
+            trailingContent = { Switch(checked = config.enabled, onCheckedChange = null) },
+            headlineContent = { Text(stringResource(R.string.automation_title)) },
+        )
 
         if (config.enabled) {
             ListItem(
@@ -81,6 +87,7 @@ fun AutomationSettingsItem() {
     }
 }
 
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
 private fun SecretDialog(initial: String, onGenerate: () -> String, onSave: (String) -> Unit, onDismiss: () -> Unit) {
     val context = LocalContext.current
@@ -99,7 +106,7 @@ private fun SecretDialog(initial: String, onGenerate: () -> String, onSave: (Str
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
                     modifier = Modifier.fillMaxWidth().padding(top = 12.dp),
                 )
-                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                FlowRow(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(4.dp)) {
                     TextButton(onClick = { text = onGenerate() }) { Text(stringResource(R.string.automation_secret_generate)) }
                     TextButton(onClick = { copy(context, text) }, enabled = text.isNotEmpty()) { Text(stringResource(R.string.automation_secret_copy)) }
                     TextButton(onClick = { text = "" }, enabled = text.isNotEmpty()) { Text(stringResource(R.string.automation_secret_remove)) }

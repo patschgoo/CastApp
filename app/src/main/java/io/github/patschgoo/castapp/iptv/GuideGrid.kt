@@ -1,5 +1,15 @@
 package io.github.patschgoo.castapp.iptv
 
+import androidx.compose.material3.LinearProgressIndicator
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.clearAndSetSemantics
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.onClick
+import androidx.compose.ui.semantics.role
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.unit.Dp
+
 import android.text.format.DateUtils
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
@@ -63,9 +73,17 @@ import io.github.patschgoo.castapp.R
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 
-private val CHANNEL_WIDTH = 84.dp
-private val ROW_HEIGHT = 58.dp
-private val HEADER_HEIGHT = 34.dp
+private val CHANNEL_WIDTH_BASE = 84.dp
+private val ROW_HEIGHT_BASE = 58.dp
+private val HEADER_HEIGHT_BASE = 34.dp
+
+// The rows grow with the font size (up to twice as tall), so titles are not cut off with large text.
+private val CHANNEL_WIDTH: Dp @Composable get() = CHANNEL_WIDTH_BASE * gridScale()
+private val ROW_HEIGHT: Dp @Composable get() = ROW_HEIGHT_BASE * gridScale()
+private val HEADER_HEIGHT: Dp @Composable get() = HEADER_HEIGHT_BASE * gridScale()
+
+@Composable
+private fun gridScale(): Float = LocalDensity.current.fontScale.coerceIn(1f, 2f)
 
 /** How far the "earlier / later" buttons scroll. */
 private const val SCROLL_STEP_MS = 2 * GridSpec.HOUR_MS
@@ -161,6 +179,18 @@ internal fun GuideGrid(
             Row(Modifier.fillMaxWidth().height(HEADER_HEIGHT)) {
                 Spacer(Modifier.width(CHANNEL_WIDTH))
                 Box(Modifier.weight(1f).fillMaxHeight().horizontalScroll(scroll)) {
+                    spec.nowX(now)?.let { x ->
+                        Text(
+                            stringResource(R.string.polish_now_marker),
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.onError,
+                            maxLines = 1,
+                            modifier = Modifier.offset(x = x.dp).align(Alignment.BottomStart)
+                                .clip(RoundedCornerShape(topEnd = 4.dp, bottomEnd = 4.dp))
+                                .background(MaterialTheme.colorScheme.error)
+                                .padding(horizontal = 4.dp),
+                        )
+                    }
                     Row {
                         for (i in 0 until spec.slotCount) {
                             val t = spec.slotStart(i)
@@ -239,7 +269,16 @@ private fun GridRow(
     }
     Row(Modifier.fillMaxWidth().height(ROW_HEIGHT)) {
         Column(
-            Modifier.width(CHANNEL_WIDTH).fillMaxHeight().combinedClickable(onClick = onPlay, onLongClick = onMenu).padding(horizontal = 6.dp, vertical = 4.dp),
+            Modifier.width(CHANNEL_WIDTH).fillMaxHeight()
+                .combinedClickable(
+                    onClickLabel = stringResource(R.string.polish_play),
+                    onLongClickLabel = stringResource(R.string.polish_options),
+                    role = Role.Button,
+                    onClick = onPlay,
+                    onLongClick = onMenu,
+                )
+                .semantics(mergeDescendants = true) {}
+                .padding(horizontal = 6.dp, vertical = 4.dp),
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.Center,
         ) {
@@ -277,6 +316,14 @@ private fun ProgrammeCell(cell: GridCell, now: Long, time: (Long) -> String, has
     val live = p.isOn(now)
     val past = p.stop <= now
     val colors = MaterialTheme.colorScheme
+    // TalkBack: "Title, 20:15 – 21:00, On now, Reminder set".
+    val description = listOfNotNull(
+        p.title,
+        time(p.start) + " – " + time(p.stop),
+        if (live) stringResource(R.string.polish_on_now) else null,
+        if (hasReminder) stringResource(R.string.polish_reminder_set) else null,
+        if (recording) stringResource(R.string.polish_recording_planned) else null,
+    ).joinToString(", ")
     Box(
         Modifier
             .offset(x = cell.left.dp)
@@ -285,7 +332,12 @@ private fun ProgrammeCell(cell: GridCell, now: Long, time: (Long) -> String, has
             .padding(vertical = 3.dp)
             .clip(RoundedCornerShape(6.dp))
             .background(if (live) colors.primaryContainer else colors.surfaceContainerHigh)
-            .combinedClickable(onClick = onClick),
+            .combinedClickable(onClick = onClick, role = Role.Button)
+            .clearAndSetSemantics {
+                contentDescription = description
+                role = Role.Button
+                onClick { onClick(); true }
+            },
     ) {
         Column(Modifier.fillMaxSize().padding(horizontal = 6.dp, vertical = 3.dp)) {
             Text(
@@ -309,6 +361,16 @@ private fun ProgrammeCell(cell: GridCell, now: Long, time: (Long) -> String, has
                 if (hasReminder) Icon(Icons.Rounded.Notifications, contentDescription = null, modifier = Modifier.padding(start = 4.dp).size(12.dp), tint = colors.primary)
                 if (recording) Icon(Icons.Rounded.FiberManualRecord, contentDescription = null, modifier = Modifier.padding(start = 4.dp).size(12.dp), tint = colors.error)
             }
+        }
+        if (live) {
+            LinearProgressIndicator(
+                progress = { p.progress(now) },
+                modifier = Modifier.align(Alignment.BottomCenter).fillMaxWidth().height(3.dp),
+                color = colors.onPrimaryContainer,
+                trackColor = Color.Transparent,
+                gapSize = 0.dp,
+                drawStopIndicator = {},
+            )
         }
     }
 }

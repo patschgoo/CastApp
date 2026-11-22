@@ -1,0 +1,57 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Einführung beim ersten Start -->
+    <string name="tour_1_title">Dein Handy auf dem großen Bildschirm</string>
+    <string name="tour_1_text">CastApp bringt deinen Bildschirm, Videos, Musik und Fotos über dein WLAN auf den Fernseher. Ohne Konto, ohne Werbung.</string>
+    <string name="tour_2_title">Fernseher wählen, dann spiegeln oder streamen</string>
+    <string name="tour_2_text">Fernseher in deinem WLAN erscheinen auf dem Startbildschirm. Tippe auf „Streamen“, um deinen Bildschirm zu spiegeln, oder auf den Fernseher selbst für mehr: eine einzelne App, Dateien oder nur den Ton.</string>
+    <string name="tour_3_title">Dateien, Web, TV-Sender und Netzwerk</string>
+    <string name="tour_3_text">Streame Dateien von deinem Handy oder aus einer Cloud-App, Videos von Websites, TV-Sender mit Programmübersicht und Medien von Plex, Jellyfin, einem NAS oder einem PC.</string>
+    <string name="tour_4_title">Eine Fernbedienung für deinen Fernseher</string>
+    <string name="tour_4_text">Die Fernbedienung steuert deinen Fernseher über WLAN, Bluetooth oder Infrarot. CastApp funktioniert mit Chromecast, Android TV, Fire TV, DLNA- und AirPlay-Fernsehern. Installiere CastApp TV auf einem Android TV oder Fire TV für die geringste Verzögerung und mehr Funktionen.</string>
+    <string name="tour_skip">Überspringen</string>
+    <string name="tour_next">Weiter</string>
+    <string name="tour_done">Los geht’s</string>
+    <string name="tour_page">Seite %1$d von %2$d</string>
+    <string name="tour_show_again">Einführung zeigen</string>
+    <string name="tour_show_again_summary">Eine kurze Vorstellung, was CastApp kann</string>
+
+    <!-- Suche in den Einstellungen -->
+    <string name="polish_search_settings">Einstellungen durchsuchen</string>
+    <string name="polish_search_clear">Suche löschen</string>
+    <string name="polish_search_none">Keine Einstellung gefunden. Versuch es mit einem anderen Wort.</string>
+    <plurals name="polish_search_count">
+        <item quantity="one">%1$d Einstellung gefunden</item>
+        <item quantity="other">%1$d Einstellungen gefunden</item>
+    </plurals>
+    <string name="polish_search_quality">Auflösung des Bildes auf dem Fernseher, von 480p bis 4K</string>
+    <string name="polish_search_theme">Hell, dunkel oder wie das System</string>
+
+    <!-- Bestätigungen -->
+    <string name="polish_reset_title">Einstellungen zurücksetzen?</string>
+    <string name="polish_reset_text">Bild-, Ton- und Verbindungseinstellungen werden auf die Standardwerte zurückgesetzt. Dein Design, deine Fernseher, Sender und Konten bleiben erhalten.</string>
+    <string name="polish_info">Info</string>
+    <string name="polish_position">Wiedergabeposition</string>
+    <string name="polish_position_value">%1$s von %2$s</string>
+    <string name="polish_on">An</string>
+    <string name="polish_off">Aus</string>
+    <string name="polish_sound_on">Ton an</string>
+    <string name="polish_forget_title">%1$s vergessen?</string>
+    <string name="polish_forget_text">CastApp entfernt diesen Fernseher aus deinen gespeicherten Fernsehern. Er erscheint wieder, sobald er in deinem WLAN gefunden wird.</string>
+    <string name="polish_forget">Vergessen</string>
+    <string name="polish_remove_title">%1$s entfernen?</string>
+    <string name="polish_remove_folder_text">Der Ordner wird aus CastApp entfernt. Auf der Freigabe oder dem Server wird nichts gelöscht.</string>
+    <string name="polish_listening">Hört zu</string>
+    <string name="polish_play">Abspielen</string>
+    <string name="polish_options">Optionen</string>
+    <string name="polish_schedule">Programm anzeigen</string>
+    <string name="polish_on_now">Läuft gerade</string>
+    <string name="polish_now_marker">Jetzt</string>
+    <string name="polish_reminder_set">Erinnerung gesetzt</string>
+    <string name="polish_recording_planned">Aufnahme</string>
+    <string name="polish_change">Ändern</string>
+    <string name="polish_watched_percent">%1$d %% gesehen</string>
+    <string name="polish_sign_out_title">Von %1$s abmelden?</string>
+    <string name="polish_sign_out_text">CastApp vergisst dieses Konto auf diesem Handy. Du kannst dich jederzeit wieder anmelden.</string>
+    <string name="polish_remove_list_text">Die Senderliste wird aus CastApp entfernt. Du kannst sie jederzeit wieder hinzufügen; deine Aufnahmen bleiben erhalten.</string>
+</resources>

@@ -1,5 +1,7 @@
 package io.github.patschgoo.castapp.tv
 
+import androidx.compose.foundation.shape.RoundedCornerShape
+import io.github.patschgoo.castapp.ui.focusRing
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -85,7 +87,7 @@ fun ReceiverProtectionCard() {
                 Text(guard.code, style = MaterialTheme.typography.displaySmall)
             }
             Spacer(Modifier.height(16.dp))
-            Button(onClick = { open = true }) { Text(stringResource(R.string.protect_change)) }
+            Button(onClick = { open = true }, modifier = Modifier.focusRing()) { Text(stringResource(R.string.protect_change)) }
         }
     }
     if (open) ReceiverProtectionDialog { open = false }
@@ -104,7 +106,7 @@ fun ReceiverProtectionDialog(onDismiss: () -> Unit) {
             Column(Modifier.verticalScroll(rememberScrollState())) {
                 for (m in ProtectionMode.entries) {
                     Row(
-                        Modifier.fillMaxWidth().selectable(selected = mode == m, role = Role.RadioButton, onClick = { guard.setMode(m) }).padding(vertical = 8.dp),
+                        Modifier.fillMaxWidth().focusRing(RoundedCornerShape(8.dp)).selectable(selected = mode == m, role = Role.RadioButton, onClick = { guard.setMode(m) }).padding(vertical = 8.dp),
                         verticalAlignment = Alignment.CenterVertically,
                         horizontalArrangement = Arrangement.spacedBy(8.dp),
                     ) {
@@ -122,7 +124,7 @@ fun ReceiverProtectionDialog(onDismiss: () -> Unit) {
                             Text(stringResource(R.string.protect_code_label), style = MaterialTheme.typography.labelLarge)
                             Text(data.code ?: guard.code, style = MaterialTheme.typography.headlineMedium, color = MaterialTheme.colorScheme.primary)
                         }
-                        OutlinedButton(onClick = { guard.newCode() }) { Text(stringResource(R.string.protect_new_code)) }
+                        OutlinedButton(onClick = { guard.newCode() }, modifier = Modifier.focusRing()) { Text(stringResource(R.string.protect_new_code)) }
                     }
                 }
                 Spacer(Modifier.height(12.dp))
@@ -139,11 +141,11 @@ fun ReceiverProtectionDialog(onDismiss: () -> Unit) {
                     KnownRow(b.name, stringResource(R.string.protect_kind_blocked, b.address)) { guard.forgetBlocked(b.key) }
                 }
                 if (!none) {
-                    TextButton(onClick = { guard.forgetAll() }) { Text(stringResource(R.string.protect_forget_all)) }
+                    TextButton(onClick = { guard.forgetAll() }, modifier = Modifier.focusRing()) { Text(stringResource(R.string.protect_forget_all)) }
                 }
             }
         },
-        confirmButton = { TextButton(onClick = onDismiss) { Text(stringResource(R.string.protect_done)) } },
+        confirmButton = { TextButton(onClick = onDismiss, modifier = Modifier.focusRing()) { Text(stringResource(R.string.protect_done)) } },
     )
 }
 
@@ -154,6 +156,6 @@ private fun KnownRow(name: String, detail: String, onForget: () -> Unit) {
             Text(name, style = MaterialTheme.typography.bodyLarge)
             Text(detail, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
         }
-        TextButton(onClick = onForget) { Text(stringResource(R.string.protect_forget)) }
+        TextButton(onClick = onForget, modifier = Modifier.focusRing()) { Text(stringResource(R.string.protect_forget)) }
     }
 }

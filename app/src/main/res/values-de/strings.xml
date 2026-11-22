@@ -98,7 +98,7 @@
     <string name="notification_title_sound">Ton wird an %1$s gestreamt</string>
 
     <!-- Quick Settings tile and shortcuts -->
-    <string name="tile_label">Bildschirm streamen</string>
+    <string name="tile_label">Bildschirm spiegeln</string>
     <string name="tile_label_active">Streamen</string>
     <string name="tile_pick_tv">Tippen, um einen Fernseher zu wählen</string>
     <string name="shortcut_mirror_short">Bildschirm spiegeln</string>
