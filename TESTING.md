@@ -109,7 +109,11 @@ CastApp's AirPlay has only been tested against a reference implementation, so ex
 | Feature | Steps | Expected result | If it fails |
 |---|---|---|---|
 | Windows / Samba share | Add the share in CastApp, browse, play a video | The list loads and the video plays | Debug log + server type (Windows, Synology, ...) and the SMB version if you know it |
-| Media server | Add Plex or Jellyfin, browse, play | Library appears; playback starts; resume position is remembered | Debug log + server and version (no passwords: the log hides them, but check) |
+| Media server (DLNA) | Open Plex/Jellyfin/another server under *Media servers on this Wi-Fi*, browse, play | Library appears; playback starts; resume position is remembered | Debug log + server and version (no passwords: the log hides them, but check) |
+| Jellyfin / Emby sign-in | **Plex & Jellyfin → Jellyfin & Emby**, pick the found server or type its address, sign in | Libraries with posters, Continue watching and Next up appear | Debug log + server version; say if the address was found or typed |
+| Plex sign-in | **Plex & Jellyfin → Plex**, enter the code at plex.tv/link | Your servers appear; the local one opens | Debug log + whether the server is local, remote or relayed |
+| Server playback | Play a movie the TV can play and one it can't (for example MKV/HEVC on an older Chromecast) | First plays directly, second through the server's conversion; server subtitles can be switched on | Debug log + file details (codec, container) + TV |
+| Resume and watched sync | Stop an episode halfway, open the same server in its own app | The server's app shows the same position; finishing marks it watched; the next episodes are queued | Debug log + server version |
 | Cloud folder | Add a cloud folder | Files list and play | Debug log + provider |
 | Away from home | Open a NAS over your VPN or a Tailscale address | Works as at home | Debug log + how you connect |
 | Queue | Pick several files | Play list; reorder, remove, shuffle, repeat work | Debug log |
@@ -124,6 +128,12 @@ CastApp's AirPlay has only been tested against a reference implementation, so ex
 | Radio | Cast a radio station | Plays | Debug log |
 | Guide | Add an XMLTV address | Programme guide shows now and next | Debug log |
 | Catch-up | Try it on a channel whose provider offers it | Plays an earlier programme | Debug log |
+| Guide grid | Open the **Grid** tab, scroll through channels and hours, use **Now** and the day picker | Smooth scrolling; the *now* line is at the right time | Debug log + number of channels |
+| Reminder | Tap a programme starting in 10–15 minutes → **Remind me**; lock the phone | Notification about 5 minutes before; **Watch on …** casts the channel. Also after a reboot | Debug log + Android version; say if battery optimization is on for CastApp |
+| Record now | Long-press a channel → **Record now**, 30 minutes, to the phone | A recording notification; the file appears in **Recordings and reminders** and plays on the TV | Debug log + stream type (HLS or plain) if known |
+| Planned recording | Record a programme from the grid, to a network folder | Starts by itself (or after a tap on the notification on Android 12+), uploads to the folder | Debug log + folder type (SMB/WebDAV) |
+| One-connection warning | Watch a channel on the TV and record another from the same provider | CastApp warns before starting | Debug log |
+| Parental lock | Set a PIN, lock one group and hide another | Locked group asks for the PIN; hidden group is gone from lists, grid and TV queue; open for 15 minutes after the PIN | Debug log |
 
 ## Subtitles
 
@@ -143,8 +153,25 @@ CastApp's AirPlay has only been tested against a reference implementation, so ex
 | Receive on a phone | Turn on **Receive on this phone** on phone B, cast from phone A | Phone A sees phone B; picture and sound appear on B | Debug log from both phones + self-test of B (check "Receiver port") |
 | Protection on a phone | Leave **Ask first** on | B asks before accepting A | Debug log from B |
 | Swap | Mirror phone → CastApp TV, tap **Swap: TV → phone** | The TV mirrors to the phone (confirm on the TV); **Swap back** reverses it | Debug log from both + the TV model |
-| Several screens | Cast to two devices (for example a TV and a speaker) | Both play; each can be stopped separately | Debug log + both devices |
+| Several screens | Cast to one TV, then **Add a screen** (another TV or a speaker) | Both play; each has its own volume and can be removed; the cast ends with the last one | Debug log + both devices |
+| Mirror to several screens | Mirror to a Chromecast, add a DLNA TV or a CastApp TV | Both show the screen; quality changes reach both | Debug log + both devices |
+| Synced playback | Play a video on two CastApp TVs (or a TV and a phone that joined) in hearing distance | No audible echo after a few seconds | Debug log from the phone + both TV models |
+| Join a cast | Phone A casts; open CastApp on phone B | B shows "A is casting … · Join"; after A allows it, B plays the same picture | Debug log from both phones |
+| Hand over (mirroring) | A mirrors to a TV, taps **Hand over…** → B; B accepts | B asks for screen capture, then the TV shows B's screen; A stops | Debug log from both + TV |
+| Hand over (web/NAS/channel) | A plays a web video or channel, hands over to B | B continues at the same position | Debug log from both |
+| Ask to cast | B taps **Ask to cast** while A casts | A sees "B wants to cast"; after **yes**, B takes over | Debug log from both |
+| Plain TVs stay plain | Cast to a Chromecast/DLNA TV without CastApp on any other phone | Everything works exactly as before | Debug log |
 | Widget and tiles | Add the home-screen widget; use the **Cast screen** tile | Quick cast and stop work; long-press opens the app | Debug log |
+
+## Automation and Wear OS
+
+| Feature | Steps | Expected result | If it fails |
+|---|---|---|---|
+| Off by default | `adb shell am broadcast -a io.github.patschgoo.castapp.automation.STOP -n io.github.patschgoo.castapp/.automation.AutomationReceiver` with the switch off | Result code `3` (disabled), nothing happens | Debug log |
+| Tasker / MacroDroid | Turn on **Settings → Automation**, set a secret, use an example from [AUTOMATION.md](AUTOMATION.md) | The command works; a wrong secret gives `4` (unauthorized) | Debug log + the exact action and extras (hide the secret) |
+| Home Assistant | Send `command_activity` with a URL to the companion app | The link plays on the TV | Debug log + Home Assistant app version |
+| Mirror from automation | `MIRROR` while the app is closed | A notification asks to mirror; tapping it opens Android's capture prompt | Debug log + Android version |
+| Wear OS remote | Install `CastApp-wear.apk` on the watch, cast from the phone | The watch shows the title; play/pause, next and volume work; **Mirror to …** shows the prompt on the phone | Debug log + watch model; both apps must be the same build |
 
 ## Updates and install
 

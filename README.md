@@ -4,8 +4,9 @@ Android app that casts to a **Chromecast**, **NVIDIA Shield**, **Google TV**, **
 
 - mirror your screen or a single app, in a quality you can change at any moment
 - play the phone's sound
-- play videos, music and photos from the phone, a NAS, a PC's shared folder, a media server (Plex, Jellyfin…) or a cloud folder
-- play TV channels and radio from IPTV / M3U channel lists
+- play videos, music and photos from the phone, a NAS, a PC's shared folder, a media server or a cloud folder, with **Plex** and **Jellyfin/Emby** built in (sign-in, posters, resume synced with the server)
+- play TV channels and radio from IPTV / M3U channel lists, with a guide grid, reminders, **recordings** and a parental lock
+- cast to **several screens at once**, and let other phones with CastApp **join** your cast or **take it over**
 - play videos it finds on websites
 - write subtitles for videos that have none, on the phone and offline, or find them online
 - work as a **TV remote** (network, Bluetooth or infrared) and **receive** a cast on the phone itself
@@ -13,7 +14,7 @@ Android app that casts to a **Chromecast**, **NVIDIA Shield**, **Google TV**, **
 - resume videos where you stopped, edit the queue, set a sleep timer, pick audio and subtitle tracks
 - send **YouTube links** to the YouTube app on the TV
 
-No ads, no tracking, no account. It doesn't need Google Play Services or the phone's built-in Cast menu; it talks to your devices directly over your Wi-Fi.
+No ads, no tracking, no account. It doesn't need Google Play Services (only the optional Wear OS remote does) or the phone's built-in Cast menu; it talks to your devices directly over your Wi-Fi. TVs and speakers don't need CastApp installed; a TV with CastApp TV gets extras such as lower delay, swap direction and synced playback.
 
 <p>
   <img src="docs/quality_subtitles.png" width="260" alt="Playing a video: quality picker and subtitles being written">
@@ -198,6 +199,24 @@ While you mirror your phone to a CastApp TV, tap **Swap: TV → phone**. The TV 
 | Ask first | You confirm each new sender | Phones |
 | Only paired phones | A phone enters a 4-digit code once | |
 
+## Several screens, joining and handing over
+
+**Several screens at once.** While casting, tap **Add a screen** on the casting card and pick another TV or speaker, of any kind. Each screen gets its own row with status, volume and remove; the cast ends when the last screen goes.
+
+- *Mirroring* keeps one capture and sends each screen the format it can play (low-latency MP4 to CastApp TVs, MP4 or HLS to Google Cast, TS to DLNA TVs, HLS to Apple TV and Roku, sound to speakers). A group always uses H.264, and the automatic quality follows the slowest screen.
+- *Files, network videos and channels* play on every screen; play, pause, seek and skip go to all of them.
+- **Synced playback** (multi-room): CastApp TVs and phones that joined stay within about 0.1 s of each other. Other TVs are best effort, usually within about a second.
+
+**Join a cast.** Phones, tablets and CastApp TVs with CastApp see "*Name* is casting *title*" on the main screen with **Join**: the stream then plays on that device too. The device that casts decides who may join: **Ask first** (default), **Anyone on this Wi-Fi** or **Off**, and sees how many are watching.
+
+**Hand over.** The device that casts can tap **Hand over…** and pick a nearby phone or tablet with CastApp. That one gets "*Name* offers you *TV*. Take over?", and only a **yes** moves the cast:
+
+- *Mirroring*: the new phone asks for its own screen-capture permission and casts to the same screens; the first phone stops once it has taken over.
+- *Web videos, NAS over http, TV channels*: the new phone continues the queue at the same position.
+- *Files only the first phone can read* (its own files, SMB shares): the new phone gets the controls while the first one keeps serving the file.
+
+The other way round, a phone can tap **Ask to cast**; the casting device then sees "*Name* wants to cast. Hand over?". Everything stays on your Wi-Fi.
+
 ## CastApp TV: the receiver for Fire TV and Android TV
 
 The same APK installed on a Fire TV (Fire OS 6 or newer), an Android TV / Google TV box or an Android projector turns it into a receiver. On a TV it opens **CastApp TV** instead of the phone screens:
@@ -257,15 +276,23 @@ An **M3U** (or M3U8) file is a channel list: a name, an optional logo and group,
 
 **Programme guide.** CastApp shows what is on now and next, the day's schedule and a guide view. It reads the guide from the playlist's `url-tvg`, from an Xtream `xmltv.php` or from an address you enter, and refreshes it every 12 hours. Xtream log-ins also get **Movies** and **Series** tabs. Channels whose provider keeps a recording offer **catch-up**; guide times and the provider's time zone can differ, so a catch-up may start a bit off.
 
+**Guide grid, reminders and recordings.** The **Grid** tab shows channels down the side and time across, with a line for *now*, a day picker and jumps of two hours. Tap a programme to watch it, watch it again (catch-up), get a **reminder** five minutes before it starts (with a button that casts the channel to your last TV), or **record** it. Long-press a channel to record now. Recordings go to the phone (the app's folder or the Movies gallery) or to a saved SMB/WebDAV network folder, with a few minutes of padding; **Recordings and reminders** (top bar) lists them to play on the TV, stop or delete. Many providers allow only one stream at a time: CastApp warns you when watching and recording would use the same log-in. On Android 12+ a planned recording may need a tap on its notification to start unless CastApp is excluded from battery optimization.
+
+**Parental lock.** Set a PIN (lock icon in the top bar) and lock or hide groups and single channels. Locked ones ask for the PIN before watching, recording or a reminder; hidden ones disappear from the lists, the grid and the TV queue. After the PIN everything stays open for 15 minutes.
+
 Groups, search and ★ favourites help with long lists. Channels play on the TV by themselves, so the phone can be locked. Radio stations work on speakers too. Channels that need a particular User-Agent or Referer (`#EXTVLCOPT` lines or Kodi-style `|User-Agent=…`) get it. Channels whose address doesn't say what they are are checked first; plain MPEG-TS channels, which Chromecasts can't play directly, are converted on the phone if possible (Convert setting). Only use channel lists you are allowed to watch.
 
 ## Network shares, NAS, media servers and cloud
 
 Tap **Network & cloud** on the main screen.
 
-- **Media servers on this Wi-Fi** are found automatically: Plex, Jellyfin, Emby, Synology/QNAP media servers, Kodi, Windows Media sharing and other DLNA/UPnP servers. Browse their folders and play.
-  - *Plex* (also Plex Media Server on a Shield with your hard drives): turn on **Settings → DLNA → Enable the DLNA server** in Plex.
-  - *Jellyfin* 10.9 and newer: install the **DLNA** plugin.
+- **Plex** and **Jellyfin / Emby**, built in (section *Plex & Jellyfin*):
+  - *Jellyfin / Emby*: servers on your Wi-Fi are found automatically, or type the address. Sign in with your user name and password; only the server's access token is kept, encrypted.
+  - *Plex*: sign in with a code at plex.tv/link (the only time CastApp talks to plex.tv, apart from **Refresh servers**). Local addresses are preferred.
+  - Libraries with posters, **Continue watching** and **Next up**, series, seasons and episodes, music. Videos the TV can play are sent as they are; others are converted by the server. Server subtitles come along, the next episodes are queued, and **resume points and watched marks are reported back to the server**, so other Plex/Jellyfin apps see them.
+- **Media servers on this Wi-Fi (DLNA)** are found automatically too: Plex, Jellyfin, Emby, Synology/QNAP media servers, Kodi, Windows Media sharing and other DLNA/UPnP servers. Browse their folders and play.
+  - *Plex* over DLNA: turn on **Settings → DLNA → Enable the DLNA server** in Plex.
+  - *Jellyfin* 10.9 and newer over DLNA: install the **DLNA** plugin.
 - **Network folders** you add with **+**:
   - **Windows / Samba share** (SMB 2/3): most NAS boxes, a router's USB disk, a PC's shared folder, a Shield's shared drives. Enter the server name or IP, the share name and, unless it allows guests, user name and password. `\\nas\Media` also works as the address.
   - **WebDAV**: Nextcloud and ownCloud (`https://your-server/remote.php/dav/files/USER/`, an app password is best), Synology/QNAP WebDAV, many other NAS and cloud services. You can allow a self-signed certificate for your own NAS.
@@ -282,7 +309,7 @@ Tapping a file plays the whole folder as a play list, starting with that file; *
 - **Safest: a VPN to your home.** With [Tailscale](https://tailscale.com) (free, works with Synology, QNAP, Unraid, Windows) or the WireGuard VPN many routers have built in (FRITZ!Box, UniFi, ASUS…), the phone behaves as if it were at home. Add the share with the NAS's VPN address (for Tailscale, its 100.x.x.x address or name). Your files never become reachable from the internet.
 - **Nextcloud and other WebDAV servers over https** are made for the internet and work directly. CastApp warns you if a WebDAV address uses unencrypted http.
 - **Never open the Windows/Samba port (445) to the internet**: it's one of the most attacked services. Use a VPN for shares.
-- Media servers found automatically (Plex, Jellyfin) only show up on the home network, because discovery doesn't cross the internet. Over a VPN, add the server's shared folder as a network folder instead, or use the server's own app.
+- Media servers found automatically over DLNA only show up on the home network, because discovery doesn't cross the internet. The built-in **Plex** sign-in also lists your server's remote addresses; for **Jellyfin**, type the server's VPN or internet address.
 - Streaming from home is limited by your home internet's upload speed: for full-HD video it should be at least 10 Mbit/s. Choosing a smaller **Quality** while casting helps.
 
 ## Subtitles written by the phone
@@ -383,6 +410,10 @@ In **Settings → Help & support**:
 - **Playback state.** `PlayQueue`, `WatchHistory`, `SleepTimer` and `SubtitleTracks` in `service/` keep the queue, resume points, timer and chosen tracks.
 - **Subtitle sources.** `subtitles/` runs Vosk or Whisper (whisper.cpp through the NDK and CMake); `opensubtitles/` talks to the OpenSubtitles API.
 - **YouTube.** `youtube/` uses YouTube's unofficial lounge protocol to start a video in the TV's YouTube app.
+- **Several screens and peers.** `multi/` adds extra screens to one cast (each pulls the same stream in its own format), announces CastApp devices as `_castapp._tcp` with a small LAN-only HTTP server (`/castapp/session`, `/castapp/time`, `/castapp/timeline`, join, hand-over, control), measures clock offsets with NTP-style round trips and keeps followers in sync by nudging the playback speed.
+- **Plex and Jellyfin.** `mediaservers/` talks to the Jellyfin/Emby REST API and to Plex (plex.tv PIN sign-in, resources, GDM discovery, universal transcoder) and reports progress back (`/Sessions/Playing…`, `/:/timeline`, `/:/scrobble`).
+- **Recordings.** `iptv/StreamRecorder` copies progressive streams and fetches HLS segments in order (TS, fMP4 with its init segment, AES-128) in a foreground service, with retries when the stream drops.
+- **Automation.** `automation/` parses the documented intents; the Wear OS app (`wear/`, `wear-protocol/`) talks to the phone through the Wear Data Layer.
 - **Privacy.** Every URL contains a random token, so other devices on your network can't watch. The servers only run while you're casting.
 
 ## Limitations
@@ -396,6 +427,10 @@ In **Settings → Help & support**:
 - **YouTube links** use an unofficial protocol that YouTube can change at any time.
 - **Remote**: no Apple TV remote, no Samsung 2014–15, no infrared for TCL, Hisense, Sharp and Vizio. The Bluetooth remote needs Android 9+ and a phone that supports it; infrared needs an IR blaster.
 - **Swap** only works with Android TVs running CastApp.
+- **Several screens**: a group always mirrors in H.264 and the quality follows the slowest screen; every screen that needs a converted file gets its own conversion on the phone. Synced playback is only tight between CastApp TVs and joined phones.
+- **Hand-over and join** need CastApp on both devices and a network where mDNS works.
+- **Plex / Jellyfin**: written against the documented APIs and tested against simulated servers only; transcoding parameters may need adjustment on real servers.
+- **Recordings** need the provider's stream to stay reachable; SAMPLE-AES encrypted HLS can't be recorded, and separate audio tracks aren't merged.
 - **Whisper** is slower and uses more battery than Vosk. Picture subtitles (PGS, VobSub) are not supported.
 - **Network folders**: Kerberos-only Windows domains aren't supported (user name and password log-in is).
 - **AirPlay**: no subtitles, photos or formats the Apple TV can't play; mirroring has a few seconds of delay. **Roku**: no seeking.
@@ -423,7 +458,13 @@ In **Settings → Help & support**:
   - Receive on this phone, Swap direction and receiver protection;
   - HEVC mirroring, the phone microphone and YouTube links;
   - Whisper on a phone, OpenSubtitles downloads and the programme guide with real providers;
-  - Wake-on-LAN, the widget and the quick tiles.
+  - Wake-on-LAN, the widget and the quick tiles;
+  - several screens, join, synced playback and hand-over;
+  - Plex and Jellyfin/Emby against real servers;
+  - the guide grid, reminders, recordings and the parental lock;
+  - automation intents and the Wear OS remote.
+
+  [TESTING.md](TESTING.md) is the checklist for trying all of this on real devices.
 
 ## Troubleshooting
 
@@ -469,7 +510,9 @@ app/src/main/java/io/github/patschgoo/castapp/
 ├── capture/       screen and audio encoders, OpenGL scaler, video converter
 ├── service/       foreground service, screen/sound and media sessions, overlays, queue, swap direction
 ├── browser/       video detection for the built-in browser
-├── iptv/          M3U channel lists, favourites
+├── iptv/          M3U channel lists, favourites, guide grid, reminders, recordings, parental lock
+├── mediaservers/  Plex and Jellyfin/Emby: sign-in, browsing, playback, progress reports
+├── multi/         several screens, join a cast, synced playback, hand-over
 ├── network/       SMB shares, WebDAV, saved network folders, encrypted passwords
 ├── subtitles/     speech recognition (Vosk, Whisper), language downloads, subtitle timing
 ├── opensubtitles/ find and download subtitles from OpenSubtitles.com
