@@ -46,6 +46,7 @@ object SettingsSearch {
     const val RECEIVER = "receiver"
     const val AUTOMATION = "automation"
     const val THEME = "theme"
+    const val RECENT = "recent_videos"
     const val SEND_LOG = "send_log"
     const val NETWORK_CHECK = "network_check"
     const val SELF_TEST = "self_test"
@@ -82,6 +83,7 @@ object SettingsSearch {
         SearchableSetting(AUTOMATION, R.string.automation_section, R.string.automation_title, R.string.automation_summary_off),
         SearchableSetting(AUTOMATION, R.string.automation_section, R.string.automation_secret_title),
         SearchableSetting(THEME, R.string.set_sec_appearance, R.string.set_theme, R.string.polish_search_theme),
+        SearchableSetting(RECENT, R.string.set_sec_appearance, R.string.set_recent_title, R.string.set_recent_summary),
         SearchableSetting(SEND_LOG, R.string.support_section, R.string.send_log_title, R.string.send_log_summary),
         SearchableSetting(NETWORK_CHECK, R.string.support_section, R.string.network_check_title, R.string.network_check_summary),
         SearchableSetting(SELF_TEST, R.string.support_section, R.string.selftest_title, R.string.selftest_summary),

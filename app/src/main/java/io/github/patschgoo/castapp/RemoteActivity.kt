@@ -579,6 +579,41 @@ private fun RemoteControls(state: RemoteUiState, target: RemoteTarget, vm: Remot
 }
 
 /**
+ * The remote in small, for the main screen's player sheet: status line, volume and channel
+ * rockers around the D-pad, and Back / Home / Menu / Mute. Everything else is in the full remote.
+ */
+@Composable
+internal fun CompactRemote(state: RemoteUiState, target: RemoteTarget, press: (RemoteKey) -> Unit, onRetry: () -> Unit) {
+    val keys = target.keys
+    val enabled = state.session != null
+    Column(Modifier.fillMaxWidth(), horizontalAlignment = Alignment.CenterHorizontally) {
+        StatusLine(state, onRetry)
+        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+            Rocker(
+                RemoteKey.VOLUME_UP, RemoteKey.VOLUME_DOWN, stringResource(R.string.remote_vol),
+                stringResource(R.string.remote_key_volume_up), stringResource(R.string.remote_key_volume_down), keys, enabled, press,
+            )
+            Box(Modifier.weight(1f)) { DPad(keys, enabled, press, maxSize = 176.dp) }
+            Rocker(
+                RemoteKey.CHANNEL_UP, RemoteKey.CHANNEL_DOWN, stringResource(R.string.remote_ch),
+                stringResource(R.string.remote_key_channel_up), stringResource(R.string.remote_key_channel_down), keys, enabled, press,
+            )
+        }
+        Spacer(Modifier.height(12.dp))
+        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceEvenly) {
+            OptionalKey(RemoteKey.BACK, Icons.AutoMirrored.Rounded.ArrowBack, R.string.remote_key_back, keys, enabled, press)
+            OptionalKey(RemoteKey.HOME, Icons.Rounded.Home, R.string.remote_key_home, keys, enabled, press)
+            OptionalKey(RemoteKey.MENU, Icons.Rounded.Menu, R.string.remote_key_menu, keys, enabled, press)
+            OptionalKey(RemoteKey.MUTE, Icons.AutoMirrored.Rounded.VolumeOff, R.string.remote_key_mute, keys, enabled, press)
+        }
+    }
+}
+
+/** The "type the code your TV shows" dialog, for screens outside the remote that connect one. */
+@Composable
+internal fun RemoteCodeDialog(request: CodeRequest, onAnswer: (String?) -> Unit) = CodeDialog(request, onAnswer)
+
+/**
  * The mic: tap to start and tap again (or Done) to stop, or hold while talking and let go.
  */
 @Composable

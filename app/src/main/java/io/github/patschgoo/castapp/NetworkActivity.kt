@@ -125,7 +125,7 @@ class NetworkActivity : ComponentActivity() {
         setContent {
             val settings by app.settings.state.collectAsStateWithLifecycle()
             CastAppTheme(settings.theme) {
-                NetworkScreen(app.network, onBack = { finish() })
+                NetworkScreen(app.network, onBack = { finish() }, startServers = intent?.getStringExtra(EXTRA_SERVERS)?.takeIf { name -> io.github.patschgoo.castapp.mediaservers.ServerKind.entries.any { it.name == name } })
             }
         }
     }
@@ -142,6 +142,14 @@ class NetworkActivity : ComponentActivity() {
         app.devices.stopDiscovery()
         app.network.stopServerDiscovery()
         super.onStop()
+    }
+
+    companion object {
+        private const val EXTRA_SERVERS = "servers"
+
+        /** Opens Plex or Jellyfin / Emby directly (the tiles on the main screen); Back leaves again. */
+        fun serversIntent(context: android.content.Context, kind: io.github.patschgoo.castapp.mediaservers.ServerKind): Intent =
+            Intent(context, NetworkActivity::class.java).putExtra(EXTRA_SERVERS, kind.name)
     }
 }
 
@@ -167,7 +175,7 @@ private class Row(
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-internal fun NetworkScreen(network: NetworkSources, onBack: () -> Unit) {
+internal fun NetworkScreen(network: NetworkSources, onBack: () -> Unit, startServers: String? = null) {
     val context = LocalContext.current
     val launcher = rememberCastLauncher()
     val stack = remember { mutableStateListOf<Place>() }
@@ -194,10 +202,12 @@ internal fun NetworkScreen(network: NetworkSources, onBack: () -> Unit) {
     var folderItems by remember { mutableStateOf<List<MediaItem>>(emptyList()) }
 
     // Plex / Jellyfin / Emby: their own screens (sign-in, libraries, Continue watching, playing).
-    var serverKind by rememberSaveable { mutableStateOf<String?>(null) }
+    var serverKind by rememberSaveable { mutableStateOf(startServers) }
     serverKind?.let { name ->
         io.github.patschgoo.castapp.mediaservers.MediaServersHost(
-            io.github.patschgoo.castapp.mediaservers.ServerKind.valueOf(name), launcher, onBack = { serverKind = null },
+            io.github.patschgoo.castapp.mediaservers.ServerKind.valueOf(name), launcher,
+            // Opened straight from the main screen's tile: Back goes back there, not to the network list.
+            onBack = { if (startServers != null) onBack() else serverKind = null },
         )
         CastLauncherSheet(launcher)
         return

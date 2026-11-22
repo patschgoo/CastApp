@@ -1,0 +1,53 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- The main screen: "Cast to", the big buttons, the source tiles, the cast bar. -->
+    <string name="home_title">What to watch</string>
+    <string name="home_cast_to">Cast to</string>
+    <string name="home_pick_tv">Pick a TV</string>
+    <string name="home_status_searching">Searching…</string>
+    <string name="home_status_ready">Ready</string>
+    <string name="home_status_casting">Casting</string>
+    <string name="home_status_missing">Not found</string>
+
+    <string name="home_mirror">Mirror screen</string>
+    <string name="home_one_app">One app</string>
+    <string name="home_phone_sound">Phone sound</string>
+    <string name="home_music_files">Music files</string>
+    <string name="home_stop_mirroring">Stop mirroring</string>
+    <string name="home_stop_sound">Stop sound</string>
+
+    <string name="home_tile_videos">Phone videos</string>
+    <string name="home_tile_videos_hint">Camera, downloads</string>
+    <string name="home_tile_photos">Photos</string>
+    <string name="home_tile_photos_hint">Albums, slideshow</string>
+    <string name="home_tile_music">Music</string>
+    <string name="home_tile_music_hint">Files on the phone</string>
+    <string name="home_tile_plex" translatable="false">Plex</string>
+    <string name="home_tile_plex_hint">Your Plex server</string>
+    <string name="home_tile_jellyfin" translatable="false">Jellyfin</string>
+    <string name="home_tile_jellyfin_hint">Jellyfin or Emby</string>
+    <string name="home_tile_network_hint">Shares, NAS, cloud files</string>
+    <string name="home_tile_channels_hint">IPTV, recordings</string>
+    <string name="home_tile_web_hint">Built-in browser</string>
+
+    <string name="home_bar_open">Open player and remote</string>
+    <string name="home_selected">Selected</string>
+    <string name="home_more_for">More for %1$s</string>
+
+    <string name="home_remote_full">All buttons</string>
+    <string name="home_remote_use">Use this phone as the remote</string>
+    <string name="home_remote_other">%1$s has no remote over Wi-Fi. Under All buttons you can pick a Bluetooth or infrared remote.</string>
+    <string name="home_remote_retry">Try again</string>
+
+    <!-- "Recent on this phone": the newest videos, behind Android's permission for them. -->
+    <string name="home_recent_title">Recent on this phone</string>
+    <string name="home_recent_all">See all</string>
+    <string name="home_recent_play">Play on the TV</string>
+    <string name="home_recent_ask_title">Your newest videos, one tap away</string>
+    <string name="home_recent_ask_text">Allow CastApp to see the videos on this phone and they show up here. The list stays on the phone.</string>
+    <string name="home_recent_allow">Show videos</string>
+    <string name="home_recent_hide">Not now</string>
+    <string name="home_recent_hidden">Turned off. You can turn it on again in Settings under Appearance.</string>
+    <string name="set_recent_title">Recent videos on the main screen</string>
+    <string name="set_recent_summary">Shows the newest videos on this phone, to cast them with one tap</string>
+</resources>

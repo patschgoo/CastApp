@@ -1,0 +1,49 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="home_title">Was schauen?</string>
+    <string name="home_cast_to">Streamen an</string>
+    <string name="home_pick_tv">Fernseher auswählen</string>
+    <string name="home_status_searching">Suche …</string>
+    <string name="home_status_ready">Bereit</string>
+    <string name="home_status_casting">Streamt</string>
+    <string name="home_status_missing">Nicht gefunden</string>
+
+    <string name="home_mirror">Bildschirm spiegeln</string>
+    <string name="home_one_app">Eine App</string>
+    <string name="home_phone_sound">Handy-Ton</string>
+    <string name="home_music_files">Musikdateien</string>
+    <string name="home_stop_mirroring">Spiegeln beenden</string>
+    <string name="home_stop_sound">Ton beenden</string>
+
+    <string name="home_tile_videos">Handy-Videos</string>
+    <string name="home_tile_videos_hint">Kamera, Downloads</string>
+    <string name="home_tile_photos">Fotos</string>
+    <string name="home_tile_photos_hint">Alben, Diashow</string>
+    <string name="home_tile_music">Musik</string>
+    <string name="home_tile_music_hint">Dateien auf dem Handy</string>
+    <string name="home_tile_plex_hint">Dein Plex-Server</string>
+    <string name="home_tile_jellyfin_hint">Jellyfin oder Emby</string>
+    <string name="home_tile_network_hint">Freigaben, NAS, Cloud</string>
+    <string name="home_tile_channels_hint">IPTV, Aufnahmen</string>
+    <string name="home_tile_web_hint">Eingebauter Browser</string>
+
+    <string name="home_bar_open">Player und Fernbedienung öffnen</string>
+    <string name="home_selected">Ausgewählt</string>
+    <string name="home_more_for">Mehr zu %1$s</string>
+
+    <string name="home_remote_full">Alle Tasten</string>
+    <string name="home_remote_use">Dieses Handy als Fernbedienung nutzen</string>
+    <string name="home_remote_other">%1$s hat keine Fernbedienung über WLAN. Unter „Alle Tasten“ kannst du eine Bluetooth- oder Infrarot-Fernbedienung auswählen.</string>
+    <string name="home_remote_retry">Erneut versuchen</string>
+
+    <string name="home_recent_title">Neu auf diesem Handy</string>
+    <string name="home_recent_all">Alle ansehen</string>
+    <string name="home_recent_play">Auf dem Fernseher abspielen</string>
+    <string name="home_recent_ask_title">Deine neuesten Videos, nur einen Tipp entfernt</string>
+    <string name="home_recent_ask_text">Erlaube CastApp, die Videos auf diesem Handy zu sehen, dann erscheinen sie hier. Die Liste bleibt auf dem Handy.</string>
+    <string name="home_recent_allow">Videos anzeigen</string>
+    <string name="home_recent_hide">Nicht jetzt</string>
+    <string name="home_recent_hidden">Ausgeschaltet. Unter Einstellungen → Darstellung kannst du es wieder einschalten.</string>
+    <string name="set_recent_title">Neue Videos auf dem Startbildschirm</string>
+    <string name="set_recent_summary">Zeigt die neuesten Videos auf diesem Handy, zum Streamen mit einem Tipp</string>
+</resources>

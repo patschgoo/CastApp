@@ -312,8 +312,16 @@ fun SettingsScreen(
                     val summary = when (s.theme) {
                         ThemeMode.SYSTEM -> stringResource(R.string.set_theme_system)
                         else -> s.theme.label
-                    } + if (Build.VERSION.SDK_INT >= 31) stringResource(R.string.set_theme_wallpaper) else ""
+                    }
                     SettingItem(stringResource(R.string.set_theme), summary) { dialog = SettingDialog.THEME }
+                }
+                anchor(SettingsSearch.RECENT) {
+                    SwitchItem(
+                        title = stringResource(R.string.set_recent_title),
+                        summary = stringResource(R.string.set_recent_summary),
+                        checked = s.recentVideos,
+                        onChange = { c -> settings.update { it.copy(recentVideos = c) } },
+                    )
                 }
 
                 SupportSettingsSection(anchor = anchor, onShowTour = onShowTour)
