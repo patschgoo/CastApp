@@ -1,0 +1,31 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Bluetooth and infrared remotes -->
+<resources>
+    <!-- Bluetooth remote -->
+    <string name="bt_remote_name">This phone as a Bluetooth remote</string>
+    <string name="bt_remote_label">Bluetooth</string>
+    <string name="bt_remote_too_old">The Bluetooth remote needs Android 9 or newer.</string>
+    <string name="bt_remote_no_bluetooth">This phone has no Bluetooth.</string>
+    <string name="bt_remote_need_permission">CastApp needs the “Nearby devices” permission to work as a Bluetooth remote. You can allow it in the phone\'s settings under Apps → CastApp → Permissions.</string>
+    <string name="bt_remote_need_bluetooth">Turn on Bluetooth to use the phone as a remote.</string>
+    <string name="bt_remote_unsupported">This phone\'s Bluetooth can\'t act as a remote or keyboard (it doesn\'t support the HID Device profile). Try the network or infrared remote instead.</string>
+    <string name="bt_remote_busy">Couldn\'t start the Bluetooth remote. Another app may be using the phone as a Bluetooth keyboard or mouse. Close it and try again.</string>
+    <string name="bt_remote_starting">Starting the Bluetooth remote…</string>
+    <string name="bt_remote_reconnecting">Connecting to %1$s…</string>
+    <string name="bt_remote_connected">Connected to %1$s</string>
+    <string name="bt_remote_make_visible">Allow the phone to be visible so the TV can find it.</string>
+    <string name="bt_remote_not_visible">The phone has to be visible for a moment so the TV can find it. Try again and tap Allow.</string>
+    <string name="bt_remote_pair_steps">On the TV, add a Bluetooth device and pick “%1$s”, then accept the pairing request on the phone.\n• Fire TV: Settings → Controllers &amp; Bluetooth Devices → Other Bluetooth Devices\n• Shield, Android TV, Google TV: Settings → Remotes &amp; Accessories → Add accessory (or Pair remote or accessory)\nIf the phone doesn\'t show up, pair the TV from the phone\'s Bluetooth settings and open the remote again.</string>
+    <string name="bt_remote_timeout">The TV didn\'t connect in time. Open the Bluetooth settings on the TV and try again.</string>
+    <string name="bt_remote_lost">Lost the Bluetooth connection to the TV. Open the remote again to reconnect.</string>
+    <string name="bt_remote_this_phone">this phone</string>
+    <string name="bt_remote_the_tv">the TV</string>
+
+    <!-- Infrared remotes -->
+    <string name="ir_remote_label">Infrared</string>
+    <string name="ir_remote_tv">%1$s TV</string>
+    <string name="ir_remote_tv_older">%1$s TV (older models)</string>
+    <string name="ir_remote_aim">Point the top of the phone at the TV.</string>
+    <string name="ir_remote_no_emitter">This phone has no infrared emitter.</string>
+    <string name="ir_remote_failed">Couldn\'t send the infrared signal.</string>
+</resources>
