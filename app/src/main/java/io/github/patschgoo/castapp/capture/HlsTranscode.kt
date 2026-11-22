@@ -27,7 +27,7 @@ fun startHlsTranscode(
     val store = conversion.store
     val pump = Thread({
         try {
-            val init = transcoder.hub.awaitInitSegment(30_000)
+            val init = transcoder.hub.awaitInitSegment(30_000, failed = { transcoder.error != null })
             if (init == null) {
                 store.finish(error = true)
                 return@Thread
