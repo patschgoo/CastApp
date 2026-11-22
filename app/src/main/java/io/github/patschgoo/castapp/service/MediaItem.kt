@@ -120,6 +120,8 @@ data class MediaItem(
          * Loads a photo, turns it upright and shrinks it to TV size as JPEG. Phone photos
          * are often 50+ megapixels or HEIC, which Cast devices can't show.
          */
+        // android.media.ExifInterface is fine here: it's only used on Android 8.x (26-27), which supports streams.
+        @android.annotation.SuppressLint("ExifInterface")
         fun loadPhotoForTv(resolver: ContentResolver, uri: Uri, maxW: Int = 1920, maxH: Int = 1080): ByteArray? {
             val bitmap: Bitmap = if (Build.VERSION.SDK_INT >= 28) {
                 val src = ImageDecoder.createSource(resolver, uri)

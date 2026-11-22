@@ -48,6 +48,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
@@ -146,7 +147,7 @@ class BrowserActivity : ComponentActivity() {
                         text = {
                             Text(
                                 if (videos.size == 1) stringResource(R.string.browser_cast_video)
-                                else stringResource(R.string.browser_cast_videos, videos.size),
+                                else pluralStringResource(R.plurals.browser_cast_videos, videos.size, videos.size),
                             )
                         },
                     )

@@ -1,0 +1,27 @@
+# Publishes the optional low-latency TV player (receiver/) on GitHub Pages.
+# One-time: Settings -> Pages -> Source: "GitHub Actions", then run this workflow
+# from the Actions tab. Its address goes into the Google Cast SDK Developer Console.
+name: Publish TV player
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/configure-pages@v6
+      - uses: actions/upload-pages-artifact@v5
+        with:
+          path: receiver
+      - id: deployment
+        uses: actions/deploy-pages@v5

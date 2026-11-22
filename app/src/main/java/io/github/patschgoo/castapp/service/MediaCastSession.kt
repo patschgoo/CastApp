@@ -7,6 +7,7 @@ import android.media.VolumeProvider
 import android.media.session.MediaSession
 import android.media.session.PlaybackState
 import android.net.Uri
+import androidx.core.net.toUri
 import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
@@ -164,7 +165,7 @@ class MediaCastSession(
                     MediaType.PHOTO -> server.addRoute("photo/$i.jpg", server.bytes("image/jpeg") { photo(i) })
                     else -> server.addRoute(
                         "file/$i/" + MediaServer.safeName(item.title),
-                        server.ranged(ContentMediaSource(resolver, Uri.parse(item.uri)), CastService.normalizeMime(item.mimeType)),
+                        server.ranged(ContentMediaSource(resolver, item.uri.toUri()), CastService.normalizeMime(item.mimeType)),
                     )
                 }
             }
@@ -187,7 +188,7 @@ class MediaCastSession(
         }
     }
 
-    private fun photo(i: Int): ByteArray? = photoCache[i] ?: MediaItem.loadPhotoForTv(resolver, Uri.parse(items[i].uri))?.also {
+    private fun photo(i: Int): ByteArray? = photoCache[i] ?: MediaItem.loadPhotoForTv(resolver, items[i].uri.toUri())?.also {
         if (photoCache.size > 4) photoCache.clear()
         photoCache[i] = it
     }
@@ -199,14 +200,14 @@ class MediaCastSession(
             item.headers.forEach { (k, v) -> conn.setRequestProperty(k, v) }
             try { conn.inputStream.use { it.readBytes() } } finally { conn.disconnect() }
         } else {
-            resolver.openInputStream(Uri.parse(uri))?.use { it.readBytes() } ?: return null
+            resolver.openInputStream(uri.toUri())?.use { it.readBytes() } ?: return null
         }
         return Subtitles.decode(bytes)
     }
 
     private fun serveConverted(item: MediaItem, startMs: Long, request: io.github.patschgoo.castapp.stream.TokenHttpServer.Request, socket: java.net.Socket, out: java.io.OutputStream) {
         val queue = InterleavingQueue(setOf(FragmentedMp4.VIDEO_TRACK_ID, FragmentedMp4.AUDIO_TRACK_ID))
-        val transcoder = Transcoder(context, Uri.parse(item.uri), item.headers, startMs * 1000, queue)
+        val transcoder = Transcoder(context, item.uri.toUri(), item.headers, startMs * 1000, queue)
         transcoder.hub.subscribe(queue)
         try {
             transcoder.start()
@@ -316,7 +317,7 @@ class MediaCastSession(
                 delivery = d
                 convertStartMs = if (d == Delivery.CONVERT) startMs else 0
                 if (d == Delivery.CONVERT) {
-                    durationCache.getOrPut(i) { Transcoder.probeDurationMs(context, Uri.parse(item.uri), item.headers) }
+                    durationCache.getOrPut(i) { Transcoder.probeDurationMs(context, item.uri.toUri(), item.headers) }
                     update { it.copy(phase = CastPhase.CONVERTING, converting = true) }
                 }
                 val waiter = CompletableDeferred<Boolean>()

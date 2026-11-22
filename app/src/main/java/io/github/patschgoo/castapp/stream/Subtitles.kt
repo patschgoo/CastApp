@@ -7,6 +7,7 @@ import java.nio.charset.CodingErrorAction
 
 /** Subtitle helpers: Cast devices want WebVTT, most downloaded subtitles are SRT. */
 object Subtitles {
+    private val BOM = Char(0xFEFF)
     private val SRT_TIME = Regex("""(\d{1,2}:\d{2}:\d{2}),(\d{1,3})""")
 
     fun isSubtitleFile(name: String): Boolean {
@@ -33,7 +34,7 @@ object Subtitles {
 
     /** Converts SRT (or passes through WebVTT) to WebVTT. */
     fun toWebVtt(text: String): String {
-        val normalized = text.replace("\r\n", "\n").replace('\r', '\n').trimStart('﻿')
+        val normalized = text.replace("\r\n", "\n").replace('\r', '\n').trimStart(BOM)
         if (normalized.trimStart().startsWith("WEBVTT")) return normalized
         val out = StringBuilder("WEBVTT\n\n")
         for (line in normalized.lines()) {

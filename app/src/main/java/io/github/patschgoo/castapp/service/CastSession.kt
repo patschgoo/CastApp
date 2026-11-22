@@ -166,7 +166,7 @@ class CastSession(
             }
         }
         var audioOn = false
-        if (wantAudio && Build.VERSION.SDK_INT >= 29) {
+        if (wantAudio) {
             val a = AudioEncoder(context, projection, h) { e ->
                 Log.w(TAG, "Audio encoder error", e)
                 finish("Audio capture stopped")
