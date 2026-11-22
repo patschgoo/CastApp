@@ -89,7 +89,7 @@ Any device you've cast to once is **remembered**. If its IP address changes, Cas
 - **Audio track choice**. Tracks the TV can't play are converted on the phone.
 - **Built-in subtitle tracks** of a file (text ones; picture subtitles such as PGS and VobSub are not supported).
 - **One subtitle picker**: Off, the file's own, built-in, written by the phone, or found online.
-- **Subtitle style** (size, colour, background) on Google Cast and CastApp TV, and **timing** in steps of 0.5 s.
+- **Subtitle look** (size, colour, background) on Google Cast and CastApp TV, and **timing** in steps of 0.5 s.
 - **Subtitles written ahead** for the next files in the queue.
 - Apple TV and Roku get converted files as HLS.
 
