@@ -1,5 +1,17 @@
 package io.github.patschgoo.castapp.iptv
 
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
+import androidx.compose.material.icons.rounded.CheckCircle
+import androidx.compose.material.icons.rounded.Error
+import androidx.compose.material.icons.rounded.FiberManualRecord
+import androidx.compose.material.icons.rounded.Notifications
+import androidx.compose.material.icons.rounded.Schedule
+import androidx.compose.material.icons.rounded.Warning
+import io.github.patschgoo.castapp.ui.readableWidth
+
 import android.content.Intent
 import android.net.Uri
 import android.os.Build
@@ -95,7 +107,7 @@ internal fun RecordingsScreen(onBack: () -> Unit) {
         },
     ) { padding ->
         Column(Modifier.padding(padding).fillMaxSize()) {
-            SingleChoiceSegmentedButtonRow(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 4.dp)) {
+            SingleChoiceSegmentedButtonRow(Modifier.readableWidth().padding(horizontal = 16.dp, vertical = 4.dp)) {
                 listOf(
                     stringResource(R.string.iptvx_tab_recordings, recordings.size),
                     stringResource(R.string.iptvx_tab_reminders, reminderList.size),
@@ -108,17 +120,12 @@ internal fun RecordingsScreen(onBack: () -> Unit) {
                     recordings.sortedWith(compareByDescending<Recording> { it.isActive }.thenByDescending { it.plannedStartMs })
                 }
                 if (sorted.isEmpty()) {
-                    Text(
-                        stringResource(R.string.iptvx_no_recordings),
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        modifier = Modifier.padding(24.dp),
-                    )
+                    EmptyHint(Icons.Rounded.FiberManualRecord, stringResource(R.string.iptvx_no_recordings))
                 } else {
                     LazyColumn(
                         contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp),
                         verticalArrangement = Arrangement.spacedBy(8.dp),
-                        modifier = Modifier.weight(1f),
+                        modifier = Modifier.weight(1f).readableWidth(),
                     ) {
                         items(sorted, key = { it.id }) { r ->
                             RecordingCard(
@@ -186,7 +193,19 @@ private fun RecordingCard(r: Recording, onPlay: () -> Unit, onStop: () -> Unit, 
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
                 )
-                Text(status, style = MaterialTheme.typography.bodySmall, color = statusColor)
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    // An icon per state, so the state does not depend on the colour alone.
+                    val stateIcon = when (r.state) {
+                        RecordingState.SCHEDULED -> Icons.Rounded.Schedule
+                        RecordingState.RECORDING -> Icons.Rounded.FiberManualRecord
+                        RecordingState.DONE -> Icons.Rounded.CheckCircle
+                        RecordingState.PARTIAL -> Icons.Rounded.Warning
+                        RecordingState.FAILED -> Icons.Rounded.Error
+                    }
+                    Icon(stateIcon, contentDescription = null, tint = statusColor, modifier = Modifier.size(14.dp))
+                    Spacer(Modifier.width(4.dp))
+                    Text(status, style = MaterialTheme.typography.bodySmall, color = statusColor)
+                }
                 if (r.state == RecordingState.PARTIAL && r.gaps > 0) {
                     Text(stringResource(R.string.iptvx_gaps, r.gaps), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
@@ -221,7 +240,7 @@ private fun ReminderList(items: List<Reminder>, onCancel: (String) -> Unit, onAs
     val notificationsOn = remember(items) { NotificationManagerCompat.from(context).areNotificationsEnabled() }
     Column(modifier.fillMaxSize()) {
         if (!notificationsOn) {
-            Card(Modifier.padding(16.dp), colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.errorContainer)) {
+            Card(Modifier.readableWidth().padding(16.dp), colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.errorContainer)) {
                 Column(Modifier.padding(16.dp)) {
                     Text(stringResource(R.string.iptvx_notifications_off), style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onErrorContainer)
                     TextButton(onClick = {
@@ -237,15 +256,10 @@ private fun ReminderList(items: List<Reminder>, onCancel: (String) -> Unit, onAs
             }
         }
         if (items.isEmpty()) {
-            Text(
-                stringResource(R.string.iptvx_no_reminders),
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                modifier = Modifier.padding(24.dp),
-            )
+            EmptyHint(Icons.Rounded.Notifications, stringResource(R.string.iptvx_no_reminders))
             return@Column
         }
-        LazyColumn(contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        LazyColumn(Modifier.readableWidth(), contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
             items(items, key = { it.id }) { r ->
                 Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerHigh)) {
                     Row(Modifier.fillMaxWidth().padding(start = 16.dp, top = 12.dp, bottom = 12.dp, end = 4.dp), verticalAlignment = Alignment.CenterVertically) {
@@ -313,4 +327,19 @@ private fun RecordingSettingsDialog(settings: RecordingSettings, values: Recordi
         },
         confirmButton = { TextButton(onClick = onDismiss) { Text(stringResource(R.string.iptvx_done)) } },
     )
+}
+
+/** An empty list: an icon and what to do to fill it. */
+@Composable
+private fun EmptyHint(icon: androidx.compose.ui.graphics.vector.ImageVector, text: String) {
+    Column(Modifier.readableWidth().padding(32.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+        Icon(icon, contentDescription = null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(40.dp))
+        Spacer(Modifier.height(12.dp))
+        Text(
+            text,
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            textAlign = androidx.compose.ui.text.style.TextAlign.Center,
+        )
+    }
 }

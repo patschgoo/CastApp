@@ -173,6 +173,19 @@ CastApp's AirPlay has only been tested against a reference implementation, so ex
 | Mirror from automation | `MIRROR` while the app is closed | A notification asks to mirror; tapping it opens Android's capture prompt | Debug log + Android version |
 | Wear OS remote | Install `CastApp-wear.apk` on the watch, cast from the phone | The watch shows the title; play/pause, next and volume work; **Mirror to …** shows the prompt on the phone | Debug log + watch model; both apps must be the same build |
 
+## First start, settings search and accessibility
+
+| Feature | Steps | Expected result | If it fails |
+|---|---|---|---|
+| First-run tour | Clear the app's data, open CastApp from the launcher | Four short pages, **Skip** on each; not shown again after **Get started** or **Skip** | Screenshot + Android version |
+| No tour elsewhere | With fresh data: start from the share sheet, a tile, the widget or an automation command | No tour; it waits for the first start from the launcher. Never on a TV | How it was started |
+| Tour again | **Settings → Help & support → Show the tour** | The tour opens over the main screen | Screenshot |
+| Settings search | Type "qualität", "qualitaet", "groesse" (German) or "wifi" (English) in the search field | Matching rows with their section; tapping one scrolls to it and highlights it | Screenshot + the word typed |
+| TalkBack | Turn on TalkBack, cast a video, use the casting card, remote D-pad, guide grid and posters | Every button is named; the casting status is read out when it changes; switches say on/off | Screen recording with sound |
+| Large text | Android font size and display size at the largest, then the main screen, settings, remote, guide, recordings | Nothing is cut off or overlaps; button rows wrap | Screenshot |
+| Landscape and tablets | Turn the phone sideways on the remote; open settings, network, channels and recordings on a tablet | Remote: D-pad left, keys right, no scrolling for the D-pad. Lists stay at a readable width | Screenshot + screen size |
+| D-pad focus on the TV | On CastApp TV, move with the remote through the home screen and the "Who may cast" dialog | The focused button always has a clear ring | Photo of the screen |
+
 ## Updates and install
 
 | Feature | Steps | Expected result | If it fails |

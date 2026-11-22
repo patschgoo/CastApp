@@ -1,5 +1,12 @@
 package io.github.patschgoo.castapp
 
+import androidx.compose.foundation.layout.fillMaxHeight
+import androidx.compose.ui.semantics.LiveRegionMode
+import androidx.compose.ui.semantics.heading
+import androidx.compose.ui.semantics.liveRegion
+import androidx.compose.ui.semantics.stateDescription
+import io.github.patschgoo.castapp.ui.readableWidth
+
 import android.Manifest
 import android.content.Context
 import android.content.Intent
@@ -250,7 +257,7 @@ private fun TargetList(state: RemoteUiState, onPick: (RemoteTarget) -> Unit) {
     val context = LocalContext.current
     val providers = remember { RemoteProviders.all }
     val sections = providers.map { p -> p to p.targets(context).collectAsStateWithLifecycle().value }
-    LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp)) {
+    LazyColumn(Modifier.fillMaxSize().readableWidth(), contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp)) {
         state.error?.let { error ->
             item(key = "error") { ErrorCard(error, onRetry = state.target?.let { t -> { onPick(t) } }) }
         }
@@ -274,7 +281,7 @@ private fun TargetList(state: RemoteUiState, onPick: (RemoteTarget) -> Unit) {
 @Composable
 private fun SectionHeader(provider: RemoteProvider, empty: Boolean) {
     Column(Modifier.fillMaxWidth().padding(top = 16.dp, bottom = 4.dp)) {
-        Text(provider.title, style = MaterialTheme.typography.titleSmall, color = MaterialTheme.colorScheme.primary)
+        Text(provider.title, style = MaterialTheme.typography.titleSmall, color = MaterialTheme.colorScheme.primary, modifier = Modifier.semantics { heading() })
         if (empty) {
             Row(Modifier.padding(top = 8.dp), verticalAlignment = Alignment.CenterVertically) {
                 if (provider === NetworkRemotes) {
@@ -316,7 +323,7 @@ private fun ErrorCard(message: String, onRetry: (() -> Unit)?) {
         ),
     ) {
         Column(Modifier.padding(16.dp)) {
-            Text(message, style = MaterialTheme.typography.bodyMedium)
+            Text(message, style = MaterialTheme.typography.bodyMedium, modifier = Modifier.semantics { liveRegion = LiveRegionMode.Assertive })
             if (onRetry != null) {
                 Spacer(Modifier.height(8.dp))
                 FilledTonalButton(onClick = onRetry) { Text(stringResource(R.string.remote_reconnect)) }
@@ -413,10 +420,7 @@ private fun RemoteControls(state: RemoteUiState, target: RemoteTarget, vm: Remot
         else micPermission.launch(Manifest.permission.RECORD_AUDIO)
     }
 
-    Column(
-        Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(horizontal = 16.dp, vertical = 8.dp),
-        horizontalAlignment = Alignment.CenterHorizontally,
-    ) {
+    val banners: @Composable () -> Unit = {
         StatusLine(state, onRetry = { vm.retry() })
         VoiceBanner(
             voice,
@@ -433,94 +437,141 @@ private fun RemoteControls(state: RemoteUiState, target: RemoteTarget, vm: Remot
                 }
             },
         )
-        Column(Modifier.widthIn(max = 420.dp).fillMaxWidth(), horizontalAlignment = Alignment.CenterHorizontally) {
-            // Power, input, keyboard
-            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
-                if (RemoteKey.POWER in keys) {
-                    KeyButton(
-                        RemoteKey.POWER, Icons.Rounded.PowerSettingsNew, stringResource(R.string.remote_key_power), enabled, press,
-                        container = MaterialTheme.colorScheme.errorContainer, contentColor = MaterialTheme.colorScheme.onErrorContainer,
-                    )
-                } else {
-                    Spacer(Modifier.size(KEY_SIZE))
+    }
+    // Power, input, keyboard, numbers
+    val topKeys: @Composable () -> Unit = {
+        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+            if (RemoteKey.POWER in keys) {
+                KeyButton(
+                    RemoteKey.POWER, Icons.Rounded.PowerSettingsNew, stringResource(R.string.remote_key_power), enabled, press,
+                    container = MaterialTheme.colorScheme.errorContainer, contentColor = MaterialTheme.colorScheme.onErrorContainer,
+                )
+            } else {
+                Spacer(Modifier.size(KEY_SIZE))
+            }
+            Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                if (RemoteKey.INPUT in keys) KeyButton(RemoteKey.INPUT, Icons.AutoMirrored.Rounded.Input, stringResource(R.string.remote_key_input), enabled, press)
+                if (target.supportsText) {
+                    ActionButton(Icons.Rounded.Keyboard, stringResource(R.string.remote_keyboard), enabled) { showTyping = true }
                 }
-                Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                    if (RemoteKey.INPUT in keys) KeyButton(RemoteKey.INPUT, Icons.AutoMirrored.Rounded.Input, stringResource(R.string.remote_key_input), enabled, press)
-                    if (target.supportsText) {
-                        ActionButton(Icons.Rounded.Keyboard, stringResource(R.string.remote_keyboard), enabled) { showTyping = true }
-                    }
-                    if (hasNumbers) {
-                        ActionButton(Icons.Rounded.Dialpad, stringResource(R.string.remote_numbers), true, selected = showNumbers) { showNumbers = !showNumbers }
-                    }
+                if (hasNumbers) {
+                    ActionButton(Icons.Rounded.Dialpad, stringResource(R.string.remote_numbers), true, selected = showNumbers) { showNumbers = !showNumbers }
                 }
             }
-
+        }
+        if (showNumbers && hasNumbers) {
             Spacer(Modifier.height(16.dp))
-            if (showNumbers && hasNumbers) {
-                NumberPad(keys, enabled, press)
-                Spacer(Modifier.height(16.dp))
+            NumberPad(keys, enabled, press)
+        }
+    }
+    // Back, home, voice, menu
+    val navKeys: @Composable () -> Unit = {
+        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceEvenly) {
+            OptionalKey(RemoteKey.BACK, Icons.AutoMirrored.Rounded.ArrowBack, R.string.remote_key_back, keys, enabled, press)
+            OptionalKey(RemoteKey.HOME, Icons.Rounded.Home, R.string.remote_key_home, keys, enabled, press)
+            if (target.supportsVoice) MicButton(voice, enabled, onStart = startVoice, onStop = { vm.stopVoice() })
+            OptionalKey(RemoteKey.MENU, Icons.Rounded.Menu, R.string.remote_key_menu, keys, enabled, press)
+        }
+    }
+    // Volume, channels and the media keys
+    val lowerKeys: @Composable () -> Unit = {
+        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+            Rocker(
+                RemoteKey.VOLUME_UP, RemoteKey.VOLUME_DOWN, stringResource(R.string.remote_vol),
+                stringResource(R.string.remote_key_volume_up), stringResource(R.string.remote_key_volume_down), keys, enabled, press,
+            )
+            Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                OptionalKey(RemoteKey.MUTE, Icons.AutoMirrored.Rounded.VolumeOff, R.string.remote_key_mute, keys, enabled, press)
+                OptionalKey(RemoteKey.INFO, Icons.Rounded.Info, R.string.remote_key_info, keys, enabled, press)
             }
+            Rocker(
+                RemoteKey.CHANNEL_UP, RemoteKey.CHANNEL_DOWN, stringResource(R.string.remote_ch),
+                stringResource(R.string.remote_key_channel_up), stringResource(R.string.remote_key_channel_down), keys, enabled, press,
+            )
+        }
 
-            DPad(keys, enabled, press)
-
-            Spacer(Modifier.height(16.dp))
+        val media = listOf(RemoteKey.REWIND, RemoteKey.PLAY_PAUSE, RemoteKey.FAST_FORWARD)
+        if (media.any { it in keys }) {
+            Spacer(Modifier.height(20.dp))
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceEvenly) {
-                OptionalKey(RemoteKey.BACK, Icons.AutoMirrored.Rounded.ArrowBack, R.string.remote_key_back, keys, enabled, press)
-                OptionalKey(RemoteKey.HOME, Icons.Rounded.Home, R.string.remote_key_home, keys, enabled, press)
-                if (target.supportsVoice) MicButton(voice, enabled, onStart = startVoice, onStop = { vm.stopVoice() })
-                OptionalKey(RemoteKey.MENU, Icons.Rounded.Menu, R.string.remote_key_menu, keys, enabled, press)
-            }
-
-            Spacer(Modifier.height(16.dp))
-            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
-                Rocker(
-                    RemoteKey.VOLUME_UP, RemoteKey.VOLUME_DOWN, stringResource(R.string.remote_vol),
-                    stringResource(R.string.remote_key_volume_up), stringResource(R.string.remote_key_volume_down), keys, enabled, press,
-                )
-                Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                    OptionalKey(RemoteKey.MUTE, Icons.AutoMirrored.Rounded.VolumeOff, R.string.remote_key_mute, keys, enabled, press)
-                    OptionalKey(RemoteKey.INFO, Icons.Rounded.Info, R.string.remote_key_info, keys, enabled, press)
-                }
-                Rocker(
-                    RemoteKey.CHANNEL_UP, RemoteKey.CHANNEL_DOWN, stringResource(R.string.remote_ch),
-                    stringResource(R.string.remote_key_channel_up), stringResource(R.string.remote_key_channel_down), keys, enabled, press,
-                )
-            }
-
-            val media = listOf(RemoteKey.REWIND, RemoteKey.PLAY_PAUSE, RemoteKey.FAST_FORWARD)
-            if (media.any { it in keys }) {
-                Spacer(Modifier.height(20.dp))
-                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceEvenly) {
-                    OptionalKey(RemoteKey.REWIND, Icons.Rounded.FastRewind, R.string.remote_key_rewind, keys, enabled, press, repeat = true)
-                    if (RemoteKey.PLAY_PAUSE in keys) {
-                        KeyButton(RemoteKey.PLAY_PAUSE, null, stringResource(R.string.remote_key_play_pause), enabled, press) {
-                            Row {
-                                Icon(Icons.Rounded.PlayArrow, contentDescription = null, modifier = Modifier.size(20.dp))
-                                Icon(Icons.Rounded.Pause, contentDescription = null, modifier = Modifier.size(20.dp))
-                            }
+                OptionalKey(RemoteKey.REWIND, Icons.Rounded.FastRewind, R.string.remote_key_rewind, keys, enabled, press, repeat = true)
+                if (RemoteKey.PLAY_PAUSE in keys) {
+                    KeyButton(RemoteKey.PLAY_PAUSE, null, stringResource(R.string.remote_key_play_pause), enabled, press) {
+                        Row {
+                            Icon(Icons.Rounded.PlayArrow, contentDescription = null, modifier = Modifier.size(20.dp))
+                            Icon(Icons.Rounded.Pause, contentDescription = null, modifier = Modifier.size(20.dp))
                         }
                     }
-                    OptionalKey(RemoteKey.FAST_FORWARD, Icons.Rounded.FastForward, R.string.remote_key_fast_forward, keys, enabled, press, repeat = true)
+                }
+                OptionalKey(RemoteKey.FAST_FORWARD, Icons.Rounded.FastForward, R.string.remote_key_fast_forward, keys, enabled, press, repeat = true)
+            }
+        }
+        val extra = listOf(RemoteKey.PREVIOUS, RemoteKey.STOP, RemoteKey.NEXT)
+        if (extra.any { it in keys }) {
+            Spacer(Modifier.height(12.dp))
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceEvenly) {
+                OptionalKey(RemoteKey.PREVIOUS, Icons.Rounded.SkipPrevious, R.string.remote_key_previous, keys, enabled, press)
+                OptionalKey(RemoteKey.STOP, Icons.Rounded.Stop, R.string.remote_key_stop, keys, enabled, press)
+                OptionalKey(RemoteKey.NEXT, Icons.Rounded.SkipNext, R.string.remote_key_next, keys, enabled, press)
+            }
+        }
+        val more = listOf(RemoteKey.GUIDE, RemoteKey.SETTINGS)
+        if (more.any { it in keys }) {
+            Spacer(Modifier.height(12.dp))
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceEvenly) {
+                OptionalKey(RemoteKey.GUIDE, Icons.Rounded.LiveTv, R.string.remote_key_guide, keys, enabled, press)
+                OptionalKey(RemoteKey.SETTINGS, Icons.Rounded.Settings, R.string.remote_key_settings, keys, enabled, press)
+            }
+        }
+    }
+
+    BoxWithConstraints(Modifier.fillMaxSize()) {
+        // Landscape (or a wide window): D-pad on the left, the other keys on the right, so nothing
+        // needs scrolling past the D-pad. Portrait: one column.
+        val sideBySide = maxWidth > maxHeight && maxWidth >= 560.dp
+        if (sideBySide) {
+            val dpadMax = min(maxHeight - 120.dp, 260.dp).coerceAtLeast(168.dp)
+            Row(
+                Modifier.fillMaxSize().padding(horizontal = 16.dp),
+                horizontalArrangement = Arrangement.spacedBy(24.dp, Alignment.CenterHorizontally),
+            ) {
+                Column(
+                    Modifier.weight(1f).widthIn(max = 420.dp).fillMaxHeight().verticalScroll(rememberScrollState()).padding(vertical = 8.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                ) {
+                    banners()
+                    DPad(keys, enabled, press, maxSize = dpadMax)
+                    Spacer(Modifier.height(12.dp))
+                    navKeys()
+                    Spacer(Modifier.height(16.dp))
+                }
+                Column(
+                    Modifier.weight(1f).widthIn(max = 420.dp).fillMaxHeight().verticalScroll(rememberScrollState()).padding(vertical = 8.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                ) {
+                    topKeys()
+                    Spacer(Modifier.height(16.dp))
+                    lowerKeys()
+                    Spacer(Modifier.height(16.dp))
                 }
             }
-            val extra = listOf(RemoteKey.PREVIOUS, RemoteKey.STOP, RemoteKey.NEXT)
-            if (extra.any { it in keys }) {
-                Spacer(Modifier.height(12.dp))
-                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceEvenly) {
-                    OptionalKey(RemoteKey.PREVIOUS, Icons.Rounded.SkipPrevious, R.string.remote_key_previous, keys, enabled, press)
-                    OptionalKey(RemoteKey.STOP, Icons.Rounded.Stop, R.string.remote_key_stop, keys, enabled, press)
-                    OptionalKey(RemoteKey.NEXT, Icons.Rounded.SkipNext, R.string.remote_key_next, keys, enabled, press)
+        } else {
+            Column(
+                Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(horizontal = 16.dp, vertical = 8.dp),
+                horizontalAlignment = Alignment.CenterHorizontally,
+            ) {
+                banners()
+                Column(Modifier.widthIn(max = 420.dp).fillMaxWidth(), horizontalAlignment = Alignment.CenterHorizontally) {
+                    topKeys()
+                    Spacer(Modifier.height(16.dp))
+                    DPad(keys, enabled, press)
+                    Spacer(Modifier.height(16.dp))
+                    navKeys()
+                    Spacer(Modifier.height(16.dp))
+                    lowerKeys()
+                    Spacer(Modifier.height(24.dp))
                 }
             }
-            val more = listOf(RemoteKey.GUIDE, RemoteKey.SETTINGS)
-            if (more.any { it in keys }) {
-                Spacer(Modifier.height(12.dp))
-                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceEvenly) {
-                    OptionalKey(RemoteKey.GUIDE, Icons.Rounded.LiveTv, R.string.remote_key_guide, keys, enabled, press)
-                    OptionalKey(RemoteKey.SETTINGS, Icons.Rounded.Settings, R.string.remote_key_settings, keys, enabled, press)
-                }
-            }
-            Spacer(Modifier.height(24.dp))
         }
     }
 
@@ -537,6 +588,7 @@ private fun MicButton(voice: VoiceUiState, enabled: Boolean, onStart: () -> Unit
     val start by rememberUpdatedState(onStart)
     val stop by rememberUpdatedState(onStop)
     val label = stringResource(R.string.remote_voice)
+    val listening = stringResource(R.string.polish_listening)
     val container = if (voice.active) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.tertiaryContainer
     val content = if (voice.active) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onTertiaryContainer
     Box(
@@ -547,6 +599,7 @@ private fun MicButton(voice: VoiceUiState, enabled: Boolean, onStart: () -> Unit
             .semantics {
                 role = Role.Button
                 contentDescription = label
+                if (voice.active) stateDescription = listening
                 if (!enabled) disabled()
                 onClick(label) { if (enabled) { if (active) stop() else start() }; enabled }
             }
@@ -630,7 +683,7 @@ private fun StatusLine(state: RemoteUiState, onRetry: () -> Unit) {
     when {
         state.error != null -> ErrorCard(state.error, onRetry)
         state.connecting || state.message != null -> Row(
-            Modifier.fillMaxWidth().padding(vertical = 8.dp),
+            Modifier.fillMaxWidth().padding(vertical = 8.dp).semantics(mergeDescendants = true) { liveRegion = LiveRegionMode.Polite },
             verticalAlignment = Alignment.CenterVertically,
         ) {
             if (state.connecting) {
@@ -688,10 +741,12 @@ private fun KeyButton(
 
 /** A local button (keyboard, number pad) that doesn't send a key. */
 @Composable
-private fun ActionButton(icon: ImageVector, label: String, enabled: Boolean, selected: Boolean = false, onClick: () -> Unit) {
-    val container = if (selected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.secondaryContainer
-    val content = if (selected) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSecondaryContainer
-    PressSurface(label, enabled, repeat = false, onPress = onClick, Modifier.size(KEY_SIZE), CircleShape, container, content, haptic = false) {
+private fun ActionButton(icon: ImageVector, label: String, enabled: Boolean, selected: Boolean? = null, onClick: () -> Unit) {
+    val on = selected == true
+    val container = if (on) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.secondaryContainer
+    val content = if (on) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSecondaryContainer
+    val stateText = selected?.let { stringResource(if (it) R.string.polish_on else R.string.polish_off) }
+    PressSurface(label, enabled, repeat = false, onPress = onClick, Modifier.size(KEY_SIZE), CircleShape, container, content, haptic = false, state = stateText) {
         Icon(icon, contentDescription = null)
     }
 }
@@ -712,6 +767,8 @@ private fun PressSurface(
     container: Color,
     contentColor: Color,
     haptic: Boolean = true,
+    /** Read out after the label, e.g. "On" for a toggle. */
+    state: String? = null,
     content: @Composable () -> Unit,
 ) {
     val view = LocalView.current
@@ -732,6 +789,7 @@ private fun PressSurface(
             .semantics {
                 role = Role.Button
                 contentDescription = label
+                if (state != null) stateDescription = state
                 if (!enabled) disabled()
                 onClick(label) { if (enabled) action(); enabled }
             }
@@ -777,9 +835,9 @@ private fun lerpColor(a: Color, b: Color, t: Float) = Color(
 )
 
 @Composable
-private fun DPad(keys: Set<RemoteKey>, enabled: Boolean, press: (RemoteKey) -> Unit) {
+private fun DPad(keys: Set<RemoteKey>, enabled: Boolean, press: (RemoteKey) -> Unit, maxSize: Dp = 260.dp) {
     BoxWithConstraints(Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
-        val size: Dp = min(maxWidth * 0.8f, 260.dp)
+        val size: Dp = min(maxWidth * 0.8f, maxSize)
         val arm = size / 3
         val ring = MaterialTheme.colorScheme.surfaceContainerHighest
         val onRing = MaterialTheme.colorScheme.onSurface

@@ -1,5 +1,6 @@
 package io.github.patschgoo.castapp.multi
 
+import io.github.patschgoo.castapp.ui.focusRing
 import android.app.NotificationManager
 import android.app.PendingIntent
 import android.content.Context
@@ -184,7 +185,7 @@ class MultiPromptActivity : ComponentActivity() {
                         },
                         confirmButton = {
                             Row(horizontalArrangement = Arrangement.spacedBy(4.dp), verticalAlignment = Alignment.CenterVertically) {
-                                TextButton(onClick = { Peers.declineOffer(this@MultiPromptActivity, o) }) { Text(stringResource(R.string.multi_decline)) }
+                                TextButton(onClick = { Peers.declineOffer(this@MultiPromptActivity, o) }, modifier = Modifier.focusRing()) { Text(stringResource(R.string.multi_decline)) }
                                 Button(
                                     onClick = {
                                         hub.incoming.accept(o.offer.id)?.let {
@@ -196,7 +197,7 @@ class MultiPromptActivity : ComponentActivity() {
                                             )
                                         }
                                     },
-                                    modifier = Modifier.focusRequester(focus),
+                                    modifier = Modifier.focusRequester(focus).focusRing(),
                                 ) { Text(stringResource(if (o.offer.mode == HandOverMode.CONTROL) R.string.multi_take_controls else R.string.multi_take_over)) }
                             }
                         },
@@ -207,10 +208,10 @@ class MultiPromptActivity : ComponentActivity() {
                         text = { Text(stringResource(R.string.multi_request_question), style = MaterialTheme.typography.bodyLarge) },
                         confirmButton = {
                             Row(horizontalArrangement = Arrangement.spacedBy(4.dp), verticalAlignment = Alignment.CenterVertically) {
-                                TextButton(onClick = { Peers.answerRequest(this@MultiPromptActivity, r, handOver = false) }) { Text(stringResource(R.string.multi_decline)) }
+                                TextButton(onClick = { Peers.answerRequest(this@MultiPromptActivity, r, handOver = false) }, modifier = Modifier.focusRing()) { Text(stringResource(R.string.multi_decline)) }
                                 Button(
                                     onClick = { Peers.answerRequest(this@MultiPromptActivity, r, handOver = true) },
-                                    modifier = Modifier.focusRequester(focus),
+                                    modifier = Modifier.focusRequester(focus).focusRing(),
                                 ) { Text(stringResource(R.string.multi_hand_over)) }
                             }
                         },
@@ -229,9 +230,9 @@ class MultiPromptActivity : ComponentActivity() {
                         },
                         confirmButton = {
                             Row(horizontalArrangement = Arrangement.spacedBy(4.dp), verticalAlignment = Alignment.CenterVertically) {
-                                TextButton(onClick = { hub.joinGuard.answer(join.id, Decision.BLOCK) }) { Text(stringResource(R.string.protect_block)) }
-                                TextButton(onClick = { hub.joinGuard.answer(join.id, Decision.ALLOW_ALWAYS) }) { Text(stringResource(R.string.protect_allow_always)) }
-                                Button(onClick = { hub.joinGuard.answer(join.id, Decision.ALLOW_ONCE) }, modifier = Modifier.focusRequester(focus)) {
+                                TextButton(onClick = { hub.joinGuard.answer(join.id, Decision.BLOCK) }, modifier = Modifier.focusRing()) { Text(stringResource(R.string.protect_block)) }
+                                TextButton(onClick = { hub.joinGuard.answer(join.id, Decision.ALLOW_ALWAYS) }, modifier = Modifier.focusRing()) { Text(stringResource(R.string.protect_allow_always)) }
+                                Button(onClick = { hub.joinGuard.answer(join.id, Decision.ALLOW_ONCE) }, modifier = Modifier.focusRequester(focus).focusRing()) {
                                     Text(stringResource(R.string.protect_allow))
                                 }
                             }

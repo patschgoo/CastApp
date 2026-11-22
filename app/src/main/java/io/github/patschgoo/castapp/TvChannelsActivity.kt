@@ -1,5 +1,6 @@
 package io.github.patschgoo.castapp
 
+import io.github.patschgoo.castapp.ui.readableWidth
 import io.github.patschgoo.castapp.Txt
 import io.github.patschgoo.castapp.R
 import android.content.Intent
@@ -198,6 +199,7 @@ internal fun ChannelsScreen(repo: IptvRepository, onBack: () -> Unit) {
     var channelsOf by remember { mutableStateOf<String?>(null) }
     var showAdd by remember { mutableStateOf(false) }
     var menu by remember { mutableStateOf(false) }
+    var confirmRemove by remember { mutableStateOf(false) }
 
     // Live / Movies / Series: the last two only for Xtream log-ins.
     var tab by rememberSaveable(selectedId) { mutableIntStateOf(0) }
@@ -325,6 +327,21 @@ internal fun ChannelsScreen(repo: IptvRepository, onBack: () -> Unit) {
                     }
                     if (selected != null) {
                         Box {
+                            if (confirmRemove) {
+                                AlertDialog(
+                                    onDismissRequest = { confirmRemove = false },
+                                    title = { Text(stringResource(R.string.polish_remove_title, selected.name)) },
+                                    text = { Text(stringResource(R.string.polish_remove_list_text)) },
+                                    confirmButton = {
+                                        TextButton(onClick = {
+                                            confirmRemove = false
+                                            repo.remove(selected.id)
+                                            selectedId = null
+                                        }) { Text(stringResource(R.string.net_remove)) }
+                                    },
+                                    dismissButton = { TextButton(onClick = { confirmRemove = false }) { Text(stringResource(R.string.cancel)) } },
+                                )
+                            }
                             IconButton(onClick = { menu = true }) { Icon(Icons.Rounded.MoreVert, contentDescription = stringResource(R.string.net_more)) }
                             DropdownMenu(expanded = menu, onDismissRequest = { menu = false }) {
                                 DropdownMenuItem(
@@ -360,8 +377,7 @@ internal fun ChannelsScreen(repo: IptvRepository, onBack: () -> Unit) {
                                     leadingIcon = { Icon(Icons.Rounded.Delete, contentDescription = null) },
                                     onClick = {
                                         menu = false
-                                        repo.remove(selected.id)
-                                        selectedId = null
+                                        confirmRemove = true
                                     },
                                 )
                             }
@@ -425,7 +441,7 @@ internal fun ChannelsScreen(repo: IptvRepository, onBack: () -> Unit) {
                     if (query.isNotEmpty()) IconButton(onClick = { query = "" }) { Icon(Icons.Rounded.Clear, contentDescription = stringResource(R.string.tvc_clear)) }
                 },
                 singleLine = true,
-                modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp),
+                modifier = Modifier.readableWidth().padding(horizontal = 16.dp, vertical = 8.dp),
             )
             if (currentTab != 0 && xtream != null) {
                 VodPane(
@@ -525,11 +541,11 @@ internal fun ChannelsScreen(repo: IptvRepository, onBack: () -> Unit) {
                                 now = now,
                                 onPlay = { play(it) },
                                 onInfo = { scheduleFor = it },
-                                modifier = Modifier.weight(1f),
+                                modifier = Modifier.weight(1f).readableWidth(),
                             )
                         }
                     } else {
-                        LazyColumn(contentPadding = PaddingValues(bottom = 16.dp), modifier = Modifier.weight(1f)) {
+                        LazyColumn(contentPadding = PaddingValues(bottom = 16.dp), modifier = Modifier.weight(1f).readableWidth()) {
                             itemsIndexed(shown, key = { i, e -> "$i:${e.channel.url}" }) { _, e ->
                                 ChannelRow(
                                     entry = e,
@@ -689,6 +705,7 @@ private fun ChannelRow(
     ListItem(
         onClick = onPlay,
         onLongClick = onMenu,
+        onLongClickLabel = stringResource(R.string.polish_options),
         leadingContent = {
             Box(
                 Modifier.size(44.dp).clip(RoundedCornerShape(8.dp)).background(MaterialTheme.colorScheme.surfaceContainerHighest),
@@ -782,7 +799,7 @@ fun NowPlayingBar(state: CastState.Active) {
 private fun EmptyChannels(onAdd: () -> Unit) {
     Card(
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerHigh),
-        modifier = Modifier.fillMaxWidth().padding(16.dp),
+        modifier = Modifier.readableWidth().padding(16.dp),
     ) {
         Column(Modifier.padding(20.dp)) {
             Icon(Icons.Rounded.LiveTv, contentDescription = null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(36.dp))

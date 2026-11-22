@@ -1,5 +1,11 @@
 package io.github.patschgoo.castapp
 
+import androidx.compose.ui.semantics.LiveRegionMode
+import androidx.compose.ui.semantics.heading
+import androidx.compose.ui.semantics.liveRegion
+import androidx.compose.ui.semantics.semantics
+import io.github.patschgoo.castapp.ui.readableWidth
+
 import androidx.compose.ui.res.stringResource
 import io.github.patschgoo.castapp.Txt
 import io.github.patschgoo.castapp.R
@@ -252,7 +258,7 @@ private fun Home(
 ) {
     val servers by network.servers.collectAsStateWithLifecycle()
     val sources by network.sources.collectAsStateWithLifecycle()
-    LazyColumn(contentPadding = PaddingValues(bottom = 24.dp)) {
+    LazyColumn(Modifier.readableWidth(), contentPadding = PaddingValues(bottom = 24.dp)) {
         item {
             Card(
                 colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerHigh),
@@ -314,6 +320,16 @@ private fun Home(
 @Composable
 private fun SourceRow(network: NetworkSources, s: NetworkSource, onOpen: (Place) -> Unit) {
     var menu by remember { mutableStateOf(false) }
+    var confirmRemove by remember { mutableStateOf(false) }
+    if (confirmRemove) {
+        AlertDialog(
+            onDismissRequest = { confirmRemove = false },
+            title = { Text(stringResource(R.string.polish_remove_title, s.name)) },
+            text = { Text(stringResource(R.string.polish_remove_folder_text)) },
+            confirmButton = { TextButton(onClick = { confirmRemove = false; network.remove(s.id) }) { Text(stringResource(R.string.net_remove)) } },
+            dismissButton = { TextButton(onClick = { confirmRemove = false }) { Text(stringResource(R.string.cancel)) } },
+        )
+    }
     ListItem(
         onClick = { onOpen(Place.Share(s.id, s.rootPath, s.name)) },
         leadingContent = { Thumb(null, if (s.kind == SourceKind.SMB) Icons.Rounded.FolderShared else Icons.Rounded.Cloud) },
@@ -331,7 +347,7 @@ private fun SourceRow(network: NetworkSources, s: NetworkSource, onOpen: (Place)
                     DropdownMenuItem(
                         text = { Text(stringResource(R.string.net_remove)) },
                         leadingIcon = { Icon(Icons.Rounded.Delete, contentDescription = null) },
-                        onClick = { menu = false; network.remove(s.id) },
+                        onClick = { menu = false; confirmRemove = true },
                     )
                 }
             }
@@ -345,7 +361,7 @@ private fun SectionTitle(text: String) {
         text,
         style = MaterialTheme.typography.titleSmall,
         color = MaterialTheme.colorScheme.primary,
-        modifier = Modifier.padding(start = 20.dp, end = 20.dp, top = 12.dp, bottom = 4.dp),
+        modifier = Modifier.padding(start = 20.dp, end = 20.dp, top = 12.dp, bottom = 4.dp).semantics { heading() },
     )
 }
 
@@ -413,8 +429,8 @@ private fun Folder(network: NetworkSources, place: Place, launcher: CastLauncher
     val list = rows
     when {
         list == null -> Box(Modifier.fillMaxWidth().padding(40.dp), contentAlignment = Alignment.Center) { CircularProgressIndicator() }
-        error != null -> Column(Modifier.padding(24.dp)) {
-            Text(error!!, color = MaterialTheme.colorScheme.error)
+        error != null -> Column(Modifier.readableWidth().padding(24.dp)) {
+            Text(error!!, color = MaterialTheme.colorScheme.error, modifier = Modifier.semantics { liveRegion = LiveRegionMode.Polite })
             Spacer(Modifier.height(12.dp))
             OutlinedButton(onClick = { reload++ }) {
                 Icon(Icons.Rounded.Refresh, contentDescription = null, modifier = Modifier.size(18.dp))
@@ -423,7 +439,7 @@ private fun Folder(network: NetworkSources, place: Place, launcher: CastLauncher
             }
         }
         list.isEmpty() -> Text(stringResource(R.string.net_folder_empty), modifier = Modifier.padding(24.dp), color = MaterialTheme.colorScheme.onSurfaceVariant)
-        else -> LazyColumn(contentPadding = PaddingValues(bottom = 24.dp)) {
+        else -> LazyColumn(Modifier.readableWidth(), contentPadding = PaddingValues(bottom = 24.dp)) {
             items(list) { r ->
                 ListItem(
                     onClick = {

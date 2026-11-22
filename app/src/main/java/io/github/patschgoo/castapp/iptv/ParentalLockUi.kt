@@ -1,5 +1,9 @@
 package io.github.patschgoo.castapp.iptv
 
+import androidx.compose.foundation.layout.heightIn
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.semantics
+
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -152,7 +156,10 @@ internal fun ParentalSheet(rules: ParentalRules, snapshot: ParentalSnapshot, gro
                     for (g in groups) {
                         val p = snapshot.groupProtection(g)
                         Row(
-                            Modifier.fillMaxWidth().clickable { rules.setGroup(g, p.next()) }.padding(vertical = 8.dp),
+                            Modifier.fillMaxWidth().heightIn(min = 48.dp)
+                                .clickable(onClickLabel = stringResource(R.string.polish_change), role = Role.Button) { rules.setGroup(g, p.next()) }
+                                .semantics(mergeDescendants = true) {}
+                                .padding(vertical = 8.dp),
                             verticalAlignment = Alignment.CenterVertically,
                         ) {
                             Text(g, style = MaterialTheme.typography.bodyLarge, modifier = Modifier.weight(1f))

@@ -1,5 +1,15 @@
 package io.github.patschgoo.castapp.ui
 
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.FlowRow
+import androidx.compose.ui.semantics.LiveRegionMode
+import androidx.compose.ui.semantics.clearAndSetSemantics
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.heading
+import androidx.compose.ui.semantics.liveRegion
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.stateDescription
+
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -256,6 +266,7 @@ fun DevicesContent(
 ) {
     var sheetFor by remember { mutableStateOf<DeviceEntry?>(null) }
     var showAddDialog by remember { mutableStateOf(false) }
+    var confirmForget by remember { mutableStateOf<DeviceEntry?>(null) }
 
     Scaffold(
         topBar = {
@@ -350,8 +361,20 @@ fun DevicesContent(
             onMirror = { sheetFor = null; actions.onMirror(entry.device) },
             onCastApp = { sheetFor = null; actions.onCastApp(entry.device) },
             onCastFile = { sheetFor = null; actions.onCastFiles(entry.device) },
-            onForget = { sheetFor = null; actions.onForget(entry.device) },
+            onForget = { sheetFor = null; confirmForget = entry },
             onRemote = { sheetFor = null; actions.onOpenRemote(entry.device) },
+        )
+    }
+
+    confirmForget?.let { entry ->
+        AlertDialog(
+            onDismissRequest = { confirmForget = null },
+            title = { Text(stringResource(R.string.polish_forget_title, entry.device.name)) },
+            text = { Text(stringResource(R.string.polish_forget_text)) },
+            confirmButton = {
+                TextButton(onClick = { actions.onForget(entry.device); confirmForget = null }) { Text(stringResource(R.string.polish_forget)) }
+            },
+            dismissButton = { TextButton(onClick = { confirmForget = null }) { Text(stringResource(R.string.cancel)) } },
         )
     }
 
@@ -417,7 +440,7 @@ private fun LazyListScope.deviceItems(
             stringResource(if (audioMode) R.string.devices_header_audio else R.string.devices_header),
             style = MaterialTheme.typography.titleSmall,
             color = MaterialTheme.colorScheme.primary,
-            modifier = Modifier.padding(start = 4.dp, top = 8.dp),
+            modifier = Modifier.padding(start = 4.dp, top = 8.dp).semantics { heading() },
         )
     }
     if (devices.isEmpty()) {
@@ -441,6 +464,7 @@ private fun LazyListScope.deviceItems(
     }
 }
 
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
 private fun CastingCard(state: CastState.Active, actions: DevicesActions) {
     Card(
@@ -464,7 +488,8 @@ private fun CastingCard(state: CastState.Active, actions: DevicesActions) {
                     modifier = Modifier.size(28.dp),
                 )
                 Spacer(Modifier.width(12.dp))
-                Column(Modifier.weight(1f)) {
+                // TalkBack announces changes here (connecting, live, paused, errors in the phase label).
+                Column(Modifier.weight(1f).semantics(mergeDescendants = true) { liveRegion = LiveRegionMode.Polite }) {
                     Text(
                         when {
                             file -> state.title ?: stringResource(R.string.main_video)
@@ -472,7 +497,7 @@ private fun CastingCard(state: CastState.Active, actions: DevicesActions) {
                             else -> stringResource(R.string.casting_to, state.device.name)
                         },
                         style = MaterialTheme.typography.titleMedium,
-                        maxLines = 1, overflow = TextOverflow.Ellipsis,
+                        maxLines = 2, overflow = TextOverflow.Ellipsis,
                     )
                     val details = if (file) {
                         buildList {
@@ -500,7 +525,7 @@ private fun CastingCard(state: CastState.Active, actions: DevicesActions) {
                             if (state.compatibilityMode) add(stringResource(R.string.main_compatible_mode))
                         }.joinToString(" · ")
                     }
-                    Text(details, style = MaterialTheme.typography.bodySmall, maxLines = 2)
+                    Text(details, style = MaterialTheme.typography.bodySmall)
                 }
                 if (state.phase != CastPhase.LIVE) {
                     CircularProgressIndicator(Modifier.size(20.dp), strokeWidth = 2.dp, color = MaterialTheme.colorScheme.onPrimaryContainer)
@@ -512,9 +537,13 @@ private fun CastingCard(state: CastState.Active, actions: DevicesActions) {
             PlaybackExtras(state)
             MultiScreenSection(state)
             Spacer(Modifier.height(12.dp))
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                VolumeControls(state, actions)
-                Spacer(Modifier.weight(1f))
+            FlowRow(
+                Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalArrangement = Arrangement.spacedBy(8.dp),
+                itemVerticalAlignment = Alignment.CenterVertically,
+            ) {
+                Row(verticalAlignment = Alignment.CenterVertically) { VolumeControls(state, actions) }
                 Button(onClick = actions.onStop) {
                     Icon(Icons.Rounded.Stop, contentDescription = null, modifier = Modifier.size(18.dp))
                     Spacer(Modifier.width(6.dp))
@@ -559,8 +588,18 @@ private fun PlaybackControls(state: CastState.Active, actions: DevicesActions) {
     LaunchedEffect(position, duration, dragging) {
         if (!dragging) sliderState.value = if (duration > 0) (position.toFloat() / duration).coerceIn(0f, 1f) else 0f
     }
+    val positionLabel = stringResource(R.string.polish_position)
+    val positionValue = stringResource(
+        R.string.polish_position_value,
+        formatTime(if (dragging) (sliderState.value * duration).toLong() else position),
+        if (duration > 0) formatTime(duration) else "--:--",
+    )
     Column(Modifier.padding(top = 8.dp)) {
         Slider(
+            modifier = Modifier.semantics {
+                contentDescription = positionLabel
+                stateDescription = positionValue
+            },
             state = sliderState,
             onValueChange = {
                 dragging = true
@@ -572,7 +611,7 @@ private fun PlaybackControls(state: CastState.Active, actions: DevicesActions) {
             },
             enabled = duration > 0,
         )
-        Row {
+        Row(Modifier.clearAndSetSemantics { }) {
             Text(formatTime(if (dragging) (sliderState.value * duration).toLong() else position), style = MaterialTheme.typography.labelMedium)
             Spacer(Modifier.weight(1f))
             Text(if (duration > 0) formatTime(duration) else "--:--", style = MaterialTheme.typography.labelMedium)
@@ -605,7 +644,8 @@ private fun PlaybackControls(state: CastState.Active, actions: DevicesActions) {
                 }
             }
             if (state.hasSubtitles) {
-                IconButton(onClick = actions.onToggleSubtitles) {
+                val subtitleState = stringResource(if (state.subtitlesOn) R.string.polish_on else R.string.polish_off)
+                IconButton(onClick = actions.onToggleSubtitles, modifier = Modifier.semantics { stateDescription = subtitleState }) {
                     Icon(
                         if (state.subtitlesOn) Icons.Rounded.ClosedCaption else Icons.Rounded.ClosedCaptionDisabled,
                         contentDescription = stringResource(R.string.action_subtitles),
@@ -819,14 +859,16 @@ private fun VolumeControls(state: CastState.Active, actions: DevicesActions) {
         },
         style = MaterialTheme.typography.labelLarge,
         textAlign = TextAlign.Center,
-        modifier = Modifier.width(52.dp),
+        modifier = Modifier.widthIn(min = 52.dp).padding(horizontal = 4.dp),
     )
     FilledIconButton(onClick = actions.onVolumeUp, colors = buttonColors) {
         Icon(Icons.AutoMirrored.Rounded.VolumeUp, contentDescription = stringResource(R.string.action_volume_up))
     }
     Spacer(Modifier.width(4.dp))
+    val muteState = stringResource(if (state.muted) R.string.main_muted else R.string.polish_sound_on)
     FilledIconButton(
         onClick = actions.onToggleMute,
+        modifier = Modifier.semantics { stateDescription = muteState },
         colors = if (state.muted) {
             IconButtonDefaults.filledIconButtonColors(
                 containerColor = MaterialTheme.colorScheme.onPrimaryContainer,
@@ -890,7 +932,7 @@ private fun DeviceCard(entry: DeviceEntry, casting: Boolean, onClick: () -> Unit
 @Composable
 private fun EmptyCard(scanning: Boolean) {
     Card(Modifier.fillMaxWidth()) {
-        Row(Modifier.padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
+        Row(Modifier.padding(16.dp).semantics(mergeDescendants = true) { liveRegion = LiveRegionMode.Polite }, verticalAlignment = Alignment.CenterVertically) {
             CircularProgressIndicator(Modifier.size(22.dp), strokeWidth = 2.5.dp)
             Spacer(Modifier.width(16.dp))
             Text(
@@ -901,6 +943,7 @@ private fun EmptyCard(scanning: Boolean) {
     }
 }
 
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
 private fun HelpCard(scanning: Boolean, onScan: () -> Unit, onAdd: () -> Unit) {
     Card(
@@ -912,7 +955,7 @@ private fun HelpCard(scanning: Boolean, onScan: () -> Unit, onAdd: () -> Unit) {
             Spacer(Modifier.height(4.dp))
             Text(stringResource(R.string.help_text), style = MaterialTheme.typography.bodySmall)
             Spacer(Modifier.height(12.dp))
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
                 FilledTonalButton(onClick = onScan, enabled = !scanning) {
                     Icon(Icons.Rounded.Search, contentDescription = null, modifier = Modifier.size(18.dp))
                     Spacer(Modifier.width(6.dp))

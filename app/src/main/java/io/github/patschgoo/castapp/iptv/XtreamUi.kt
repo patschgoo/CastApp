@@ -1,5 +1,8 @@
 package io.github.patschgoo.castapp.iptv
 
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.semantics
+
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -180,13 +183,13 @@ internal fun VodPane(
 
 @Composable
 private fun Poster(item: VodItem, series: Boolean, onClick: () -> Unit) {
-    Column(Modifier.clickable(onClick = onClick)) {
+    Column(Modifier.clickable(role = Role.Button, onClick = onClick).semantics(mergeDescendants = true) {}) {
         Box(
             Modifier.fillMaxWidth().aspectRatio(2f / 3f).clip(RoundedCornerShape(10.dp)).background(MaterialTheme.colorScheme.surfaceContainerHighest),
             contentAlignment = Alignment.Center,
         ) {
             RemoteImage(item.cover, Modifier.fillMaxSize(), sizePx = 160) {
-                Icon(if (series) Icons.Rounded.Tv else Icons.Rounded.Movie, contentDescription = stringResource(R.string.iptvg_poster, item.name), tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(32.dp))
+                Icon(if (series) Icons.Rounded.Tv else Icons.Rounded.Movie, contentDescription = null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(32.dp))
             }
         }
         Text(item.name, style = MaterialTheme.typography.bodySmall, maxLines = 2, overflow = TextOverflow.Ellipsis, modifier = Modifier.padding(top = 4.dp))
