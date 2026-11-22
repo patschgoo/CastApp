@@ -63,6 +63,8 @@ class TvReceiverService : Service() {
         _address.value = NetworkScanner.localNetworks().firstOrNull()?.address?.hostAddress?.let { "$it:${r.port}" }
         _running.value = true
         watchNetwork()
+        // Phones that cast can find this receiver as a CastApp device (to join, hand over...).
+        io.github.patschgoo.castapp.multi.Peers.acquire(this, "receiver")
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
@@ -86,6 +88,7 @@ class TvReceiverService : Service() {
         try { multicastLock?.release() } catch (_: Exception) {}
         _running.value = false
         _port.value = 0
+        io.github.patschgoo.castapp.multi.Peers.release("receiver")
         super.onDestroy()
     }
 

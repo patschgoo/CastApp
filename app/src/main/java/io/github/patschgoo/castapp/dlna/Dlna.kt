@@ -20,6 +20,13 @@ object Dlna {
     const val SSDP_PORT = 1900
     /** Marker of the subtitle look in the metadata CastApp sends to CastApp TV receivers. */
     const val SUBTITLE_STYLE_PREFIX = "castapp:substyle:"
+    /** Marker of the shared timeline (several screens in sync) in metadata for CastApp TV receivers. */
+    const val SYNC_PREFIX = "castapp:sync:"
+
+    /** The shared-timeline address in DIDL-Lite metadata from CastApp, or null. */
+    fun syncUrlIn(metadata: String): String? =
+        Regex(Regex.escape(SYNC_PREFIX) + "([^<]*)").find(metadata)?.groupValues?.get(1)?.let(::unescape)?.trim()
+            ?.takeIf { it.startsWith("http://") }
 
     /** The subtitle look in DIDL-Lite metadata from CastApp, or null. */
     fun subtitleStyleIn(metadata: String): String? =
@@ -106,6 +113,8 @@ object Dlna {
         lowLatency: Boolean = false,
         /** CastApp TV receivers: how subtitles should look ([io.github.patschgoo.castapp.subtitles.SubtitleStyle.encode]). */
         subtitleStyle: String? = null,
+        /** CastApp TV receivers: the host's shared timeline, to play in sync with other screens. */
+        syncUrl: String? = null,
     ): String {
         val upnpClass = when {
             mimeType.startsWith("audio/") -> "object.item.audioItem.musicTrack"
@@ -133,6 +142,9 @@ object Dlna {
             if (lowLatency) append("<desc id=\"castapp\" nameSpace=\"urn:castapp\">castapp:lowlatency</desc>")
             if (subtitleStyle != null && srtUrl != null) {
                 append("<desc id=\"castapp-subtitles\" nameSpace=\"urn:castapp\">").append(SUBTITLE_STYLE_PREFIX).append(escape(subtitleStyle)).append("</desc>")
+            }
+            if (syncUrl != null) {
+                append("<desc id=\"castapp-sync\" nameSpace=\"urn:castapp\">").append(SYNC_PREFIX).append(escape(syncUrl)).append("</desc>")
             }
             append("</item></DIDL-Lite>")
         }

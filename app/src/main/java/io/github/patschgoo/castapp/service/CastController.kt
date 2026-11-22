@@ -70,6 +70,13 @@ sealed interface CastState {
         val videoCodec: String = "",
         /** Mirroring: the phone's microphone is mixed into the sound. */
         val microphone: Boolean = false,
+        /**
+         * Several screens at once: every screen of the cast with its state (the first one is the
+         * cast's own [device]). Empty while there is only one screen.
+         */
+        val screens: List<io.github.patschgoo.castapp.multi.ScreenInfo> = emptyList(),
+        /** Another CastApp device is taking this cast over. */
+        val handingOver: Boolean = false,
     ) : CastState {
         /** Current playback position, extrapolated while playing. */
         fun positionNow(nowElapsed: Long): Long {
