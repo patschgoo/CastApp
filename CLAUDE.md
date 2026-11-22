@@ -42,12 +42,14 @@ CastApp TV receiver, `discovery/`, `render/` one "play this URL" per device kind
 servers, `capture/` encoders and converter, `service/` foreground service and sessions, `multi/` several
 screens, join, sync and hand-over, `mediaservers/` Plex and Jellyfin, `iptv/`, `network/` SMB/WebDAV,
 `subtitles/` Vosk and Whisper (`app/src/main/cpp/`), `opensubtitles/`, `remote/`, `youtube/`, `support/`,
-`automation/`, `wear/` (phone side of the watch app), `ui/`. Modules `wear/` and `wear-protocol/` are the
+`automation/`, `wear/` (phone side of the watch app), `ui/` (the main screen is `TileHome.kt`: "Cast to", big buttons,
+source tiles, cast bar; `DevicesScreen.kt` wires it and holds the casting card). Modules `wear/` and `wear-protocol/` are the
 Wear OS remote.
 
 ## State (version 4.0.0)
 
 Everything is built and unit-tested, but most features since 3.1 have **not been tried on real devices yet**.
+The redesigned main screen (violet theme, no Material You colors any more) hasn't been seen on a real phone at all.
 Reports from the TESTING.md round are the next input: expect fixes in device handshakes (Cast, DLNA, AirPlay,
 Roku), Plex/Jellyfin transcoding parameters, hand-over on Google Cast, recordings on Android 12+ and the
 Wear OS Data Layer.

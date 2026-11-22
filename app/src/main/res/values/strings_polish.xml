@@ -4,7 +4,7 @@
     <string name="tour_1_title">Your phone on the big screen</string>
     <string name="tour_1_text">CastApp sends your screen, videos, music and photos to your TV over your Wi-Fi. No account, no ads.</string>
     <string name="tour_2_title">Pick a TV, then mirror or cast</string>
-    <string name="tour_2_text">TVs on your Wi-Fi appear on the main screen. Tap \"Cast\" to mirror your screen, or tap the TV itself for more: a single app, files, or the sound only.</string>
+    <string name="tour_2_text">Your TV is at the top under \"Cast to\"; tap it to pick another one. Then tap Mirror screen, One app or Phone sound, or choose what to play from the tiles below.</string>
     <string name="tour_3_title">Files, web, TV channels and network</string>
     <string name="tour_3_text">Cast files from your phone or a cloud app, videos from websites, TV channels with a programme guide, and media from Plex, Jellyfin, a NAS or a PC.</string>
     <string name="tour_4_title">A remote for your TV</string>

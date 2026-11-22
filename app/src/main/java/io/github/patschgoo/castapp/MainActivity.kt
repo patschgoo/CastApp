@@ -31,6 +31,7 @@ import io.github.patschgoo.castapp.service.MediaItem
 import io.github.patschgoo.castapp.ui.AppPickerScreen
 import io.github.patschgoo.castapp.ui.DevicesScreen
 import io.github.patschgoo.castapp.ui.FirstRunTour
+import io.github.patschgoo.castapp.ui.HomeLogic
 import io.github.patschgoo.castapp.ui.SettingsScreen
 import io.github.patschgoo.castapp.ui.theme.CastAppTheme
 import io.github.patschgoo.castapp.ui.theme.isAppInDarkTheme
@@ -177,21 +178,17 @@ private fun AppRoot(app: CastApp, activity: MainActivity, tourAtStart: Boolean) 
                     route = Route.APP_PICKER
                 }
             },
-            onCastFiles = { device ->
+            onCastFiles = { device, pick ->
                 app.devices.save(device)
                 fileDeviceId = device.id
-                val types = if (device.video && !app.devices.audioMode.value) {
-                    arrayOf("video/*", "audio/*", "image/*", "application/x-subrip", "text/vtt", "application/octet-stream")
-                } else {
-                    arrayOf("audio/*")
-                }
-                filePicker.launch(types)
+                filePicker.launch(HomeLogic.mimeTypes(pick, picture = device.video && !app.devices.audioMode.value))
             },
             onCastSound = { cast(it, ProjectionActivity.MODE_AUDIO) },
             onOpenBrowser = { context.startActivity(Intent(context, BrowserActivity::class.java)) },
             onDarkScreen = { activity.startDarkScreen() },
             onOpenTvChannels = { context.startActivity(Intent(context, TvChannelsActivity::class.java)) },
             onOpenNetwork = { context.startActivity(Intent(context, NetworkActivity::class.java)) },
+            onOpenServers = { kind -> context.startActivity(NetworkActivity.serversIntent(context, kind)) },
         )
         Route.SETTINGS -> SettingsScreen(
             settings = app.settings,

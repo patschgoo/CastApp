@@ -4,7 +4,7 @@
     <string name="tour_1_title">Dein Handy auf dem großen Bildschirm</string>
     <string name="tour_1_text">CastApp bringt deinen Bildschirm, Videos, Musik und Fotos über dein WLAN auf den Fernseher. Ohne Konto, ohne Werbung.</string>
     <string name="tour_2_title">Fernseher wählen, dann spiegeln oder streamen</string>
-    <string name="tour_2_text">Fernseher in deinem WLAN erscheinen auf dem Startbildschirm. Tippe auf „Streamen“, um deinen Bildschirm zu spiegeln, oder auf den Fernseher selbst für mehr: eine einzelne App, Dateien oder nur den Ton.</string>
+    <string name="tour_2_text">Dein Fernseher steht oben unter „Streamen an“; tippe darauf, um einen anderen auszuwählen. Tippe dann auf „Bildschirm spiegeln“, „Eine App“ oder „Handy-Ton“, oder wähle in den Kacheln darunter, was du abspielen möchtest.</string>
     <string name="tour_3_title">Dateien, Web, TV-Sender und Netzwerk</string>
     <string name="tour_3_text">Streame Dateien von deinem Handy oder aus einer Cloud-App, Videos von Websites, TV-Sender mit Programmübersicht und Medien von Plex, Jellyfin, einem NAS oder einem PC.</string>
     <string name="tour_4_title">Eine Fernbedienung für deinen Fernseher</string>
