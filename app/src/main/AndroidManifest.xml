@@ -28,6 +28,16 @@
     <!-- Only used to capture the sound of other apps (Android 10+), never the microphone -->
     <uses-permission android:name="android.permission.RECORD_AUDIO" />
 
+    <!-- The phone as a Bluetooth remote/keyboard for TV boxes (only asked for when you use it) -->
+    <uses-permission android:name="android.permission.BLUETOOTH" android:maxSdkVersion="30" />
+    <uses-permission android:name="android.permission.BLUETOOTH_ADMIN" android:maxSdkVersion="30" />
+    <uses-permission android:name="android.permission.BLUETOOTH_CONNECT" />
+    <uses-permission android:name="android.permission.BLUETOOTH_ADVERTISE" />
+    <uses-feature android:name="android.hardware.bluetooth" android:required="false" />
+    <!-- Infrared TV remote on phones with an IR emitter -->
+    <uses-permission android:name="android.permission.TRANSMIT_IR" />
+    <uses-feature android:name="android.hardware.consumerir" android:required="false" />
+
     <!-- Needed to list apps for "Cast a single app" on Android 13 and older -->
     <queries>
         <intent>
@@ -131,6 +141,13 @@
             android:exported="false"
             android:theme="@style/Theme.CastApp.Transparent"
             android:windowSoftInputMode="adjustResize" />
+
+        <!-- Permission / "turn on Bluetooth" / "make visible" dialogs for the hardware remotes -->
+        <activity
+            android:name=".remote.RemoteHelperActivity"
+            android:excludeFromRecents="true"
+            android:exported="false"
+            android:theme="@style/Theme.CastApp.Transparent" />
 
         <!-- TV receiver mode -->
         <activity
