@@ -52,6 +52,7 @@ class TvPlayerActivity : ComponentActivity() {
     private lateinit var playerView: PlayerView
     private lateinit var photoView: ImageView
     private lateinit var infoView: TextView
+    private lateinit var swapButton: android.widget.Button
     private val handler = Handler(Looper.getMainLooper())
     private var photoState = TransportState.STOPPED
     private var photoLoader: Thread? = null
@@ -63,6 +64,7 @@ class TvPlayerActivity : ComponentActivity() {
         override fun run() {
             reportState()
             catchUp()
+            swapButton.visibility = if (io.github.patschgoo.castapp.service.SwapDirection.partner != null) View.VISIBLE else View.GONE
             handler.postDelayed(this, 500)
         }
     }
@@ -97,6 +99,24 @@ class TvPlayerActivity : ComponentActivity() {
         root.addView(playerView, FrameLayout.LayoutParams(FrameLayout.LayoutParams.MATCH_PARENT, FrameLayout.LayoutParams.MATCH_PARENT))
         root.addView(photoView, FrameLayout.LayoutParams(FrameLayout.LayoutParams.MATCH_PARENT, FrameLayout.LayoutParams.MATCH_PARENT))
         root.addView(infoView, FrameLayout.LayoutParams(FrameLayout.LayoutParams.MATCH_PARENT, FrameLayout.LayoutParams.WRAP_CONTENT, Gravity.CENTER))
+        // After "swap" (a TV mirroring to this phone): go back to the phone mirroring to the TV.
+        swapButton = android.widget.Button(this).apply {
+            text = getString(io.github.patschgoo.castapp.R.string.swap_back)
+            visibility = View.GONE
+            setOnClickListener {
+                closing = true
+                TvReceiver.closedOnTv()
+                exo?.stop()
+                io.github.patschgoo.castapp.service.SwapDirection.backToTv(this@TvPlayerActivity)
+                finish()
+            }
+        }
+        val margin = (16 * resources.displayMetrics.density).toInt()
+        root.addView(
+            swapButton,
+            FrameLayout.LayoutParams(FrameLayout.LayoutParams.WRAP_CONTENT, FrameLayout.LayoutParams.WRAP_CONTENT, Gravity.TOP or Gravity.END)
+                .apply { setMargins(margin, margin * 2, margin, margin) },
+        )
         setContentView(root)
 
         onBackPressedDispatcher.addCallback(this) {
@@ -104,6 +124,7 @@ class TvPlayerActivity : ComponentActivity() {
             closing = true
             TvReceiver.closedOnTv()
             exo?.stop()
+            io.github.patschgoo.castapp.service.SwapDirection.ended(this@TvPlayerActivity)
             finish()
         }
 

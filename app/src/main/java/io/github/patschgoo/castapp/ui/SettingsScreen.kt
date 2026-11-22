@@ -178,6 +178,7 @@ fun SettingsScreen(
             }
 
             item { SectionTitle("Connection") }
+            item { ReceiveOnPhoneItem() }
             item { SettingItem("Stream mode", s.streamMode.label + " — " + s.streamMode.description) { dialog = SettingDialog.MODE } }
             item { SettingItem("Stream port", "${s.port} (only change if something else uses it)") { dialog = SettingDialog.PORT } }
             item {
@@ -495,4 +496,25 @@ private fun LanguageDialog(selected: String, onSelect: (String) -> Unit, onDismi
         },
         confirmButton = { TextButton(onClick = onDismiss) { Text("Done") } },
     )
+}
+
+/** "Receive on this phone": the phone becomes a CastApp TV receiver while this is on. */
+@Composable
+private fun ReceiveOnPhoneItem() {
+    val context = LocalContext.current
+    val on by io.github.patschgoo.castapp.tv.TvReceiverService.running.collectAsStateWithLifecycle()
+    fun toggle(enable: Boolean) {
+        if (enable) io.github.patschgoo.castapp.tv.TvReceiverService.start(context)
+        else io.github.patschgoo.castapp.tv.TvReceiverService.stop(context)
+    }
+    ListItem(
+        onClick = { toggle(!on) },
+        supportingContent = {
+            Text(
+                if (on) stringResource(R.string.receive_summary_on, io.github.patschgoo.castapp.tv.TvReceiver.deviceName(context))
+                else stringResource(R.string.receive_summary_off),
+            )
+        },
+        trailingContent = { Switch(checked = on, onCheckedChange = { toggle(it) }) },
+    ) { Text(stringResource(R.string.receive_title)) }
 }

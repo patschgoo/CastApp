@@ -116,6 +116,7 @@ import androidx.compose.material.icons.rounded.HighQuality
 import androidx.compose.material.icons.rounded.Lan
 import androidx.compose.material.icons.rounded.LiveTv
 import androidx.compose.material.icons.rounded.Subtitles
+import androidx.compose.material.icons.rounded.SwapHoriz
 import androidx.compose.material3.AssistChip
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
@@ -152,6 +153,9 @@ class DevicesActions(
     val onQuality: (String) -> Unit = {},
     val onCreateSubtitles: () -> Unit = {},
     val onLiveCaption: () -> Unit = {},
+    /** Mirroring to a CastApp TV: let the TV mirror to this phone instead. */
+    val onSwap: () -> Unit = {},
+    val onStopReceiving: () -> Unit = {},
 )
 
 @Composable
@@ -216,6 +220,12 @@ fun DevicesScreen(
                 } catch (_: Exception) {
                 }
             },
+            onSwap = {
+                (CastController.state.value as? CastState.Active)?.device?.let {
+                    io.github.patschgoo.castapp.service.SwapDirection.toPhone(context, it)
+                }
+            },
+            onStopReceiving = { io.github.patschgoo.castapp.tv.TvReceiverService.stop(context) },
         )
     }
     DevicesContent(devices, scanning, castState as? CastState.Active, snackbar, actions, audioMode)
@@ -292,6 +302,10 @@ fun DevicesContent(
 
             item(key = "sources") {
                 SourcesRow(actions)
+            }
+
+            item(key = "receiving") {
+                ReceivingCard(actions)
             }
 
             item(key = "header") {
@@ -602,6 +616,13 @@ private fun ExtrasRow(state: CastState.Active, actions: DevicesActions) {
                     leadingIcon = { Icon(Icons.Rounded.Subtitles, contentDescription = null, modifier = Modifier.size(18.dp)) },
                 )
             }
+            if (mirroring && state.device.isCastAppTv) {
+                AssistChip(
+                    onClick = actions.onSwap,
+                    label = { Text(stringResource(R.string.swap_action)) },
+                    leadingIcon = { Icon(Icons.Rounded.SwapHoriz, contentDescription = null, modifier = Modifier.size(18.dp)) },
+                )
+            }
             if (mirroring) {
                 AssistChip(
                     onClick = actions.onLiveCaption,
@@ -629,6 +650,29 @@ private fun qualityText(option: String, mirroring: Boolean): String = when {
     mirroring && option == "4K" -> "4K (2160p)"
     !mirroring && option.endsWith("p") -> "$option (converted on the phone)"
     else -> option
+}
+
+/** Shown while this phone receives casts (Settings → Receive on this phone, or after a swap). */
+@Composable
+private fun ReceivingCard(actions: DevicesActions) {
+    val receiving by io.github.patschgoo.castapp.tv.TvReceiverService.running.collectAsStateWithLifecycle()
+    if (!receiving) return
+    val context = LocalContext.current
+    Card(
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.secondaryContainer),
+        modifier = Modifier.fillMaxWidth(),
+    ) {
+        Row(Modifier.padding(start = 16.dp, end = 8.dp, top = 8.dp, bottom = 8.dp), verticalAlignment = Alignment.CenterVertically) {
+            Icon(Icons.Rounded.CastConnected, contentDescription = null)
+            Spacer(Modifier.width(12.dp))
+            Text(
+                stringResource(R.string.receive_card, io.github.patschgoo.castapp.tv.TvReceiver.deviceName(context)),
+                style = MaterialTheme.typography.bodyMedium,
+                modifier = Modifier.weight(1f),
+            )
+            TextButton(onClick = actions.onStopReceiving) { Text(stringResource(R.string.action_stop)) }
+        }
+    }
 }
 
 /** Where to play from besides this phone's screen. */
