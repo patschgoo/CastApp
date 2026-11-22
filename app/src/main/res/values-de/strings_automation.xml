@@ -1,0 +1,26 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Settings: automation API -->
+    <string name="automation_section">Automatisierung</string>
+    <string name="automation_title">Andere Apps dürfen CastApp steuern</string>
+    <string name="automation_summary_off">Aus. Tasker, MacroDroid, Home Assistant und ähnliche Apps können keine Übertragungen starten oder steuern.</string>
+    <string name="automation_summary_secret">An. Aufrufer müssen dein Geheimwort mitschicken.</string>
+    <string name="automation_summary_open">An ohne Geheimwort: Jede App auf diesem Handy kann CastApp steuern. Lege unten ein Geheimwort fest.</string>
+    <string name="automation_secret_title">Geheimwort</string>
+    <string name="automation_secret_not_set">Nicht festgelegt. Tippe, um eines zu wählen.</string>
+    <string name="automation_secret_is_set">Festgelegt. Tippe, um es anzuzeigen, zu ändern oder zu entfernen.</string>
+    <string name="automation_secret_hint">Aufrufer übergeben es als Extra \"secret\". Lass das Feld leer, um jeden Aufrufer zuzulassen.</string>
+    <string name="automation_secret_field">Geheimwort</string>
+    <string name="automation_secret_generate">Erzeugen</string>
+    <string name="automation_secret_copy">Kopieren</string>
+    <string name="automation_secret_copied">Geheimwort kopiert</string>
+    <string name="automation_secret_remove">Entfernen</string>
+    <string name="automation_secret_save">Speichern</string>
+    <string name="automation_docs_hint">Beispiele für Tasker, MacroDroid, Home Assistant und adb stehen in AUTOMATION.md im CastApp-Repository.</string>
+
+    <!-- Mirroring asked for from the background (another app or a watch) -->
+    <string name="automation_channel">Fernsteuerungs-Anfragen</string>
+    <string name="automation_channel_description">Fragt dich um Erlaubnis, wenn eine andere App oder deine Uhr deinen Bildschirm spiegeln möchte</string>
+    <string name="automation_prompt_title">Bildschirm auf %1$s spiegeln?</string>
+    <string name="automation_prompt_text">Tippe, um die Bildschirmaufnahme zu bestätigen.</string>
+</resources>

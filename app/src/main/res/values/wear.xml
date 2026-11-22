@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Lets the CastApp watch app find this phone (Wear Data Layer capability) -->
+    <string-array name="android_wear_capabilities" translatable="false">
+        <item>castapp_phone</item>
+    </string-array>
+</resources>

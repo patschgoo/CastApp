@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">CastApp</string>
+    <string name="nothing_playing">Es läuft nichts</string>
+    <string name="mirroring_screen">Bildschirm wird gespiegelt</string>
+    <string name="playing_on">auf %1$s</string>
+    <string name="paused_on">Pausiert · %1$s</string>
+    <string name="queue_position">%1$d von %2$d</string>
+    <string name="volume_percent">Lautstärke %1$d%%</string>
+    <string name="mirror_to">Auf %1$s spiegeln</string>
+    <string name="mirror_pick_on_phone">Am Handy spiegeln</string>
+    <string name="mirror_sent">Tippe auf die Benachrichtigung am Handy</string>
+    <string name="no_phone">Handy nicht verbunden</string>
+    <string name="no_phone_hint">Öffne CastApp auf deinem Handy und prüfe, ob die Uhr verbunden ist.</string>
+    <string name="no_play_services">Die Wear-OS-Dienste sind auf dieser Uhr nicht verfügbar.</string>
+    <string name="retry">Erneut versuchen</string>
+
+    <string name="action_play">Wiedergabe</string>
+    <string name="action_pause">Pause</string>
+    <string name="action_previous">Zurück</string>
+    <string name="action_next">Weiter</string>
+    <string name="action_volume_down">Leiser</string>
+    <string name="action_volume_up">Lauter</string>
+    <string name="action_stop">Stopp</string>
+</resources>

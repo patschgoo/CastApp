@@ -56,19 +56,28 @@ jobs:
           fi
           ./gradlew assembleRelease --console=plain
 
-      - name: Rename APK
-        run: cp app/build/outputs/apk/release/app-release.apk CastApp.apk
+      - name: Rename APKs
+        run: |
+          cp app/build/outputs/apk/release/app-release.apk CastApp.apk
+          cp wear/build/outputs/apk/release/wear-release.apk CastApp-wear.apk
 
       - uses: actions/upload-artifact@v7
         with:
           name: CastApp
           path: CastApp.apk
 
+      - uses: actions/upload-artifact@v7
+        with:
+          name: CastApp-wear
+          path: CastApp-wear.apk
+
       - name: Attach APK to release
         if: startsWith(github.ref, 'refs/tags/v')
         uses: softprops/action-gh-release@v3
         with:
-          files: CastApp.apk
+          files: |
+            CastApp.apk
+            CastApp-wear.apk
           generate_release_notes: true
           draft: false
           prerelease: false

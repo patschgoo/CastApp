@@ -326,6 +326,12 @@ Google's standard player buffers about a second. CastApp includes its own TV pla
 
 If the player doesn't start, CastApp falls back to Google's standard player automatically. You can also try the player in a desktop browser: `receiver/index.html?test=<stream URL>&codecs=avc1.64001F,mp4a.40.2`.
 
+## Automation and Wear OS
+
+**Automation (Tasker, MacroDroid, Home Assistant).** Under **Settings → Automation** you can let other apps control CastApp (off by default, with an optional secret). They can mirror to a TV, cast a link or a file, stop, play/pause, skip, set the volume and quality, switch "Receive on this phone" and open the remote, with a result code coming back. [AUTOMATION.md](AUTOMATION.md) lists every intent and has examples for Tasker, MacroDroid, Home Assistant and `adb shell am`.
+
+**Wear OS remote.** The **CastApp-wear.apk** build artifact is a small Wear OS 3+ app that shows what your phone is casting and has play/pause, previous/next, volume, stop and a "Mirror to (your last TV)" button (the phone then shows a notification to confirm Android's capture prompt). It talks to the phone through the Wear Data Layer, so it needs Google Play services on the phone and the watch, and the same CastApp build on both (same signing key). Install it with `adb install CastApp-wear.apk` over the watch's Wi-Fi or Bluetooth debugging. A phone without Google Play services, or without a watch, works exactly as before.
+
 ## Help and reliability tools
 
 In **Settings → Help & support**:
@@ -473,8 +479,12 @@ app/src/main/java/io/github/patschgoo/castapp/
 ├── settings/      settings storage
 ├── widget/        home-screen widget
 ├── tile/          Quick Settings tiles
+├── automation/    intent API for Tasker, MacroDroid, Home Assistant (see AUTOMATION.md)
+├── wear/          messages to and from the Wear OS app
 ├── ui/            Jetpack Compose screens
 receiver/          optional low-latency TV player (web app for Cast devices)
+wear/              Wear OS remote (Compose for Wear OS)
+wear-protocol/     the messages phone and watch share (encoder, decoder)
 ```
 
 ## Signing key
