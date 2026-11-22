@@ -1,5 +1,12 @@
 package io.github.patschgoo.castapp.support
 
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.FlowRow
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.ui.semantics.LiveRegionMode
+import androidx.compose.ui.semantics.liveRegion
+import androidx.compose.ui.semantics.semantics
+
 import android.widget.Toast
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -52,7 +59,7 @@ internal fun SelfTestItem() {
     if (show) SelfTestSheet(onDismiss = { show = false })
 }
 
-@OptIn(ExperimentalMaterial3Api::class)
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
 @Composable
 private fun SelfTestSheet(onDismiss: () -> Unit) {
     val context = LocalContext.current
@@ -76,7 +83,11 @@ private fun SelfTestSheet(onDismiss: () -> Unit) {
                 }
             } else {
                 val (ok, warn, fail) = SelfTest.counts(list)
-                Text(stringResource(R.string.selftest_counts, ok, warn, fail), style = MaterialTheme.typography.titleSmall)
+                Text(
+                    stringResource(R.string.selftest_counts, ok, warn, fail),
+                    style = MaterialTheme.typography.titleSmall,
+                    modifier = Modifier.semantics { liveRegion = LiveRegionMode.Polite },
+                )
                 Spacer(Modifier.height(4.dp))
                 Text(
                     stringResource(R.string.selftest_logged),
@@ -90,7 +101,7 @@ private fun SelfTestSheet(onDismiss: () -> Unit) {
                 }
                 val subject = stringResource(R.string.send_log_subject)
                 val failed = stringResource(R.string.send_log_failed)
-                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
                     OutlinedButton(onClick = { round++ }) { Text(stringResource(R.string.selftest_again)) }
                     OutlinedButton(onClick = {
                         scope.launch {
@@ -123,11 +134,15 @@ private fun SelfItemRow(item: SelfItem) {
             SelfStatus.FAIL -> R.string.selftest_fail
         },
     )
-    Row(verticalAlignment = Alignment.Top) {
-        Icon(icon, contentDescription = label, tint = tint, modifier = Modifier.padding(top = 2.dp).size(22.dp))
+    // One stop for TalkBack: "OK: H.264 video …". The result is also written out, not only coloured.
+    Row(Modifier.fillMaxWidth().semantics(mergeDescendants = true) {}, verticalAlignment = Alignment.Top) {
+        Icon(icon, contentDescription = null, tint = tint, modifier = Modifier.padding(top = 2.dp).size(22.dp))
         Spacer(Modifier.width(12.dp))
         Column {
-            Text(stringResource(titleOf(item.check)), style = MaterialTheme.typography.titleSmall)
+            Text(
+                label + ": " + stringResource(titleOf(item.check)),
+                style = MaterialTheme.typography.titleSmall,
+            )
             explanationOf(item.why)?.let { Text(stringResource(it), style = MaterialTheme.typography.bodyMedium) }
             item.detail?.let { Text(it, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant) }
         }

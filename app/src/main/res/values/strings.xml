@@ -98,7 +98,7 @@
     <string name="notification_title_sound">Casting sound to %1$s</string>
 
     <!-- Quick Settings tile and shortcuts -->
-    <string name="tile_label">Cast screen</string>
+    <string name="tile_label">Mirror screen</string>
     <string name="tile_label_active">Casting</string>
     <string name="tile_pick_tv">Tap to pick a TV</string>
     <string name="shortcut_mirror_short">Mirror screen</string>

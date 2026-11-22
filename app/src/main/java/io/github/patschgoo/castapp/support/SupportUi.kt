@@ -3,6 +3,8 @@ package io.github.patschgoo.castapp.support
 import android.content.Intent
 import android.widget.Toast
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -11,7 +13,11 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.lazy.LazyListScope
+import androidx.compose.foundation.selection.toggleable
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.heading
+import androidx.compose.ui.semantics.semantics
+import io.github.patschgoo.castapp.ui.SettingsSearch
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
@@ -51,6 +57,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
+import androidx.core.content.edit
 import androidx.core.net.toUri
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.compose.LifecycleEventEffect
@@ -67,15 +74,32 @@ import kotlinx.coroutines.launch
 
 // ---- Settings → Help & support ------------------------------------------------------------
 
-/** The "Help & support" section of the settings list. */
-fun LazyListScope.supportSettingsSection() {
-    item { SupportTitle(stringResource(R.string.support_section)) }
-    item { SendLogItem() }
-    item { NetworkCheckItem() }
-    item { SelfTestItem() }
-    item { BatteryItem() }
-    item { UpdateItems() }
-    item { DoNotDisturbItem() }
+/**
+ * The "Help & support" section of the settings list. [anchor] wraps each row so the settings
+ * search can find it (see [io.github.patschgoo.castapp.ui.SettingsSearch]).
+ */
+@Composable
+fun SupportSettingsSection(
+    anchor: @Composable (String, @Composable () -> Unit) -> Unit,
+    onShowTour: () -> Unit,
+) {
+    SupportTitle(stringResource(R.string.support_section))
+    anchor(SettingsSearch.TOUR) { TourItem(onShowTour) }
+    anchor(SettingsSearch.SEND_LOG) { SendLogItem() }
+    anchor(SettingsSearch.NETWORK_CHECK) { NetworkCheckItem() }
+    anchor(SettingsSearch.SELF_TEST) { SelfTestItem() }
+    anchor(SettingsSearch.BATTERY) { BatteryItem() }
+    anchor(SettingsSearch.UPDATES) { UpdateItems() }
+    anchor(SettingsSearch.DND) { DoNotDisturbItem() }
+}
+
+/** Shows the first-run tour again. */
+@Composable
+private fun TourItem(onShowTour: () -> Unit) {
+    ListItem(
+        onClick = onShowTour,
+        supportingContent = { Text(stringResource(R.string.tour_show_again_summary)) },
+    ) { Text(stringResource(R.string.tour_show_again)) }
 }
 
 @Composable
@@ -84,7 +108,7 @@ private fun SupportTitle(text: String) {
         text,
         style = MaterialTheme.typography.titleSmall,
         color = MaterialTheme.colorScheme.primary,
-        modifier = Modifier.padding(start = 16.dp, end = 16.dp, top = 20.dp, bottom = 4.dp),
+        modifier = Modifier.padding(start = 16.dp, end = 16.dp, top = 20.dp, bottom = 4.dp).semantics { heading() },
     )
 }
 
@@ -144,15 +168,16 @@ private fun UpdateItems() {
         supportingContent = { Text(stringResource(R.string.check_updates_summary)) },
     ) { Text(stringResource(R.string.check_updates_title) + " (${BuildConfig.VERSION_NAME})") }
     ListItem(
-        onClick = {
-            auto = !auto
-            SupportPrefs.of(context).edit().putBoolean(SupportPrefs.AUTO_UPDATE_CHECK, auto).apply()
+        modifier = Modifier.toggleable(value = auto, role = Role.Switch) { on ->
+            auto = on
+            SupportPrefs.of(context).edit { putBoolean(SupportPrefs.AUTO_UPDATE_CHECK, on) }
         },
         trailingContent = {
             Switch(checked = auto, onCheckedChange = null)
         },
         supportingContent = { Text(stringResource(R.string.auto_update_summary)) },
-    ) { Text(stringResource(R.string.auto_update_title)) }
+        headlineContent = { Text(stringResource(R.string.auto_update_title)) },
+    )
 }
 
 @Composable
@@ -166,8 +191,8 @@ private fun DoNotDisturbItem() {
         try { context.startActivity(DoNotDisturb.accessIntent()) } catch (_: Exception) {}
     }
     ListItem(
-        onClick = {
-            on = !on
+        modifier = Modifier.toggleable(value = on, role = Role.Switch) { enable ->
+            on = enable
             DoNotDisturb.setEnabled(context, on)
             if (on && !access) askAccess()
         },
@@ -180,7 +205,8 @@ private fun DoNotDisturbItem() {
                 }
             }
         },
-    ) { Text(stringResource(R.string.dnd_title)) }
+        headlineContent = { Text(stringResource(R.string.dnd_title)) },
+    )
 }
 
 // ---- Dialogs shown over the whole app ---------------------------------------------------------
@@ -338,7 +364,7 @@ fun NetworkCheckButton() {
     if (show) NetworkCheckSheet(onDismiss = { show = false })
 }
 
-@OptIn(ExperimentalMaterial3Api::class)
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
 @Composable
 fun NetworkCheckSheet(onDismiss: () -> Unit) {
     val context = LocalContext.current
@@ -369,7 +395,7 @@ fun NetworkCheckSheet(onDismiss: () -> Unit) {
                     FindingRow(f)
                     Spacer(Modifier.height(12.dp))
                 }
-                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
                     OutlinedButton(onClick = { round++ }) { Text(stringResource(R.string.check_again)) }
                     TextButton(onClick = onDismiss) { Text(stringResource(R.string.support_close)) }
                 }
@@ -387,11 +413,20 @@ private fun FindingRow(f: Finding) {
         Severity.INFO -> Icons.Rounded.Info to MaterialTheme.colorScheme.onSurfaceVariant
         Severity.OK -> Icons.Rounded.CheckCircle to MaterialTheme.colorScheme.primary
     }
-    Row(verticalAlignment = Alignment.Top) {
+    val severity = stringResource(
+        when (f.severity) {
+            Severity.PROBLEM -> R.string.selftest_fail
+            Severity.WARNING -> R.string.selftest_warn
+            Severity.INFO -> R.string.polish_info
+            Severity.OK -> R.string.selftest_pass
+        },
+    )
+    // The icon shape and the written severity carry the result, not only the colour.
+    Row(Modifier.fillMaxWidth().semantics(mergeDescendants = true) {}, verticalAlignment = Alignment.Top) {
         Icon(icon, contentDescription = null, tint = tint, modifier = Modifier.padding(top = 2.dp).size(22.dp))
         Spacer(Modifier.width(12.dp))
         Column {
-            Text(stringResource(title), style = MaterialTheme.typography.titleSmall)
+            Text(severity + ": " + stringResource(title), style = MaterialTheme.typography.titleSmall)
             val body = if (f.detail != null && f.code == FindingCode.DEVICES_FOUND) f.detail else if (text != null) stringResource(text, f.detail ?: "") else null
             if (body != null) Text(body, style = MaterialTheme.typography.bodyMedium)
         }

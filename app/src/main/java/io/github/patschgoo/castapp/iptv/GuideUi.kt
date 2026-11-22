@@ -1,5 +1,9 @@
 package io.github.patschgoo.castapp.iptv
 
+import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.widthIn
+import androidx.compose.ui.semantics.Role
+
 import android.text.format.DateUtils
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -130,7 +134,7 @@ internal fun GuideList(
             val upcoming = remember(entry, now / 60_000) { entry.schedule.filter { it.stop > now }.take(5) }
             Column(Modifier.fillMaxWidth().padding(vertical = 6.dp)) {
                 Row(
-                    Modifier.fillMaxWidth().clickable { onPlay(entry) }.padding(horizontal = 16.dp, vertical = 4.dp),
+                    Modifier.fillMaxWidth().heightIn(min = 48.dp).clickable(onClickLabel = stringResource(R.string.polish_play), role = Role.Button) { onPlay(entry) }.padding(horizontal = 16.dp, vertical = 4.dp),
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
                     ChannelLogo(entry.channel, 32)
@@ -144,7 +148,7 @@ internal fun GuideList(
                     )
                     Icon(Icons.Rounded.PlayArrow, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
                 }
-                Column(Modifier.fillMaxWidth().clickable { onInfo(entry) }.padding(start = 60.dp, end = 16.dp)) {
+                Column(Modifier.fillMaxWidth().clickable(onClickLabel = stringResource(R.string.polish_schedule), role = Role.Button) { onInfo(entry) }.padding(start = 60.dp, end = 16.dp)) {
                     for (p in upcoming) {
                         val current = p.isOn(now)
                         Row(Modifier.fillMaxWidth().padding(vertical = 2.dp)) {
@@ -152,7 +156,7 @@ internal fun GuideList(
                                 time(p.start),
                                 style = MaterialTheme.typography.bodySmall,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                modifier = Modifier.width(52.dp),
+                                modifier = Modifier.widthIn(min = 52.dp).padding(end = 4.dp),
                             )
                             Text(
                                 p.title,

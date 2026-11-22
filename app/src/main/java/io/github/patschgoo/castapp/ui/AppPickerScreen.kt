@@ -86,7 +86,7 @@ fun AppPickerScreen(onBack: () -> Unit, onPick: (String) -> Unit) {
             return@Scaffold
         }
         val filtered = if (query.isBlank()) list else list.filter { it.label.contains(query.trim(), ignoreCase = true) }
-        LazyColumn(contentPadding = PaddingValues(top = padding.calculateTopPadding(), bottom = padding.calculateBottomPadding() + 16.dp)) {
+        LazyColumn(Modifier.readableWidth(), contentPadding = PaddingValues(top = padding.calculateTopPadding(), bottom = padding.calculateBottomPadding() + 16.dp)) {
             item {
                 Text(
                     stringResource(R.string.pick_app_hint),

@@ -1,5 +1,6 @@
 package io.github.patschgoo.castapp.tv
 
+import io.github.patschgoo.castapp.ui.focusRing
 import android.app.NotificationManager
 import android.app.PendingIntent
 import android.content.BroadcastReceiver
@@ -182,9 +183,9 @@ class ReceiverPromptActivity : ComponentActivity() {
                         },
                         confirmButton = {
                             Row(horizontalArrangement = Arrangement.spacedBy(4.dp), verticalAlignment = Alignment.CenterVertically) {
-                                TextButton(onClick = { guard.answer(first.id, Decision.BLOCK) }) { Text(stringResource(R.string.protect_block)) }
-                                TextButton(onClick = { guard.answer(first.id, Decision.ALLOW_ALWAYS) }) { Text(stringResource(R.string.protect_allow_always)) }
-                                Button(onClick = { guard.answer(first.id, Decision.ALLOW_ONCE) }, modifier = Modifier.focusRequester(focus)) {
+                                TextButton(onClick = { guard.answer(first.id, Decision.BLOCK) }, modifier = Modifier.focusRing()) { Text(stringResource(R.string.protect_block)) }
+                                TextButton(onClick = { guard.answer(first.id, Decision.ALLOW_ALWAYS) }, modifier = Modifier.focusRing()) { Text(stringResource(R.string.protect_allow_always)) }
+                                Button(onClick = { guard.answer(first.id, Decision.ALLOW_ONCE) }, modifier = Modifier.focusRequester(focus).focusRing()) {
                                     Text(stringResource(R.string.protect_allow))
                                 }
                             }
@@ -210,6 +211,6 @@ private fun PairingCodeDialog(name: String, code: String, focus: FocusRequester,
                 Text(code, style = MaterialTheme.typography.displayLarge, color = MaterialTheme.colorScheme.primary)
             }
         },
-        confirmButton = { Button(onClick = onClose, modifier = Modifier.focusRequester(focus)) { Text(stringResource(R.string.protect_close)) } },
+        confirmButton = { Button(onClick = onClose, modifier = Modifier.focusRequester(focus).focusRing()) { Text(stringResource(R.string.protect_close)) } },
     )
 }

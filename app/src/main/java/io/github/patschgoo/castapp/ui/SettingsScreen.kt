@@ -49,12 +49,42 @@ import io.github.patschgoo.castapp.settings.PictureMode
 import io.github.patschgoo.castapp.settings.StreamMode
 import io.github.patschgoo.castapp.settings.ThemeMode
 import io.github.patschgoo.castapp.subtitles.VoskModels
-import io.github.patschgoo.castapp.support.supportSettingsSection
 import androidx.compose.foundation.layout.size
 import androidx.compose.material.icons.rounded.Delete
 import androidx.compose.material.icons.rounded.Download
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.selection.toggleable
+import androidx.compose.foundation.text.KeyboardActions
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.material.icons.rounded.Close
+import androidx.compose.material.icons.rounded.Search
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.withFrameNanos
+import androidx.compose.ui.draw.drawWithContent
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Size
+import androidx.compose.ui.layout.LayoutCoordinates
+import androidx.compose.ui.layout.onGloballyPositioned
+import androidx.compose.ui.platform.LocalConfiguration
+import androidx.compose.ui.platform.LocalFocusManager
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.platform.LocalResources
+import androidx.compose.ui.res.pluralStringResource
+import androidx.compose.ui.semantics.LiveRegionMode
+import androidx.compose.ui.semantics.heading
+import androidx.compose.ui.semantics.liveRegion
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.text.input.ImeAction
+import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.Dp
+import io.github.patschgoo.castapp.support.SupportSettingsSection
+import kotlinx.coroutines.delay
 
 private enum class SettingDialog { RESOLUTION, FPS, BITRATE, MODE, PORT, THEME, PICTURE, CONVERT, SLIDESHOW, RECEIVER, LANGUAGE }
 
@@ -66,10 +96,51 @@ fun SettingsScreen(
     onRequestAudioPermission: () -> Unit,
     onBack: () -> Unit,
     onRequestOverlayPermission: () -> Unit = {},
+    onShowTour: () -> Unit = {},
 ) {
     val s by settings.state.collectAsStateWithLifecycle()
     var dialog by remember { mutableStateOf<SettingDialog?>(null) }
     val audioSupported = Build.VERSION.SDK_INT >= 29
+
+    val context = LocalContext.current
+    var query by rememberSaveable { mutableStateOf("") }
+    val anchors = remember { SettingAnchors() }
+    var highlighted by remember { mutableStateOf<String?>(null) }
+    var goTo by remember { mutableStateOf<String?>(null) }
+    var confirmReset by remember { mutableStateOf(false) }
+    val scroll = rememberScrollState()
+    val focus = LocalFocusManager.current
+    val configuration = LocalConfiguration.current
+    val resources = LocalResources.current
+    val density = LocalDensity.current
+    val texts = remember(resources, configuration) {
+        SettingsSearch.entries.map {
+            SettingText(
+                it.anchor,
+                resources.getString(it.section),
+                resources.getString(it.title),
+                it.description?.let(resources::getString).orEmpty(),
+            )
+        }
+    }
+    val results = remember(query, texts) { SettingsSearch.search(texts, query) }
+    val anchor: @Composable (String, @Composable () -> Unit) -> Unit = { id, content -> SettingAnchor(id, anchors, highlighted, content) }
+
+    // A tapped search result: scroll the full list to that row and highlight it for a moment.
+    LaunchedEffect(goTo) {
+        val id = goTo ?: return@LaunchedEffect
+        withFrameNanos { }
+        val target = anchors.coords[id]
+        val content = anchors.content
+        if (target != null && content != null && target.isAttached && content.isAttached) {
+            val y = content.localPositionOf(target, Offset.Zero).y
+            scroll.animateScrollTo((y - with(density) { 24.dp.toPx() }).toInt().coerceAtLeast(0))
+        }
+        highlighted = id
+        goTo = null
+        delay(2500)
+        highlighted = null
+    }
 
     Scaffold(
         topBar = {
@@ -83,149 +154,193 @@ fun SettingsScreen(
             )
         },
     ) { padding ->
-        LazyColumn(contentPadding = PaddingValues(top = padding.calculateTopPadding(), bottom = padding.calculateBottomPadding() + 24.dp)) {
-            item { SectionTitle(stringResource(R.string.set_sec_picture)) }
-            item {
-                SettingItem(stringResource(R.string.set_quality), s.resolution.label) { dialog = SettingDialog.RESOLUTION }
-            }
-            item {
-                SettingItem(stringResource(R.string.set_fps), "${s.fps} fps" + if (s.fps > 30) stringResource(R.string.set_fps_smoother) else "") { dialog = SettingDialog.FPS }
-            }
-            item {
-                val mbit = s.effectiveBitrate / 1_000_000.0
-                val auto = stringResource(R.string.set_bitrate_auto_value, if (mbit % 1.0 == 0.0) mbit.toInt().toString() else String.format(androidx.compose.ui.platform.LocalConfiguration.current.locales[0], "%.1f", mbit))
-                SettingItem(stringResource(R.string.set_bitrate), if (s.bitrateMbps == 0) auto else "${s.bitrateMbps} Mbit/s") { dialog = SettingDialog.BITRATE }
-            }
-            item { VideoCodecSettingItem(s, settings) }
-            item {
-                ListItem(
-                    onClick = { settings.update { it.copy(adaptiveQuality = !it.adaptiveQuality) } },
-                    supportingContent = { Text(stringResource(R.string.set_adaptive_summary)) },
-                    trailingContent = {
-                        Switch(checked = s.adaptiveQuality, onCheckedChange = { c -> settings.update { it.copy(adaptiveQuality = c) } })
+        Column(Modifier.padding(top = padding.calculateTopPadding()).fillMaxSize()) {
+            OutlinedTextField(
+                value = query,
+                onValueChange = { query = it },
+                singleLine = true,
+                placeholder = { Text(stringResource(R.string.polish_search_settings)) },
+                leadingIcon = { Icon(Icons.Rounded.Search, contentDescription = null) },
+                trailingIcon = if (query.isNotEmpty()) {
+                    {
+                        IconButton(onClick = { query = "" }) {
+                            Icon(Icons.Rounded.Close, contentDescription = stringResource(R.string.polish_search_clear))
+                        }
+                    }
+                } else null,
+                keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
+                keyboardActions = KeyboardActions(onSearch = { focus.clearFocus() }),
+                modifier = Modifier.readableWidth().padding(horizontal = 16.dp, vertical = 4.dp),
+            )
+            if (query.isNotBlank()) {
+                SearchResults(
+                    results,
+                    bottomPadding = padding.calculateBottomPadding(),
+                    onPick = { r ->
+                        focus.clearFocus()
+                        query = ""
+                        goTo = r.anchor
                     },
-                ) { Text(stringResource(R.string.set_adaptive_title)) }
+                )
+                return@Column
             }
-            item {
-                SettingItem(stringResource(R.string.set_picture_shape), s.picture.label + " — " + s.picture.description) { dialog = SettingDialog.PICTURE }
-            }
-
-            item { SectionTitle(stringResource(R.string.set_sec_sound)) }
-            item {
-                val summary = when {
-                    !audioSupported -> stringResource(R.string.set_audio_needs_10)
-                    s.audio && !audioPermissionGranted -> stringResource(R.string.set_audio_tap_allow)
-                    s.audio -> stringResource(R.string.set_audio_on)
-                    else -> stringResource(R.string.set_audio_off)
+            Column(
+                Modifier.fillMaxSize().verticalScroll(scroll).onGloballyPositioned { anchors.content = it }
+                    .padding(bottom = padding.calculateBottomPadding() + 24.dp),
+                horizontalAlignment = Alignment.CenterHorizontally,
+            ) {
+              Column(Modifier.readableWidth()) {
+                SectionTitle(stringResource(R.string.set_sec_picture))
+                anchor(SettingsSearch.QUALITY) {
+                    SettingItem(stringResource(R.string.set_quality), s.resolution.label) { dialog = SettingDialog.RESOLUTION }
                 }
-                ListItem(
-                    onClick = {
-                        if (s.audio && !audioPermissionGranted) onRequestAudioPermission()
-                        else settings.update { it.copy(audio = !it.audio) }
-                    },
-                    enabled = audioSupported,
-                    supportingContent = { Text(summary) },
-                    trailingContent = {
-                        Switch(
-                            checked = s.audio && audioSupported,
+                anchor(SettingsSearch.FPS) {
+                    SettingItem(stringResource(R.string.set_fps), "${s.fps} fps" + if (s.fps > 30) stringResource(R.string.set_fps_smoother) else "") { dialog = SettingDialog.FPS }
+                }
+                anchor(SettingsSearch.BITRATE) {
+                    val mbit = s.effectiveBitrate / 1_000_000.0
+                    val auto = stringResource(R.string.set_bitrate_auto_value, if (mbit % 1.0 == 0.0) mbit.toInt().toString() else String.format(configuration.locales[0], "%.1f", mbit))
+                    SettingItem(stringResource(R.string.set_bitrate), if (s.bitrateMbps == 0) auto else "${s.bitrateMbps} Mbit/s") { dialog = SettingDialog.BITRATE }
+                }
+                anchor(SettingsSearch.CODEC) { VideoCodecSettingItem(s, settings) }
+                anchor(SettingsSearch.ADAPTIVE) {
+                    SwitchItem(
+                        title = stringResource(R.string.set_adaptive_title),
+                        summary = stringResource(R.string.set_adaptive_summary),
+                        checked = s.adaptiveQuality,
+                        onChange = { c -> settings.update { it.copy(adaptiveQuality = c) } },
+                    )
+                }
+                anchor(SettingsSearch.PICTURE) {
+                    SettingItem(stringResource(R.string.set_picture_shape), s.picture.label + " — " + s.picture.description) { dialog = SettingDialog.PICTURE }
+                }
+
+                SectionTitle(stringResource(R.string.set_sec_sound))
+                anchor(SettingsSearch.AUDIO) {
+                    val summary = when {
+                        !audioSupported -> stringResource(R.string.set_audio_needs_10)
+                        s.audio && !audioPermissionGranted -> stringResource(R.string.set_audio_tap_allow)
+                        s.audio -> stringResource(R.string.set_audio_on)
+                        else -> stringResource(R.string.set_audio_off)
+                    }
+                    ListItem(
+                        modifier = Modifier.toggleable(
+                            value = s.audio && audioSupported,
                             enabled = audioSupported,
-                            onCheckedChange = { checked ->
-                                settings.update { it.copy(audio = checked) }
-                                if (checked && !audioPermissionGranted) onRequestAudioPermission()
+                            role = Role.Switch,
+                            onValueChange = { checked ->
+                                if (s.audio && !audioPermissionGranted) onRequestAudioPermission()
+                                else {
+                                    settings.update { it.copy(audio = checked) }
+                                    if (checked && !audioPermissionGranted) onRequestAudioPermission()
+                                }
                             },
-                        )
-                    },
-                ) { Text(stringResource(R.string.set_audio_title)) }
-            }
-            item { MicrophoneSettingItems(s, settings) }
-            item { AudioDelayItem(s.audioDelayMs) { d -> settings.update { it.copy(audioDelayMs = d) } } }
+                        ),
+                        supportingContent = { Text(summary) },
+                        trailingContent = { Switch(checked = s.audio && audioSupported, enabled = audioSupported, onCheckedChange = null) },
+                        headlineContent = { Text(stringResource(R.string.set_audio_title)) },
+                    )
+                }
+                anchor(SettingsSearch.MICROPHONE) { MicrophoneSettingItems(s, settings) }
+                anchor(SettingsSearch.SYNC) { AudioDelayItem(s.audioDelayMs) { d -> settings.update { it.copy(audioDelayMs = d) } } }
 
-            item { SectionTitle(stringResource(R.string.set_sec_media)) }
-            item { SettingItem(stringResource(R.string.set_convert), s.convert.label + " — " + s.convert.description) { dialog = SettingDialog.CONVERT } }
-            item { SettingItem(stringResource(R.string.set_slideshow), stringResource(R.string.set_slideshow_value, s.slideshowSeconds)) { dialog = SettingDialog.SLIDESHOW } }
+                SectionTitle(stringResource(R.string.set_sec_media))
+                anchor(SettingsSearch.CONVERT) {
+                    SettingItem(stringResource(R.string.set_convert), s.convert.label + " — " + s.convert.description) { dialog = SettingDialog.CONVERT }
+                }
+                anchor(SettingsSearch.SLIDESHOW) {
+                    SettingItem(stringResource(R.string.set_slideshow), stringResource(R.string.set_slideshow_value, s.slideshowSeconds)) { dialog = SettingDialog.SLIDESHOW }
+                }
 
-            item { SectionTitle(stringResource(R.string.set_sec_subtitles)) }
-            item {
-                val lang = VoskModels.byCode(s.subtitleLanguage)
-                val installed by VoskModels.installed.collectAsStateWithLifecycle()
-                SettingItem(
-                    stringResource(R.string.set_spoken_language),
-                    when {
-                        lang == null -> stringResource(R.string.set_spoken_none)
-                        lang.code in installed -> stringResource(R.string.set_spoken_ready, lang.label)
-                        else -> stringResource(R.string.set_spoken_missing, lang.label)
-                    },
-                ) { dialog = SettingDialog.LANGUAGE }
-            }
-            item {
-                ListItem(
-                    onClick = { settings.update { it.copy(autoSubtitles = !it.autoSubtitles) } },
-                    supportingContent = {
-                        Text(stringResource(R.string.set_auto_subs_summary))
-                    },
-                    trailingContent = {
-                        Switch(checked = s.autoSubtitles, onCheckedChange = { c -> settings.update { it.copy(autoSubtitles = c) } })
-                    },
-                ) { Text(stringResource(R.string.set_auto_subs_title)) }
-            }
-            item { SubtitleStyleItems() }
-            item {
-                val context = LocalContext.current
-                SettingItem(
-                    stringResource(R.string.set_live_caption),
-                    stringResource(R.string.set_live_caption_text),
-                ) {
-                    try {
-                        context.startActivity(android.content.Intent(android.provider.Settings.ACTION_CAPTIONING_SETTINGS))
-                    } catch (_: Exception) {
+                SectionTitle(stringResource(R.string.set_sec_subtitles))
+                anchor(SettingsSearch.SPOKEN) {
+                    val lang = VoskModels.byCode(s.subtitleLanguage)
+                    val installed by VoskModels.installed.collectAsStateWithLifecycle()
+                    SettingItem(
+                        stringResource(R.string.set_spoken_language),
+                        when {
+                            lang == null -> stringResource(R.string.set_spoken_none)
+                            lang.code in installed -> stringResource(R.string.set_spoken_ready, lang.label)
+                            else -> stringResource(R.string.set_spoken_missing, lang.label)
+                        },
+                    ) { dialog = SettingDialog.LANGUAGE }
+                }
+                anchor(SettingsSearch.AUTO_SUBS) {
+                    SwitchItem(
+                        title = stringResource(R.string.set_auto_subs_title),
+                        summary = stringResource(R.string.set_auto_subs_summary),
+                        checked = s.autoSubtitles,
+                        onChange = { c -> settings.update { it.copy(autoSubtitles = c) } },
+                    )
+                }
+                anchor(SettingsSearch.SUB_STYLE) { SubtitleStyleItems() }
+                anchor(SettingsSearch.LIVE_CAPTION) {
+                    SettingItem(
+                        stringResource(R.string.set_live_caption),
+                        stringResource(R.string.set_live_caption_text),
+                    ) {
+                        try {
+                            context.startActivity(android.content.Intent(android.provider.Settings.ACTION_CAPTIONING_SETTINGS))
+                        } catch (_: Exception) {
+                        }
                     }
                 }
-            }
+                anchor(SettingsSearch.SUB_SOURCES) { SubtitleSourcesSection() }
 
-            item { SubtitleSourcesSection() }
+                SectionTitle(stringResource(R.string.set_sec_connection))
+                anchor(SettingsSearch.RECEIVE) { ReceiveOnPhoneItem() }
+                anchor(SettingsSearch.PROTECTION) { io.github.patschgoo.castapp.tv.ReceiverProtectionItem() }
+                anchor(SettingsSearch.STREAM_MODE) {
+                    SettingItem(stringResource(R.string.set_stream_mode), s.streamMode.label + " — " + s.streamMode.description) { dialog = SettingDialog.MODE }
+                }
+                anchor(SettingsSearch.PORT) {
+                    SettingItem(stringResource(R.string.set_stream_port), stringResource(R.string.set_stream_port_value, s.port)) { dialog = SettingDialog.PORT }
+                }
+                anchor(SettingsSearch.RECEIVER) {
+                    SettingItem(
+                        stringResource(R.string.set_receiver_title),
+                        if (s.receiverAppId.isBlank()) stringResource(R.string.set_receiver_off)
+                        else stringResource(R.string.set_receiver_on, s.receiverAppId),
+                    ) { dialog = SettingDialog.RECEIVER }
+                }
 
-            item { SectionTitle(stringResource(R.string.set_sec_connection)) }
-            item { ReceiveOnPhoneItem() }
-            item { io.github.patschgoo.castapp.tv.ReceiverProtectionItem() }
-            item { SettingItem(stringResource(R.string.set_stream_mode), s.streamMode.label + " — " + s.streamMode.description) { dialog = SettingDialog.MODE } }
-            item { SettingItem(stringResource(R.string.set_stream_port), stringResource(R.string.set_stream_port_value, s.port)) { dialog = SettingDialog.PORT } }
-            item {
-                SettingItem(
-                    stringResource(R.string.set_receiver_title),
-                    if (s.receiverAppId.isBlank()) stringResource(R.string.set_receiver_off)
-                    else stringResource(R.string.set_receiver_on, s.receiverAppId),
-                ) { dialog = SettingDialog.RECEIVER }
-            }
+                SectionTitle(stringResource(R.string.automation_section))
+                anchor(SettingsSearch.AUTOMATION) { io.github.patschgoo.castapp.automation.AutomationSettingsItem() }
 
-            item { SectionTitle(stringResource(R.string.automation_section)) }
-            item { io.github.patschgoo.castapp.automation.AutomationSettingsItem() }
+                SectionTitle(stringResource(R.string.set_sec_appearance))
+                anchor(SettingsSearch.THEME) {
+                    val summary = when (s.theme) {
+                        ThemeMode.SYSTEM -> stringResource(R.string.set_theme_system)
+                        else -> s.theme.label
+                    } + if (Build.VERSION.SDK_INT >= 31) stringResource(R.string.set_theme_wallpaper) else ""
+                    SettingItem(stringResource(R.string.set_theme), summary) { dialog = SettingDialog.THEME }
+                }
 
-            item { SectionTitle(stringResource(R.string.set_sec_appearance)) }
-            item {
-                val summary = when (s.theme) {
-                    ThemeMode.SYSTEM -> stringResource(R.string.set_theme_system)
-                    else -> s.theme.label
-                } + if (Build.VERSION.SDK_INT >= 31) stringResource(R.string.set_theme_wallpaper) else ""
-                SettingItem(stringResource(R.string.set_theme), summary) { dialog = SettingDialog.THEME }
-            }
+                SupportSettingsSection(anchor = anchor, onShowTour = onShowTour)
 
-            supportSettingsSection()
-
-            item { SectionTitle(stringResource(R.string.set_sec_about)) }
-            item {
+                SectionTitle(stringResource(R.string.set_sec_about))
                 ListItem(
-                    supportingContent = {
-                        Text(stringResource(R.string.set_about_text))
-                    },
-                ) { Text(stringResource(R.string.set_about_version, BuildConfig.VERSION_NAME)) }
-            }
-            item {
-                ListItem(
-                    onClick = { settings.reset() },
-                    supportingContent = { Text(stringResource(R.string.set_reset_summary)) },
-                ) { Text(stringResource(R.string.set_reset)) }
+                    supportingContent = { Text(stringResource(R.string.set_about_text)) },
+                    headlineContent = { Text(stringResource(R.string.set_about_version, BuildConfig.VERSION_NAME)) },
+                )
+                anchor(SettingsSearch.RESET) {
+                    SettingItem(stringResource(R.string.set_reset), stringResource(R.string.set_reset_summary)) { confirmReset = true }
+                }
+              }
             }
         }
+    }
+
+    if (confirmReset) {
+        AlertDialog(
+            onDismissRequest = { confirmReset = false },
+            title = { Text(stringResource(R.string.polish_reset_title)) },
+            text = { Text(stringResource(R.string.polish_reset_text)) },
+            confirmButton = {
+                TextButton(onClick = { settings.reset(); confirmReset = false }) { Text(stringResource(R.string.set_reset_short)) }
+            },
+            dismissButton = { TextButton(onClick = { confirmReset = false }) { Text(stringResource(R.string.cancel)) } },
+        )
     }
 
     when (dialog) {
@@ -316,7 +431,7 @@ private fun SectionTitle(text: String) {
         text,
         style = MaterialTheme.typography.titleSmall,
         color = MaterialTheme.colorScheme.primary,
-        modifier = Modifier.padding(start = 16.dp, end = 16.dp, top = 20.dp, bottom = 4.dp),
+        modifier = Modifier.padding(start = 16.dp, end = 16.dp, top = 20.dp, bottom = 4.dp).semantics { heading() },
     )
 }
 
@@ -326,6 +441,64 @@ private fun SettingItem(title: String, summary: String, onClick: () -> Unit) {
         onClick = onClick,
         supportingContent = { Text(summary) },
     ) { Text(title) }
+}
+
+/** A row with a switch: the whole row toggles, and TalkBack reads it as one switch. */
+@Composable
+private fun SwitchItem(title: String, summary: String, checked: Boolean, onChange: (Boolean) -> Unit) {
+    ListItem(
+        modifier = Modifier.toggleable(value = checked, role = Role.Switch, onValueChange = onChange),
+        supportingContent = { Text(summary) },
+        trailingContent = { Switch(checked = checked, onCheckedChange = null) },
+        headlineContent = { Text(title) },
+    )
+}
+
+/** Where the rows of the settings list are, so a search result can scroll to one. */
+private class SettingAnchors {
+    val coords = HashMap<String, LayoutCoordinates>()
+    var content: LayoutCoordinates? = null
+}
+
+/** One findable row (or group of rows): remembers its position and lights up when it was searched for. */
+@Composable
+private fun SettingAnchor(id: String, anchors: SettingAnchors, highlighted: String?, content: @Composable () -> Unit) {
+    val mark by animateFloatAsState(if (highlighted == id) 1f else 0f, label = "setting highlight")
+    val color = MaterialTheme.colorScheme.primary
+    Box(
+        Modifier.fillMaxWidth()
+            .onGloballyPositioned { anchors.coords[id] = it }
+            .drawWithContent {
+                drawContent()
+                if (mark > 0f) {
+                    drawRect(color.copy(alpha = 0.14f * mark))
+                    drawRect(color.copy(alpha = mark), size = Size(4.dp.toPx(), size.height))
+                }
+            },
+    ) { content() }
+}
+
+/** The matches of the settings search, each with the section it is in. */
+@Composable
+private fun SearchResults(results: List<SettingText>, bottomPadding: Dp, onPick: (SettingText) -> Unit) {
+    val count = pluralStringResource(R.plurals.polish_search_count, results.size, results.size)
+    Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(bottom = bottomPadding + 24.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+        Column(Modifier.readableWidth()) {
+            Text(
+                if (results.isEmpty()) stringResource(R.string.polish_search_none) else count,
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp).semantics { liveRegion = LiveRegionMode.Polite },
+            )
+            for (r in results) {
+                ListItem(
+                    onClick = { onPick(r) },
+                    overlineContent = { Text(r.section) },
+                    supportingContent = r.description.takeIf { it.isNotBlank() }?.let { { Text(it, maxLines = 2, overflow = TextOverflow.Ellipsis) } },
+                ) { Text(r.title) }
+            }
+        }
+    }
 }
 
 @Composable
@@ -516,14 +689,11 @@ private fun ReceiveOnPhoneItem() {
         if (enable) io.github.patschgoo.castapp.tv.TvReceiverService.start(context)
         else io.github.patschgoo.castapp.tv.TvReceiverService.stop(context)
     }
-    ListItem(
-        onClick = { toggle(!on) },
-        supportingContent = {
-            Text(
-                if (on) stringResource(R.string.receive_summary_on, io.github.patschgoo.castapp.tv.TvReceiver.deviceName(context))
-                else stringResource(R.string.receive_summary_off),
-            )
-        },
-        trailingContent = { Switch(checked = on, onCheckedChange = { toggle(it) }) },
-    ) { Text(stringResource(R.string.receive_title)) }
+    SwitchItem(
+        title = stringResource(R.string.receive_title),
+        summary = if (on) stringResource(R.string.receive_summary_on, io.github.patschgoo.castapp.tv.TvReceiver.deviceName(context))
+        else stringResource(R.string.receive_summary_off),
+        checked = on,
+        onChange = { toggle(it) },
+    )
 }

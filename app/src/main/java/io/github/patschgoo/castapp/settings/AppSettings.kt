@@ -202,6 +202,11 @@ class AppSettings(context: Context) {
         get() = prefs.getBoolean("asked_permissions", false)
         set(value) { prefs.edit { putBoolean("asked_permissions", value) } }
 
+    /** Whether the first-run tour was finished or skipped (it is not shown again by itself). */
+    var tourSeen: Boolean
+        get() = prefs.getBoolean("tour_seen", false)
+        set(value) { prefs.edit { putBoolean("tour_seen", value) } }
+
     private inline fun <reified T : Enum<T>> enumOr(name: String?, default: T): T =
         name?.let { n -> enumValues<T>().firstOrNull { it.name == n } } ?: default
 }

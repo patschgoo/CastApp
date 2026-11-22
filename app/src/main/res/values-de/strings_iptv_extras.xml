@@ -17,7 +17,7 @@
     <string name="iptvx_watch_now">Jetzt ansehen</string>
 
     <!-- Erinnerungen -->
-    <string name="iptvx_remind_me">Erinnere mich</string>
+    <string name="iptvx_remind_me">Erinnern</string>
     <string name="iptvx_cancel_reminder">Erinnerung löschen</string>
     <string name="iptvx_reminder_set">Erinnerung für %1$s um %2$s gesetzt</string>
     <string name="iptvx_reminder_removed">Erinnerung gelöscht</string>
@@ -27,7 +27,7 @@
     <string name="iptvx_reminder_started">%1$s hat um %2$s auf %3$s begonnen</string>
     <string name="iptvx_reminder_watch_on">Auf %1$s ansehen</string>
     <string name="iptvx_reminder_row">%1$s · %2$s, %3$s</string>
-    <string name="iptvx_no_reminders">Keine Erinnerungen. Öffne eine Sendung im Programm und tippe auf \"Erinnere mich\".</string>
+    <string name="iptvx_no_reminders">Keine Erinnerungen. Öffne eine Sendung im Programm und tippe auf „Erinnern“.</string>
     <string name="iptvx_notifications_off">Benachrichtigungen sind ausgeschaltet, deshalb können Erinnerungen und Aufnahme-Meldungen nicht angezeigt werden.</string>
     <string name="iptvx_open_notification_settings">Benachrichtigungs-Einstellungen</string>
 
@@ -55,7 +55,7 @@
     <string name="iptvx_recordings_title">Aufnahmen und Erinnerungen</string>
     <string name="iptvx_tab_recordings">Aufnahmen (%1$d)</string>
     <string name="iptvx_tab_reminders">Erinnerungen (%1$d)</string>
-    <string name="iptvx_no_recordings">Noch keine Aufnahmen. Öffne eine Sendung im Programm und tippe auf \"Aufnehmen\", oder halte einen Sender gedrückt, um ihn jetzt aufzunehmen.</string>
+    <string name="iptvx_no_recordings">Noch keine Aufnahmen. Öffne eine Sendung im Programm und tippe auf „Aufnehmen“, oder halte einen Sender gedrückt, um ihn jetzt aufzunehmen.</string>
     <string name="iptvx_state_scheduled">Geplant</string>
     <string name="iptvx_state_recording">Nimmt auf · %1$s · %2$s</string>
     <string name="iptvx_state_done">Gespeichert · %1$s · %2$s</string>
@@ -66,7 +66,7 @@
     <string name="iptvx_error_missed">Das Handy war zur Startzeit nicht bereit, deshalb wurde nicht aufgenommen.</string>
     <string name="iptvx_play_on_tv">Auf dem Fernseher abspielen</string>
     <string name="iptvx_delete_title">Aufnahme löschen?</string>
-    <string name="iptvx_delete_text">\"%1$s\" und die Datei werden gelöscht.</string>
+    <string name="iptvx_delete_text">„%1$s“ und die Datei werden gelöscht.</string>
     <string name="iptvx_recording_settings">Aufnahme-Einstellungen</string>
     <string name="iptvx_save_to">Aufnahmen speichern in</string>
     <string name="iptvx_dest_phone">Diesem Handy (App-Ordner)</string>
@@ -112,7 +112,7 @@
     <string name="iptvx_parental_change_pin">PIN ändern</string>
     <string name="iptvx_parental_remove_pin">PIN entfernen</string>
     <string name="iptvx_parental_remove_text">Beim Entfernen der PIN werden auch alle Sperren und versteckten Sender aufgehoben.</string>
-    <string name="iptvx_parental_by_group">Gesperrt über die Gruppe \"%1$s\".</string>
+    <string name="iptvx_parental_by_group">Gesperrt über die Gruppe „%1$s“.</string>
     <string name="iptvx_parental_enter_pin_hint">Gib zuerst in den Jugendschutz-Einstellungen die PIN ein, um das zu ändern.</string>
     <string name="iptvx_parental_pin_needed">PIN nötig</string>
 </resources>

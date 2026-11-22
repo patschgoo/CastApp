@@ -3,7 +3,7 @@
     <!-- Settings: automation API -->
     <string name="automation_section">Automatisierung</string>
     <string name="automation_title">Andere Apps dürfen CastApp steuern</string>
-    <string name="automation_summary_off">Aus. Tasker, MacroDroid, Home Assistant und ähnliche Apps können keine Übertragungen starten oder steuern.</string>
+    <string name="automation_summary_off">Aus. Tasker, MacroDroid, Home Assistant und ähnliche Apps können kein Streamen starten oder steuern.</string>
     <string name="automation_summary_secret">An. Aufrufer müssen dein Geheimwort mitschicken.</string>
     <string name="automation_summary_open">An ohne Geheimwort: Jede App auf diesem Handy kann CastApp steuern. Lege unten ein Geheimwort fest.</string>
     <string name="automation_secret_title">Geheimwort</string>
