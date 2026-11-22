@@ -1,5 +1,6 @@
 package io.github.patschgoo.castapp.iptv
 
+import android.annotation.SuppressLint
 import android.app.AlarmManager
 import android.app.NotificationChannel
 import android.app.NotificationManager
@@ -196,6 +197,7 @@ class ReminderCenter(private val context: Context) {
 }
 
 object Reminders {
+    @SuppressLint("StaticFieldLeak") // the center only keeps the application context
     @Volatile private var instance: ReminderCenter? = null
 
     fun get(context: Context): ReminderCenter =

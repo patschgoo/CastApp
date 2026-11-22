@@ -1,8 +1,7 @@
 package io.github.patschgoo.castapp.iptv
 
+import android.annotation.SuppressLint
 import android.content.Context
-import android.content.Intent
-import android.net.Uri
 import androidx.core.content.edit
 import io.github.patschgoo.castapp.service.MediaItem
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -390,11 +389,6 @@ class RecordingCenter(private val context: Context) {
     /** Opens the recording on a TV. */
     fun mediaItem(r: Recording): MediaItem? = RecordingSinks.mediaItem(context, r)
 
-    fun shareIntent(r: Recording): Intent? = RecordingSinks.viewUri(context, r)?.let { uri: Uri ->
-        Intent(Intent.ACTION_VIEW).setDataAndType(uri, RecordingNames.mimeFor(r.fileName.substringAfterLast('.', "ts")))
-            .addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
-    }
-
     companion object {
         /** Recordings are woken this long before they start, so a late alarm still catches the beginning. */
         const val EARLY_MS = 90_000L
@@ -404,6 +398,7 @@ class RecordingCenter(private val context: Context) {
 
 /** Access to the recordings of the app. */
 object Recordings {
+    @SuppressLint("StaticFieldLeak") // the center only keeps the application context
     @Volatile private var instance: RecordingCenter? = null
 
     fun get(context: Context): RecordingCenter =

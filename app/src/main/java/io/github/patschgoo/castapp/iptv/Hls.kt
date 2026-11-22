@@ -77,7 +77,7 @@ sealed interface HlsPlaylist {
          * resolved against it). Throws [IOException] for streams that can't be recorded.
          */
         fun parse(text: String, baseUrl: String): HlsPlaylist {
-            val lines = text.removePrefix("﻿").lineSequence().map { it.trim() }.filter { it.isNotEmpty() }.toList()
+            val lines = text.removePrefix("\uFEFF").lineSequence().map { it.trim() }.filter { it.isNotEmpty() }.toList()
             if (lines.firstOrNull()?.startsWith("#EXTM3U") != true) throw IOException("Not a playlist")
             return if (lines.any { it.startsWith("#EXT-X-STREAM-INF") }) parseMaster(lines, baseUrl) else parseMedia(lines, baseUrl)
         }

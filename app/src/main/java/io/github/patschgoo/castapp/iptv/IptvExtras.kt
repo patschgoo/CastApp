@@ -60,6 +60,7 @@ internal fun IptvExtrasHost(
     message: (String) -> Unit,
 ) {
     val context = LocalContext.current
+    val resources = androidx.compose.ui.platform.LocalResources.current
     val askNotifications = rememberNotificationAsker()
     val reminders by extras.reminders.items.collectAsStateWithLifecycle()
     val recordings by extras.recordings.items.collectAsStateWithLifecycle()
@@ -90,12 +91,12 @@ internal fun IptvExtrasHost(
             onToggleReminder = {
                 if (reminded) {
                     extras.reminders.cancel(Reminder.idFor(entry.channel.url, programme.start))
-                    message(context.getString(R.string.iptvx_reminder_removed))
+                    message(resources.getString(R.string.iptvx_reminder_removed))
                 } else {
                     extras.guarded(entry.channel) {
                         askNotifications()
                         extras.reminders.add(Reminder.of(entry.channel, programme))
-                        message(context.getString(R.string.iptvx_reminder_set, programme.title, timeFormat.format(Date(programme.start))))
+                        message(resources.getString(R.string.iptvx_reminder_set, programme.title, timeFormat.format(Date(programme.start))))
                     }
                 }
             },
@@ -106,7 +107,7 @@ internal fun IptvExtrasHost(
             onCancelRecording = {
                 planned?.let { extras.recordings.cancelScheduled(it.id) }
                 extras.programme = null
-                message(context.getString(R.string.iptvx_recording_cancelled))
+                message(resources.getString(R.string.iptvx_recording_cancelled))
             },
             onSchedule = {
                 extras.programme = null
@@ -140,11 +141,11 @@ internal fun IptvExtrasHost(
                 val p = request.programme
                 if (p == null) {
                     extras.recordings.recordNow(request.channel, minutes * 60_000L)
-                    message(context.getString(R.string.iptvx_recording_started))
+                    message(resources.getString(R.string.iptvx_recording_started))
                 } else {
                     extras.recordings.settings.setPadding(before, after)
                     extras.recordings.schedule(request.channel, p, before * 60_000L, after * 60_000L)
-                    message(context.getString(R.string.iptvx_recording_planned, p.title))
+                    message(resources.getString(R.string.iptvx_recording_planned, p.title))
                 }
             },
             onDismiss = { extras.recordRequest = null },
