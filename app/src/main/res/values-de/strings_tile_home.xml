@@ -35,4 +35,15 @@
     <string name="home_remote_use">Dieses Handy als Fernbedienung nutzen</string>
     <string name="home_remote_other">%1$s hat keine Fernbedienung über WLAN. Unter „Alle Tasten“ kannst du eine Bluetooth- oder Infrarot-Fernbedienung auswählen.</string>
     <string name="home_remote_retry">Erneut versuchen</string>
+
+    <string name="home_recent_title">Neu auf diesem Handy</string>
+    <string name="home_recent_all">Alle ansehen</string>
+    <string name="home_recent_play">Auf dem Fernseher abspielen</string>
+    <string name="home_recent_ask_title">Deine neuesten Videos, nur einen Tipp entfernt</string>
+    <string name="home_recent_ask_text">Erlaube CastApp, die Videos auf diesem Handy zu sehen, dann erscheinen sie hier. Die Liste bleibt auf dem Handy.</string>
+    <string name="home_recent_allow">Videos anzeigen</string>
+    <string name="home_recent_hide">Nicht jetzt</string>
+    <string name="home_recent_hidden">Ausgeschaltet. Unter Einstellungen → Darstellung kannst du es wieder einschalten.</string>
+    <string name="set_recent_title">Neue Videos auf dem Startbildschirm</string>
+    <string name="set_recent_summary">Zeigt die neuesten Videos auf diesem Handy, zum Streamen mit einem Tipp</string>
 </resources>

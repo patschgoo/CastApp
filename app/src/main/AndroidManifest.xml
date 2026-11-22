@@ -43,6 +43,11 @@
     <uses-feature android:name="android.hardware.bluetooth" android:required="false" />
     <!-- Infrared TV remote on phones with an IR emitter -->
     <uses-permission android:name="android.permission.TRANSMIT_IR" />
+    <!-- "Recent on this phone" on the main screen lists your newest videos. Optional: asked for
+         only when you tap "Show videos" there; the list never leaves the phone. -->
+    <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" android:maxSdkVersion="32" />
+    <uses-permission android:name="android.permission.READ_MEDIA_VIDEO" />
+    <uses-permission android:name="android.permission.READ_MEDIA_VISUAL_USER_SELECTED" />
     <uses-feature android:name="android.hardware.consumerir" android:required="false" />
 
     <!-- Needed to list apps for "Cast a single app" on Android 13 and older -->

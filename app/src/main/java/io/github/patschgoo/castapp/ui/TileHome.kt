@@ -137,6 +137,8 @@ fun TileHomeContent(
     actions: DevicesActions,
     audioMode: Boolean,
     lastUsedId: String?,
+    /** Settings: show "Recent on this phone". */
+    showRecent: Boolean = true,
 ) {
     var showPicker by rememberSaveable { mutableStateOf(false) }
     var showPlayer by rememberSaveable { mutableStateOf(false) }
@@ -197,6 +199,15 @@ fun TileHomeContent(
         if (showPeers) item(key = "peers") { PeerCards(localCasting = active != null) }
         if (receiving) item(key = "receiving") { ReceivingCard(actions) }
         item(key = "tiles") { SourceTiles(tiles) }
+        if (showRecent) {
+            item(key = "recent") {
+                RecentVideosRow(
+                    onPlay = { video -> withScreen { actions.onCastUris(it, listOf(video.uri)) } },
+                    onSeeAll = { withScreen { actions.onCastFiles(it, FilePick.VIDEOS) } },
+                    onHide = actions.onHideRecent,
+                )
+            }
+        }
         item(key = "continue") { ContinueWatchingRow() }
     }
 

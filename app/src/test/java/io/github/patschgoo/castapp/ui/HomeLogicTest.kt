@@ -103,4 +103,31 @@ class HomeLogicTest {
             HomeLogic.mimeTypes(FilePick.ANY, picture = true),
         )
     }
+
+    @Test
+    fun recentVideosAskForThePermissionOfTheAndroidVersion() {
+        assertArrayEquals(arrayOf(RecentRules.READ_STORAGE), RecentRules.permissions(25))
+        assertArrayEquals(arrayOf(RecentRules.READ_STORAGE), RecentRules.permissions(32))
+        assertArrayEquals(arrayOf(RecentRules.READ_VIDEO), RecentRules.permissions(33))
+        assertArrayEquals(arrayOf(RecentRules.READ_VIDEO, RecentRules.READ_SELECTED), RecentRules.permissions(34))
+        assertArrayEquals(arrayOf(RecentRules.READ_VIDEO, RecentRules.READ_SELECTED), RecentRules.permissions(36))
+    }
+
+    @Test
+    fun recentVideosNeedTheRightPermission() {
+        assertFalse(RecentRules.hasAccess(30, emptySet()))
+        assertTrue(RecentRules.hasAccess(30, setOf(RecentRules.READ_STORAGE)))
+        // Android 13+ ignores the old storage permission for videos.
+        assertFalse(RecentRules.hasAccess(33, setOf(RecentRules.READ_STORAGE)))
+        assertTrue(RecentRules.hasAccess(33, setOf(RecentRules.READ_VIDEO)))
+        assertFalse(RecentRules.hasAccess(34, emptySet()))
+        assertTrue(RecentRules.hasAccess(34, setOf(RecentRules.READ_VIDEO)))
+    }
+
+    @Test
+    fun onAndroid14SelectedVideosAreEnough() {
+        assertTrue(RecentRules.hasAccess(34, setOf(RecentRules.READ_SELECTED)))
+        // Before Android 14 there is no "only these" answer.
+        assertFalse(RecentRules.hasAccess(33, setOf(RecentRules.READ_SELECTED)))
+    }
 }

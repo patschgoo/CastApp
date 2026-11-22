@@ -42,3 +42,27 @@ object HomeLogic {
         else -> arrayOf("video/*", "audio/*", "image/*", "application/x-subrip", "text/vtt", "application/octet-stream")
     }
 }
+
+/**
+ * "Recent on this phone": which permission lists the phone's videos on which Android
+ * version. The row is optional; without the permission it only offers to turn itself on.
+ */
+object RecentRules {
+    const val READ_STORAGE = "android.permission.READ_EXTERNAL_STORAGE"
+    const val READ_VIDEO = "android.permission.READ_MEDIA_VIDEO"
+    const val READ_SELECTED = "android.permission.READ_MEDIA_VISUAL_USER_SELECTED"
+
+    /** What to ask for. On Android 14+ the answer may be "only these videos", which is fine too. */
+    fun permissions(sdk: Int): Array<String> = when {
+        sdk >= 34 -> arrayOf(READ_VIDEO, READ_SELECTED)
+        sdk >= 33 -> arrayOf(READ_VIDEO)
+        else -> arrayOf(READ_STORAGE)
+    }
+
+    /** Whether [granted] lets the app list videos: all of them, or the ones the user selected. */
+    fun hasAccess(sdk: Int, granted: Set<String>): Boolean = when {
+        sdk >= 34 -> READ_VIDEO in granted || READ_SELECTED in granted
+        sdk >= 33 -> READ_VIDEO in granted
+        else -> READ_STORAGE in granted
+    }
+}

@@ -43,7 +43,11 @@ The main screen is new: **Cast to** on top, three big buttons, tiles for everyth
 | Casting card | Tap the bar | A sheet with everything the old casting card had (seek, quality, subtitles, queue, sleep timer, more screens, volume, Stop, Dark screen) | Screenshot |
 | Remote in the card | In the sheet tap **Use this phone as the remote** | It connects (the TV may ask for permission or show a code once); D-pad, volume, channels, Back, Home, Menu and Mute work; **All buttons** opens the full remote | Debug log + TV model |
 | ⋮ per TV | In the **Cast to** sheet tap ⋮ next to a TV | Mirror, single app, files, web video, sound, remote, forget and Wake-on-LAN for that TV | Screenshot |
-| Light and dark | Switch the phone between light and dark mode | Violet look in both; tiles and the bar stay readable | Screenshot |
+| Recent on this phone | Tap **Show videos** under the tiles and allow access; record a new video and come back | The newest videos appear with pictures and length, the new one first; a tap plays it on the TV in **Cast to** | Debug log + Android version |
+| Recent: only some videos | Android 14+: answer the permission dialog with **Select photos and videos** and pick two | Exactly those two are listed | Android version |
+| Recent: no access | Refuse the permission twice, tap **Show videos** again | The app's page in the system settings opens (Android no longer asks) | Android version |
+| Recent: turned off | Tap **Not now** | The row disappears with a note; **Settings → Appearance → Recent videos on the main screen** brings it back | Screenshot |
+| Light and dark | Switch the phone between light and dark mode | Violet look and the app's own font (Plus Jakarta Sans) in both; tiles and the bar stay readable | Screenshot |
 | Tablet / landscape | Open the main screen 600 dp wide or wider | Tiles on the left, casting card and TV list on the right; no bar at the bottom | Screenshot + screen size |
 | Large text and German | Largest font size; phone language German | Button labels wrap to two lines, nothing is cut off | Screenshot |
 

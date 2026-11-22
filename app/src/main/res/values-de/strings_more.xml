@@ -80,7 +80,6 @@
     <string name="set_sec_appearance">Darstellung</string>
     <string name="set_theme">Design</string>
     <string name="set_theme_system">Folgt der Hell-/Dunkel-Einstellung deines Handys</string>
-    <string name="set_theme_wallpaper"> · Farben aus deinem Hintergrundbild</string>
     <string name="set_sec_about">Über die App</string>
     <string name="set_about_text">Keine Werbung, kein Tracking, kein Konto. Spricht direkt über dein WLAN mit deinem Fernseher – Google Play Services werden nicht benötigt.</string>
     <string name="set_about_version">CastApp %1$s</string>

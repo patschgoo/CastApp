@@ -60,6 +60,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -155,6 +156,10 @@ class DevicesActions(
     val onOpenServers: (io.github.patschgoo.castapp.mediaservers.ServerKind) -> Unit = {},
     /** Makes a device the one "Cast to" uses. */
     val onSelect: (CastDevice) -> Unit = {},
+    /** Plays files of this phone that were not chosen in the system picker ("Recent on this phone"). */
+    val onCastUris: (CastDevice, List<android.net.Uri>) -> Unit = { _, _ -> },
+    /** Turns "Recent on this phone" off (Settings turns it on again). */
+    val onHideRecent: () -> Unit = {},
 )
 
 @Composable
@@ -170,14 +175,18 @@ fun DevicesScreen(
     onOpenTvChannels: () -> Unit = {},
     onOpenNetwork: () -> Unit = {},
     onOpenServers: (io.github.patschgoo.castapp.mediaservers.ServerKind) -> Unit = {},
+    onCastUris: (CastDevice, List<android.net.Uri>) -> Unit = { _, _ -> },
 ) {
     val context = LocalContext.current
+    val scope = rememberCoroutineScope()
+    val settings by app.settings.state.collectAsStateWithLifecycle()
     val devices by app.devices.devices.collectAsStateWithLifecycle()
     val audioMode by app.devices.audioMode.collectAsStateWithLifecycle()
     val lastUsedId by app.devices.lastUsedId.collectAsStateWithLifecycle()
     val scanning by app.devices.scanning.collectAsStateWithLifecycle()
     val castState by CastController.state.collectAsStateWithLifecycle()
     val snackbar = remember { SnackbarHostState() }
+    val recentHidden by rememberUpdatedState(stringResource(R.string.home_recent_hidden))
 
     LaunchedEffect(Unit) {
         CastController.messages.collect { snackbar.showSnackbar(it) }
@@ -232,9 +241,14 @@ fun DevicesScreen(
             },
             onOpenServers = onOpenServers,
             onSelect = { app.devices.markUsed(it) },
+            onCastUris = onCastUris,
+            onHideRecent = {
+                app.settings.update { it.copy(recentVideos = false) }
+                scope.launch { snackbar.showSnackbar(recentHidden) }
+            },
         )
     }
-    TileHomeContent(devices, scanning, castState as? CastState.Active, snackbar, actions, audioMode, lastUsedId)
+    TileHomeContent(devices, scanning, castState as? CastState.Active, snackbar, actions, audioMode, lastUsedId, settings.recentVideos)
 }
 
 /** The icon for what is being cast: a file, a photo, sound only, or the screen. */
