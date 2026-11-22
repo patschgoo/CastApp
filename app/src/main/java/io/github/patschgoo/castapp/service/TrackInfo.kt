@@ -90,6 +90,19 @@ object TrackNames {
         "application/vobsub" -> "VobSub"
         "application/dvbsubs" -> "DVB"
         "application/x-mp4-cea-608", "application/cea-608" -> "CEA-608"
+        "video/avc" -> "H.264"
+        "video/hevc" -> "HEVC"
+        "video/dolby-vision" -> "Dolby Vision"
+        "video/av01" -> "AV1"
+        "video/x-vnd.on2.vp8" -> "VP8"
+        "video/x-vnd.on2.vp9" -> "VP9"
+        "video/mpeg2", "video/mpeg" -> "MPEG-2"
+        "video/mp4v-es" -> "MPEG-4 (XviD/DivX)"
+        "video/divx", "video/divx4", "video/x-divx" -> "DivX"
+        "video/divx3", "video/divx311" -> "DivX 3"
+        "video/3gpp" -> "H.263"
+        "video/wvc1", "video/vc1" -> "VC-1"
+        "video/mjpeg", "video/x-motion-jpeg" -> "MJPEG"
         else -> mime.substringAfter('/').substringAfter("x-").uppercase().takeIf { it.isNotBlank() }
     }
 

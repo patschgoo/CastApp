@@ -3,6 +3,7 @@ package io.github.patschgoo.castapp.capture
 import android.content.Context
 import android.media.MediaCodec
 import android.media.MediaCodecInfo
+import android.media.MediaCodecList
 import android.media.MediaExtractor
 import android.media.MediaFormat
 import android.net.Uri
@@ -44,35 +45,50 @@ class Transcoder(
     @Volatile var durationUs = 0L
         private set
 
+    /** The sound track has no decoder on this phone, so the converted video has no sound: its codec MIME. */
+    @Volatile var droppedAudioMime: String? = null
+        private set
+
+    /** The decoder [start] found for the picture track. */
+    @Volatile private var videoDecoderName: String? = null
+
+    /**
+     * Checks the file and starts converting. Throws [ConvertException] when the phone can't convert
+     * it (unknown container, no picture decoder), so callers can answer the TV with an error at once
+     * instead of an empty stream.
+     */
     fun start() {
-        val probe = newExtractor()
-        var videoTrack = -1
-        var audioTrack = -1
-        var audioSeen = 0
-        for (i in 0 until probe.trackCount) {
-            val mime = probe.getTrackFormat(i).getString(MediaFormat.KEY_MIME) ?: continue
-            if (mime.startsWith("video/") && videoTrack < 0) videoTrack = i
-            if (mime.startsWith("audio/")) {
-                // The chosen sound track, or the first one if the file has fewer.
-                if (audioTrack < 0 || audioSeen == audioTrackOrdinal) audioTrack = i
-                audioSeen++
-            }
+        val probe = try {
+            newExtractor()
+        } catch (e: Exception) {
+            Log.w(TAG, "Can't open the file for converting", e)
+            throw ConvertException(if (input.readable(context)) ConvertProblem.UnreadableFileType(null) else ConvertProblem.ReadFailed)
+                .apply { initCause(e) }
         }
-        val videoFormat = if (videoTrack >= 0) probe.getTrackFormat(videoTrack) else null
-        val audioFormat = if (audioTrack >= 0) probe.getTrackFormat(audioTrack) else null
+        val formats = try {
+            (0 until probe.trackCount).map { probe.getTrackFormat(it) }
+        } finally {
+            probe.release()
+        }
+        val check = check(formats, audioTrackOrdinal) { videoDecoderName = it }
+        val (videoTrack, audioTrack) = ConvertChecks.pickTracks(formats.map { ConvertChecks.TrackFacts(it.getString(MediaFormat.KEY_MIME)) }, audioTrackOrdinal)
+        val videoFormat = formats.getOrNull(videoTrack)
+        val audioFormat = formats.getOrNull(audioTrack)
         durationUs = maxOf(
             videoFormat?.takeIf { it.containsKey(MediaFormat.KEY_DURATION) }?.getLong(MediaFormat.KEY_DURATION) ?: 0,
             audioFormat?.takeIf { it.containsKey(MediaFormat.KEY_DURATION) }?.getLong(MediaFormat.KEY_DURATION) ?: 0,
         )
-        probe.release()
-        if (videoFormat == null) throw IllegalStateException("No video track")
+        check.problem?.let { throw ConvertException(it) }
+        if (videoFormat == null) throw ConvertException(ConvertProblem.NoVideoTrack)
 
-        val audioPossible = audioFormat != null && hasDecoder(audioFormat)
+        droppedAudioMime = check.droppedAudioMime
+        if (droppedAudioMime != null) Log.w(TAG, "No decoder for the sound ($droppedAudioMime): converting without sound")
+        val audioPossible = audioFormat != null && droppedAudioMime == null
         hub.expectAudio(audioPossible)
         if (!audioPossible) queue.endTrack(FragmentedMp4.AUDIO_TRACK_ID)
         running = true
         threads += Thread({ runVideo(videoTrack, videoFormat) }, "transcode-video").apply { start() }
-        if (audioPossible) threads += Thread({ runAudio(audioTrack, audioFormat) }, "transcode-audio").apply { start() }
+        if (audioFormat != null && audioPossible) threads += Thread({ runAudio(audioTrack, audioFormat) }, "transcode-audio").apply { start() }
     }
 
     fun stop() {
@@ -82,14 +98,6 @@ class Transcoder(
     }
 
     private fun newExtractor(): MediaExtractor = input.open(context)
-
-    private fun hasDecoder(format: MediaFormat): Boolean = try {
-        val mime = format.getString(MediaFormat.KEY_MIME)!!
-        MediaCodec.createDecoderByType(mime).release()
-        true
-    } catch (_: Exception) {
-        false
-    }
 
     // ---- video ----------------------------------------------------------------------------
 
@@ -142,7 +150,9 @@ class Transcoder(
             val decSurface = gl.start(dispW, dispH)
             scaler = gl
 
-            val dec = MediaCodec.createDecoderByType(format.getString(MediaFormat.KEY_MIME)!!)
+            // The decoder that said it takes this picture (size, 10-bit), not just any one for the codec.
+            val dec = videoDecoderName?.let { name -> try { MediaCodec.createByCodecName(name) } catch (_: Exception) { null } }
+                ?: MediaCodec.createDecoderByType(format.getString(MediaFormat.KEY_MIME)!!)
             dec.configure(format, decSurface, null, 0)
             dec.start()
             decoder = dec
@@ -422,18 +432,96 @@ class Transcoder(
         private const val MAX_W = 1920
         private const val MAX_H = 1080
 
-        /** Length of a video in milliseconds, or 0 if it can't be read. */
-        fun probeDurationMs(context: Context, input: TranscodeInput): Long = try {
-            val ex = input.open(context)
-            var d = 0L
-            for (i in 0 until ex.trackCount) {
-                val f = ex.getTrackFormat(i)
-                if (f.containsKey(MediaFormat.KEY_DURATION)) d = maxOf(d, f.getLong(MediaFormat.KEY_DURATION))
+        /**
+         * Whether the phone can convert [input] (with sound track [audioOrdinal]), and its length.
+         * Reads only the file's header; nothing is decoded. [fileType] ("AVI") names the type in the reason.
+         */
+        fun probe(context: Context, input: TranscodeInput, audioOrdinal: Int = 0, fileType: String? = null): ConvertCheck {
+            val ex = try {
+                input.open(context)
+            } catch (e: Exception) {
+                Log.i(TAG, "Can't open the file for converting: ${e.message}")
+                return ConvertChecks.decide(
+                    null, audioOrdinal, readable = input.readable(context), fileType = fileType,
+                    videoDecoder = { false }, audioDecoder = { false },
+                )
             }
-            ex.release()
-            d / 1000
+            return try {
+                check((0 until ex.trackCount).map { ex.getTrackFormat(it) }, audioOrdinal)
+            } catch (e: Exception) {
+                Log.i(TAG, "Can't read the file's tracks: ${e.message}")
+                ConvertCheck(ConvertProblem.ReadFailed)
+            } finally {
+                ex.release()
+            }
+        }
+
+        /** [ConvertChecks.decide] for these track formats; [onDecoder] gets the picture decoder found. */
+        private fun check(formats: List<MediaFormat>, audioOrdinal: Int, onDecoder: (String) -> Unit = {}): ConvertCheck {
+            val facts = formats.map { f ->
+                ConvertChecks.TrackFacts(
+                    f.getString(MediaFormat.KEY_MIME),
+                    if (f.containsKey(MediaFormat.KEY_DURATION)) f.getLong(MediaFormat.KEY_DURATION) else 0,
+                )
+            }
+            return ConvertChecks.decide(
+                facts, audioOrdinal,
+                videoDecoder = { i -> findVideoDecoder(formats[i])?.also(onDecoder) != null },
+                audioDecoder = { i -> hasDecoder(formats[i]) },
+                videoCodec = { i -> ConvertChecks.videoCodecName(facts[i].mime, formats[i].intOrNull(MediaFormat.KEY_PROFILE)) },
+            )
+        }
+
+        /** The same check the sound converter's start amounts to: any decoder for the codec. */
+        private fun hasDecoder(format: MediaFormat): Boolean = try {
+            val mime = format.getString(MediaFormat.KEY_MIME)!!
+            MediaCodec.createDecoderByType(mime).release()
+            true
         } catch (_: Exception) {
-            0
+            false
+        }
+
+        /**
+         * A decoder of this phone for this picture: its codec, and its profile where that means 10-bit or
+         * finer colour (Hi10P anime, HEVC Main 10), which a phone's decoder often lacks. One that lists the
+         * picture's size is preferred, but the size doesn't rule a decoder out: some claim far less than
+         * they decode (Google's MPEG-4 decoder says 352×288 and plays XviD at 640×480). Levels and frame
+         * rates are left out for the same reason.
+         */
+        private fun findVideoDecoder(format: MediaFormat): String? {
+            val mime = format.getString(MediaFormat.KEY_MIME) ?: return null
+            val width = format.intOrNull(MediaFormat.KEY_WIDTH)
+            val height = format.intOrNull(MediaFormat.KEY_HEIGHT)
+            val profile = format.intOrNull(MediaFormat.KEY_PROFILE)?.let { ConvertChecks.profileToCheck(mime, it) }
+            fun query(w: Int?, h: Int?) = MediaFormat().apply {
+                setString(MediaFormat.KEY_MIME, mime)
+                if (w != null && h != null) {
+                    setInteger(MediaFormat.KEY_WIDTH, w)
+                    setInteger(MediaFormat.KEY_HEIGHT, h)
+                }
+                if (profile != null) setInteger(MediaFormat.KEY_PROFILE, profile)
+            }
+            return try {
+                val codecs = MediaCodecList(MediaCodecList.REGULAR_CODECS)
+                val sized = if (width != null && height != null) {
+                    // Portrait videos: some decoders only list landscape sizes.
+                    codecs.findDecoderForFormat(query(width, height)) ?: codecs.findDecoderForFormat(query(height, width))
+                } else {
+                    null
+                }
+                sized ?: codecs.findDecoderForFormat(query(null, null))?.also {
+                    Log.i(TAG, "$it claims less than ${width}x$height for $mime: trying it anyway")
+                }
+            } catch (e: Exception) {
+                Log.i(TAG, "Looking for a $mime decoder failed: ${e.message}")
+                null
+            }
+        }
+
+        private fun MediaFormat.intOrNull(key: String): Int? = try {
+            if (containsKey(key)) getInteger(key) else null
+        } catch (_: Exception) {
+            null
         }
     }
 }
@@ -442,17 +530,45 @@ class Transcoder(
 sealed class TranscodeInput {
     abstract fun open(context: Context): MediaExtractor
 
+    /** Whether the file's first bytes can be read at all: tells "unknown file type" from "file not reachable". */
+    abstract fun readable(context: Context): Boolean
+
+    /** A new extractor on this input, released again if the file can't be opened. */
+    protected fun extractor(setSource: MediaExtractor.() -> Unit): MediaExtractor {
+        val ex = MediaExtractor()
+        try {
+            ex.setSource()
+        } catch (e: Exception) {
+            ex.release()
+            throw e
+        }
+        return ex
+    }
+
     /** A content:// file, or a web address with request headers. */
     class FromUri(val uri: Uri, val headers: Map<String, String> = emptyMap()) : TranscodeInput() {
-        override fun open(context: Context) = MediaExtractor().apply {
-            if (uri.scheme == "http" || uri.scheme == "https") setDataSource(uri.toString(), headers)
-            else setDataSource(context, uri, headers)
+        private val web: Boolean get() = uri.scheme == "http" || uri.scheme == "https"
+
+        override fun open(context: Context) = extractor {
+            if (web) setDataSource(uri.toString(), headers) else setDataSource(context, uri, headers)
+        }
+
+        override fun readable(context: Context): Boolean = web || try {
+            context.contentResolver.openInputStream(uri)?.use { it.read() >= 0 } == true
+        } catch (_: Exception) {
+            false
         }
     }
 
     /** Anything readable from any position, e.g. a file on a network share. */
     class FromSource(val source: io.github.patschgoo.castapp.stream.MediaSource) : TranscodeInput() {
-        override fun open(context: Context) = MediaExtractor().apply { setDataSource(SourceDataSource(source)) }
+        override fun open(context: Context) = extractor { setDataSource(SourceDataSource(source)) }
+
+        override fun readable(context: Context): Boolean = try {
+            source.open(0).use { it.read() >= 0 }
+        } catch (_: Exception) {
+            false
+        }
     }
 }
 

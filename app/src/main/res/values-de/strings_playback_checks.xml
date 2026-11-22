@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="convert_cant">Dieses Handy kann „%1$s“ nicht umwandeln (%2$s). Spiel es auf CastApp TV oder einem DLNA-Fernseher ab oder über Plex oder Jellyfin.</string>
+    <string name="convert_cant_dlna">Dieses Handy kann „%1$s“ nicht umwandeln (%2$s). Spiel es auf CastApp TV ab oder über Plex oder Jellyfin.</string>
+    <string name="convert_cant_castapp">Dieses Handy kann „%1$s“ nicht umwandeln (%2$s). Spiel es über Plex oder Jellyfin ab.</string>
+    <string name="convert_reason_file_type">es kann keine %1$s-Dateien lesen</string>
+    <string name="convert_reason_this_type">es kann diesen Dateityp nicht lesen</string>
+    <string name="convert_reason_unreadable">die Datei konnte nicht gelesen werden</string>
+    <string name="convert_reason_no_video">die Datei hat kein Bild</string>
+    <string name="convert_reason_decoder">kein Decoder für %1$s-Video</string>
+    <string name="convert_no_sound">Kein Ton: Dieses Handy kann %1$s-Ton nicht dekodieren</string>
+
+    <string name="cast_sound_pick_other">%1$s kann keinen %2$s-Ton abspielen: Wähle eine andere Tonspur</string>
+    <string name="cast_sound_elsewhere">%1$s kann keinen %2$s-Ton abspielen. Spiel es auf CastApp TV ab oder über Plex oder Jellyfin.</string>
+
+    <string name="tv_no_sound_codec">Kein Ton: %1$s wird hier nicht unterstützt</string>
+</resources>
