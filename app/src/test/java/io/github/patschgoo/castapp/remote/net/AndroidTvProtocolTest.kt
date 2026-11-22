@@ -79,6 +79,38 @@ class AndroidTvProtocolTest {
         assertEquals(-2, ProtoMessage.parse(unhex("aa010b08feffffffffffffffff01")).message(21)!!.int(1))
     }
 
+    /** Voice search, against androidtvremote2's RemoteProtocol.start_voice / send_voice_chunk / end_voice. */
+    @Test
+    fun voiceMessagesMatchReference() {
+        assertEquals(623, AtvMessages.FEATURES)
+        // The reply to a TV that offers everything (622 | voice): voice is kept.
+        assertEquals(
+            "0a1c08ee04121718012201312a0961747672656d6f74653205312e302e30",
+            hex(AtvMessages.configure(AtvMessages.FEATURES and (622 or 8), "", "")),
+        )
+        assertEquals("520408541003", hex(AtvMessages.keyInject(AtvMessages.KEYCODE_SEARCH)))
+        val tvBegin = ProtoMessage.parse(unhex("f2011e0807121a636f6d2e676f6f676c652e616e64726f69642e6b61746e697373"))
+            .message(AtvMessages.REMOTE_VOICE_BEGIN)!!
+        assertEquals(7, tvBegin.int(1))
+        assertEquals("com.google.android.katniss", tvBegin.string(2))
+        assertEquals("f201020807", hex(AtvMessages.voiceBegin(7)))
+        assertEquals("8202020807", hex(AtvMessages.voiceEnd(7)))
+
+        fun sha(b: ByteArray) = hex(java.security.MessageDigest.getInstance("SHA-256").digest(b))
+        // 25000 bytes: one 20 KB piece, then the rest padded to 8 KB.
+        val pcm = ByteArray(25000) { (it * 7).toByte() }
+        val messages = AtvMessages.voiceChunks(pcm).map { AtvMessages.voicePayload(7, it) }
+        assertEquals(listOf(20491, 8201), messages.map { it.size })
+        assertEquals("fa0186a00108071280a00100", hex(messages[0].copyOf(12)))
+        assertEquals("1b5228ce7bea7adfed752cba209799360320759c607e2c6f8a374348c2abd993", sha(messages[0]))
+        assertEquals("fa018540080712804000070e", hex(messages[1].copyOf(12)))
+        assertEquals("36539432f022602099eb93022ab3080f86ee74fc713119c15d98593fa1b932b9", sha(messages[1]))
+        // A tiny piece is padded with silence to 8 KB.
+        val small = AtvMessages.voiceChunks(ByteArray(100)).single()
+        assertEquals("064a2a8d61baf81d970ebecda707aefb6b7f7587ced7bddab0d42d9055cd3335", sha(AtvMessages.voicePayload(7, small)))
+        assertTrue(AtvMessages.voiceChunks(ByteArray(0)).isEmpty())
+    }
+
     @Test
     fun rejectsBrokenProtobuf() {
         for (bad in listOf("0a05", "08", "0aff", "0b00")) {

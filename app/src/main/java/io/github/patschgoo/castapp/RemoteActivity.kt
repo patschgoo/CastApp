@@ -1,13 +1,20 @@
 package io.github.patschgoo.castapp
 
+import android.Manifest
 import android.content.Context
 import android.content.Intent
+import android.content.pm.PackageManager
+import android.net.Uri
 import android.os.Bundle
+import android.provider.Settings
 import android.view.HapticFeedbackConstants
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.BackHandler
+import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.foundation.background
 import androidx.compose.foundation.gestures.awaitEachGesture
 import androidx.compose.foundation.gestures.awaitFirstDown
@@ -53,6 +60,7 @@ import androidx.compose.material.icons.rounded.KeyboardArrowDown
 import androidx.compose.material.icons.rounded.KeyboardArrowUp
 import androidx.compose.material.icons.rounded.LiveTv
 import androidx.compose.material.icons.rounded.Menu
+import androidx.compose.material.icons.rounded.Mic
 import androidx.compose.material.icons.rounded.Pause
 import androidx.compose.material.icons.rounded.PlayArrow
 import androidx.compose.material.icons.rounded.PowerSettingsNew
@@ -94,6 +102,7 @@ import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Shape
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalContext
@@ -113,6 +122,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.min
+import androidx.core.content.ContextCompat
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import io.github.patschgoo.castapp.remote.NetworkRemotes
@@ -154,6 +164,7 @@ class RemoteActivity : ComponentActivity() {
     }
 
     override fun onStop() {
+        vm.stopVoice()
         for (p in RemoteProviders.all) try { p.stopDiscovery() } catch (_: Exception) {}
         super.onStop()
     }
@@ -392,12 +403,36 @@ private fun RemoteControls(state: RemoteUiState, target: RemoteTarget, vm: Remot
     var showTyping by rememberSaveable { mutableStateOf(false) }
     val press: (RemoteKey) -> Unit = { vm.press(it) }
     val hasNumbers = (0..9).any { RemoteKey.valueOf("NUM_$it") in keys }
+    val voice by vm.voice.collectAsStateWithLifecycle()
+    val context = LocalContext.current
+    val micPermission = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
+        if (granted) vm.startVoice() else vm.voicePermissionDenied()
+    }
+    val startVoice = {
+        if (ContextCompat.checkSelfPermission(context, Manifest.permission.RECORD_AUDIO) == PackageManager.PERMISSION_GRANTED) vm.startVoice()
+        else micPermission.launch(Manifest.permission.RECORD_AUDIO)
+    }
 
     Column(
         Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(horizontal = 16.dp, vertical = 8.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
         StatusLine(state, onRetry = { vm.retry() })
+        VoiceBanner(
+            voice,
+            onDone = { vm.stopVoice() },
+            onDismiss = { vm.dismissVoiceMessage() },
+            onOpenSettings = {
+                vm.dismissVoiceMessage()
+                try {
+                    context.startActivity(
+                        Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS, Uri.fromParts("package", context.packageName, null))
+                            .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK),
+                    )
+                } catch (_: Exception) {
+                }
+            },
+        )
         Column(Modifier.widthIn(max = 420.dp).fillMaxWidth(), horizontalAlignment = Alignment.CenterHorizontally) {
             // Power, input, keyboard
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
@@ -432,6 +467,7 @@ private fun RemoteControls(state: RemoteUiState, target: RemoteTarget, vm: Remot
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceEvenly) {
                 OptionalKey(RemoteKey.BACK, Icons.AutoMirrored.Rounded.ArrowBack, R.string.remote_key_back, keys, enabled, press)
                 OptionalKey(RemoteKey.HOME, Icons.Rounded.Home, R.string.remote_key_home, keys, enabled, press)
+                if (target.supportsVoice) MicButton(voice, enabled, onStart = startVoice, onStop = { vm.stopVoice() })
                 OptionalKey(RemoteKey.MENU, Icons.Rounded.Menu, R.string.remote_key_menu, keys, enabled, press)
             }
 
@@ -489,6 +525,104 @@ private fun RemoteControls(state: RemoteUiState, target: RemoteTarget, vm: Remot
     }
 
     if (showTyping) TypeDialog(onSend = { vm.type(it) }, onDismiss = { showTyping = false })
+}
+
+/**
+ * The mic: tap to start and tap again (or Done) to stop, or hold while talking and let go.
+ */
+@Composable
+private fun MicButton(voice: VoiceUiState, enabled: Boolean, onStart: () -> Unit, onStop: () -> Unit) {
+    val view = LocalView.current
+    val active by rememberUpdatedState(voice.active)
+    val start by rememberUpdatedState(onStart)
+    val stop by rememberUpdatedState(onStop)
+    val label = stringResource(R.string.remote_voice)
+    val container = if (voice.active) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.tertiaryContainer
+    val content = if (voice.active) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onTertiaryContainer
+    Box(
+        Modifier
+            .size(KEY_SIZE)
+            .clip(CircleShape)
+            .background(if (enabled) container else container.copy(alpha = 0.38f))
+            .semantics {
+                role = Role.Button
+                contentDescription = label
+                if (!enabled) disabled()
+                onClick(label) { if (enabled) { if (active) stop() else start() }; enabled }
+            }
+            .pointerInput(enabled) {
+                if (!enabled) return@pointerInput
+                awaitEachGesture {
+                    awaitFirstDown()
+                    view.performHapticFeedback(HapticFeedbackConstants.KEYBOARD_TAP)
+                    if (active) {
+                        if (waitForUpOrCancellation() != null) stop()
+                    } else {
+                        val downAt = System.currentTimeMillis()
+                        start()
+                        // Held while talking: letting go ends it. A short tap keeps listening.
+                        if (waitForUpOrCancellation() != null && System.currentTimeMillis() - downAt > 600) stop()
+                    }
+                }
+            },
+        contentAlignment = Alignment.Center,
+    ) {
+        Icon(Icons.Rounded.Mic, contentDescription = null, tint = if (enabled) content else content.copy(alpha = 0.38f))
+    }
+}
+
+@Composable
+private fun VoiceBanner(voice: VoiceUiState, onDone: () -> Unit, onDismiss: () -> Unit, onOpenSettings: () -> Unit) {
+    when {
+        voice.active -> Card(
+            modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp),
+            colors = CardDefaults.cardColors(
+                containerColor = MaterialTheme.colorScheme.primaryContainer,
+                contentColor = MaterialTheme.colorScheme.onPrimaryContainer,
+            ),
+        ) {
+            Row(Modifier.padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
+                val scale by animateFloatAsState(if (voice.listening) 1f + voice.level * 0.6f else 1f, label = "mic level")
+                Box(Modifier.size(48.dp), contentAlignment = Alignment.Center) {
+                    Box(
+                        Modifier.size(36.dp).graphicsLayer { scaleX = scale; scaleY = scale }
+                            .clip(CircleShape).background(MaterialTheme.colorScheme.primary),
+                        contentAlignment = Alignment.Center,
+                    ) {
+                        if (voice.listening) {
+                            Icon(Icons.Rounded.Mic, contentDescription = null, tint = MaterialTheme.colorScheme.onPrimary, modifier = Modifier.size(20.dp))
+                        } else {
+                            CircularProgressIndicator(Modifier.size(18.dp), strokeWidth = 2.dp, color = MaterialTheme.colorScheme.onPrimary)
+                        }
+                    }
+                }
+                Spacer(Modifier.width(12.dp))
+                Column(Modifier.weight(1f)) {
+                    Text(
+                        stringResource(if (voice.listening) R.string.remote_voice_listening else R.string.remote_voice_starting),
+                        style = MaterialTheme.typography.bodyLarge,
+                    )
+                    if (voice.listening) Text(stringResource(R.string.remote_voice_hint), style = MaterialTheme.typography.bodySmall)
+                }
+                TextButton(onClick = onDone) { Text(stringResource(R.string.remote_voice_done)) }
+            }
+        }
+        voice.message != null -> Card(
+            modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp),
+            colors = CardDefaults.cardColors(
+                containerColor = MaterialTheme.colorScheme.secondaryContainer,
+                contentColor = MaterialTheme.colorScheme.onSecondaryContainer,
+            ),
+        ) {
+            Column(Modifier.padding(16.dp)) {
+                Text(voice.message, style = MaterialTheme.typography.bodyMedium)
+                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
+                    if (voice.needsPermission) TextButton(onClick = onOpenSettings) { Text(stringResource(R.string.remote_voice_open_settings)) }
+                    TextButton(onClick = onDismiss) { Text(stringResource(R.string.remote_ok)) }
+                }
+            }
+        }
+    }
 }
 
 @Composable

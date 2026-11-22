@@ -35,6 +35,8 @@ class AndroidTvClientTest {
     private val errors = java.util.concurrent.CopyOnWriteArrayList<Throwable>()
     @Volatile private var shownCode: String? = null
     @Volatile private var pingAnswer: Int? = null
+    /** What the fake TV offers in its configure message (622 includes voice). */
+    @Volatile private var tvFeatures = 622
 
     private fun server(): SSLServerSocket {
         val ctx = SSLContext.getInstance("TLS")
@@ -104,12 +106,12 @@ class AndroidTvClientTest {
         if (clientKey(s).modulus !in known) return@use
         val input = s.inputStream
         val output: OutputStream = s.outputStream
-        ProtoMessage.writeDelimited(output, ProtoWriter().message(1) { varint(1, 622); message(2) { string(1, "Fake"); string(2, "Test") } }.toByteArray())
+        ProtoMessage.writeDelimited(output, ProtoWriter().message(1) { varint(1, tvFeatures); message(2) { string(1, "Fake"); string(2, "Test") } }.toByteArray())
         val cfg = read(input).message(1)!!
-        assertEquals(AtvMessages.FEATURES and 622, cfg.int(1))
+        assertEquals(AtvMessages.FEATURES and tvFeatures, cfg.int(1))
         assertEquals("atvremote", cfg.message(2)!!.string(5))
-        ProtoMessage.writeDelimited(output, ProtoWriter().message(2) { varint(1, 622) }.toByteArray())
-        assertEquals(AtvMessages.FEATURES and 622, read(input).message(2)!!.int(1))
+        ProtoMessage.writeDelimited(output, ProtoWriter().message(2) { varint(1, tvFeatures) }.toByteArray())
+        assertEquals(AtvMessages.FEATURES and tvFeatures, read(input).message(2)!!.int(1))
         ProtoMessage.writeDelimited(output, ProtoWriter().message(40) { varint(1, 1) }.toByteArray())
         ProtoMessage.writeDelimited(output, ProtoWriter().message(8) { varint(1, 42); varint(2, 1) }.toByteArray())
         // A text field got focus.
@@ -118,6 +120,10 @@ class AndroidTvClientTest {
             while (true) {
                 val m = read(input)
                 if (m.has(9)) pingAnswer = m.message(9)!!.int(1) else received.put(m)
+                // KEYCODE_SEARCH from a phone with the voice feature: open voice session 7.
+                if (m.message(10)?.int(1) == 84 && tvFeatures and 8 != 0) {
+                    ProtoMessage.writeDelimited(output, ProtoWriter().message(30) { varint(1, 7); string(2, "com.google.android.katniss") }.toByteArray())
+                }
             }
         } catch (_: Exception) {
         }
@@ -176,6 +182,50 @@ class AndroidTvClientTest {
         }.toByteArray())
         conn.close()
         assertFalse(conn.isOpen)
+    }
+
+    private suspend fun pairedConnection(): AndroidTvConnection {
+        val client = AndroidTvClient("127.0.0.1", ClientIdentity.generate("CastApp"), remotePort = remoteServer.localPort, pairPort = pairServer.localPort)
+        assertTrue(client.pair("CastApp") { shownCode })
+        return client.open("Pixel", "Google")
+    }
+
+    @Test
+    fun voiceSearch() = runBlocking {
+        val conn = pairedConnection()
+        assertTrue(conn.supportsVoice)
+        assertEquals(7, conn.startVoice())
+        assertEquals(84, received.poll(5, TimeUnit.SECONDS)!!.message(10)!!.int(1))
+        assertEquals(7, received.poll(5, TimeUnit.SECONDS)!!.message(30)!!.int(1))
+
+        // 15000 bytes in 3000-byte pieces: one full 8 KB chunk while talking, the rest (padded) at the end.
+        val pcm = ByteArray(15000) { (it % 251).toByte() }
+        val voice = AndroidTvVoice(conn, 7)
+        for (i in 0 until 5) voice.send(pcm.copyOfRange(i * 3000, (i + 1) * 3000))
+        val first = received.poll(5, TimeUnit.SECONDS)!!.message(31)!!
+        assertEquals(7, first.int(1))
+        assertArrayEquals(pcm.copyOf(8192), first.bytes(2))
+        voice.end()
+        val rest = received.poll(5, TimeUnit.SECONDS)!!.message(31)!!.bytes(2)!!
+        assertEquals(8192, rest.size)
+        assertArrayEquals(pcm.copyOfRange(8192, 15000), rest.copyOf(15000 - 8192))
+        assertTrue(rest.copyOfRange(15000 - 8192, 8192).all { it == 0.toByte() })
+        assertEquals(7, received.poll(5, TimeUnit.SECONDS)!!.message(32)!!.int(1))
+        assertEquals(null, conn.voiceSession)
+        voice.end() // a second end sends nothing
+        assertEquals(null, received.poll(300, TimeUnit.MILLISECONDS))
+        conn.close()
+    }
+
+    @Test
+    fun noVoiceOnTvsWithoutTheFeature() = runBlocking {
+        tvFeatures = 622 and 8.inv()
+        val conn = pairedConnection()
+        assertFalse(conn.supportsVoice)
+        assertEquals(null, conn.startVoice())
+        // Nothing (no search key) was sent.
+        assertEquals(null, received.poll(300, TimeUnit.MILLISECONDS))
+        conn.close()
     }
 
     /** TLS 1.2 TVs refuse an unknown certificate inside the handshake itself. */
