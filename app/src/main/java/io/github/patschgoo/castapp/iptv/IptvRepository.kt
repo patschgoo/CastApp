@@ -8,6 +8,8 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
 import org.json.JSONArray
 import org.json.JSONObject
@@ -17,8 +19,11 @@ import java.net.HttpURLConnection
 import java.net.URL
 import java.util.UUID
 
-/** A saved IPTV channel list: a web address or a file on the phone. */
-data class Playlist(val id: String, val name: String, val source: String)
+/**
+ * A saved IPTV channel list: a web address or a file on the phone. [guide] is a TV guide
+ * (XMLTV) address the user set; empty means: use the one in the playlist or the Xtream server.
+ */
+data class Playlist(val id: String, val name: String, val source: String, val guide: String = "")
 
 /** IPTV playlists, their channels (cached on the phone) and favourite channels. */
 class IptvRepository(context: Context) {
@@ -41,7 +46,15 @@ class IptvRepository(context: Context) {
 
     fun remove(id: String) {
         _playlists.value = _playlists.value.filter { it.id != id }
-        File(cacheDir, "$id.json").delete()
+        cacheDir.listFiles { f -> f.name.startsWith("$id.") || f.name.startsWith("epg_$id.") || f.name.startsWith("xt_${id}_") }
+            ?.forEach { it.delete() }
+        persist()
+    }
+
+    /** Sets (or, when blank, clears) the TV guide address of a playlist and drops its old guide. */
+    fun setGuide(id: String, url: String) {
+        _playlists.value = _playlists.value.map { if (it.id == id) it.copy(guide = url.trim()) else it }
+        File(cacheDir, "epg_$id.tsv").delete()
         persist()
     }
 
@@ -65,9 +78,65 @@ class IptvRepository(context: Context) {
         val text = read(playlist.source)
         val channels = M3uParser.parse(text)
         if (channels.isEmpty()) throw IOException("No channels found in this playlist")
+        File(cacheDir, "${playlist.id}.guide").writeText(M3uParser.guideUrls(text).joinToString("\n"))
         cache.writeText(JSONArray().also { a -> channels.forEach { a.put(it.toJson()) } }.toString())
         channels
     }
+
+    /** The Xtream log-in of [playlist], when it is one (an address with `get.php?username=…&password=…`). */
+    fun xtream(playlist: Playlist): XtreamAccount? = XtreamAccount.fromPlaylistUrl(playlist.source)
+
+    /** Movies and series of an Xtream playlist; null for other playlists. */
+    fun xtreamClient(playlist: Playlist): XtreamClient? =
+        xtream(playlist)?.let { XtreamClient(it, cacheDir, "xt_${playlist.id}_") }
+
+    /** Where the guide comes from: the address the user set, else the Xtream server and the playlist's header. */
+    fun guideUrls(playlist: Playlist): List<String> {
+        if (playlist.guide.isNotBlank()) return listOf(playlist.guide.trim())
+        val header = try {
+            File(cacheDir, "${playlist.id}.guide").takeIf { it.exists() }?.readLines().orEmpty().filter { it.isNotBlank() }
+        } catch (_: Exception) {
+            emptyList()
+        }
+        return (listOfNotNull(xtream(playlist)?.xmltvUrl) + header).distinct()
+    }
+
+    /** The guide saved on the phone, however old; null when there is none for the current guide address. */
+    suspend fun cachedGuide(playlist: Playlist): EpgData? = withContext(Dispatchers.IO) {
+        val file = File(cacheDir, "epg_${playlist.id}.tsv")
+        if (!file.exists()) return@withContext null
+        try {
+            file.bufferedReader().use { EpgData.read(it) }.takeIf { it.signature == GuideLoader.signatureOf(guideUrls(playlist)) }
+        } catch (_: Exception) {
+            null
+        }
+    }
+
+    /**
+     * The guide of [playlist] for its [channels]: the copy on the phone while it is younger than
+     * [GuideLoader.MAX_AGE_MS], otherwise downloaded again. Null when there is no guide address;
+     * throws when the download fails (the caller then keeps the old copy).
+     */
+    suspend fun updateGuide(playlist: Playlist, channels: List<Channel>, force: Boolean = false): EpgData? = guideLock.withLock {
+        val urls = guideUrls(playlist)
+        if (urls.isEmpty()) return@withLock null
+        val old = cachedGuide(playlist)
+        val now = System.currentTimeMillis()
+        if (!force && old != null && now - old.fetchedAt < GuideLoader.MAX_AGE_MS) return@withLock old
+        withContext(Dispatchers.IO) {
+            val data = GuideLoader.load(urls, channels, now)
+            val file = File(cacheDir, "epg_${playlist.id}.tsv")
+            val tmp = File(cacheDir, "epg_${playlist.id}.tmp")
+            tmp.bufferedWriter().use { data.write(it) }
+            if (!tmp.renameTo(file)) {
+                file.delete()
+                tmp.renameTo(file)
+            }
+            data
+        }
+    }
+
+    private val guideLock = Mutex()
 
     private fun read(source: String): String {
         if (source.startsWith("content:") || source.startsWith("file:")) {
@@ -89,14 +158,14 @@ class IptvRepository(context: Context) {
 
     private fun loadPlaylists(): List<Playlist> = try {
         val arr = JSONArray(prefs.getString("playlists", "[]"))
-        (0 until arr.length()).map { i -> arr.getJSONObject(i).let { Playlist(it.getString("id"), it.optString("name"), it.optString("source")) } }
+        (0 until arr.length()).map { i -> arr.getJSONObject(i).let { Playlist(it.getString("id"), it.optString("name"), it.optString("source"), it.optString("guide")) } }
     } catch (_: Exception) {
         emptyList()
     }
 
     private fun persist() {
         val arr = JSONArray()
-        _playlists.value.forEach { arr.put(JSONObject().put("id", it.id).put("name", it.name).put("source", it.source)) }
+        _playlists.value.forEach { arr.put(JSONObject().put("id", it.id).put("name", it.name).put("source", it.source).put("guide", it.guide)) }
         prefs.edit { putString("playlists", arr.toString()) }
     }
 

@@ -1,0 +1,47 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- TV channels: programme guide (EPG) and Xtream movies / series -->
+    <string name="iptvg_tab_live">Live</string>
+    <string name="iptvg_tab_movies">Movies</string>
+    <string name="iptvg_tab_series">Series</string>
+
+    <string name="iptvg_view_channels">Channels</string>
+    <string name="iptvg_view_guide">Guide</string>
+
+    <string name="iptvg_search_channels">Search channels and programmes</string>
+    <string name="iptvg_search_movies">Search movies</string>
+    <string name="iptvg_search_series">Search series</string>
+
+    <string name="iptvg_next">Next: %1$s %2$s</string>
+    <string name="iptvg_found">Found: %1$s %2$s</string>
+    <string name="iptvg_updating_guide">Updating the programme guide…</string>
+    <string name="iptvg_guide_failed">Couldn\'t load the programme guide: %1$s</string>
+    <string name="iptvg_channel_count">Channels: %1$d</string>
+    <string name="iptvg_guide_empty">No programme information yet. The guide comes from the playlist, the provider or an address you set in the menu.</string>
+    <string name="iptvg_no_schedule">No programme information for this channel</string>
+    <string name="iptvg_schedule">Programme</string>
+    <string name="iptvg_watch_live">Watch live</string>
+    <string name="iptvg_replay">Watch again</string>
+    <string name="iptvg_replay_hint">Tap a past programme to watch it again</string>
+
+    <string name="iptvg_menu_guide_address">TV guide address…</string>
+    <string name="iptvg_menu_update_guide">Update TV guide</string>
+    <string name="iptvg_guide_dialog_title">TV guide address</string>
+    <string name="iptvg_guide_dialog_text">An XMLTV address (also .xml.gz). Leave it empty to use the guide from the playlist or the provider.</string>
+    <string name="iptvg_guide_dialog_field">Guide address (XMLTV)</string>
+    <string name="iptvg_guide_dialog_current">Now used: %1$s</string>
+    <string name="iptvg_guide_dialog_none">No guide address found in this playlist.</string>
+    <string name="iptvg_save">Save</string>
+    <string name="iptvg_cancel">Cancel</string>
+
+    <string name="iptvg_load_failed">Couldn\'t load: %1$s</string>
+    <string name="iptvg_all">All</string>
+    <string name="iptvg_no_movies">No movies found</string>
+    <string name="iptvg_no_series">No series found</string>
+    <string name="iptvg_item_count">Titles: %1$d</string>
+    <string name="iptvg_season">Season %1$d</string>
+    <string name="iptvg_minutes">%1$d min</string>
+    <string name="iptvg_no_episodes">No episodes found</string>
+    <string name="iptvg_poster">Poster of %1$s</string>
+    <string name="iptvg_info">Programme of %1$s</string>
+</resources>
