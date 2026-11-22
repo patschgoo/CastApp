@@ -1,5 +1,7 @@
 package io.github.patschgoo.castapp.iptv
 
+import io.github.patschgoo.castapp.Txt
+import io.github.patschgoo.castapp.R
 import android.content.Context
 import androidx.core.net.toUri
 import androidx.core.content.edit
@@ -77,7 +79,7 @@ class IptvRepository(context: Context) {
         }
         val text = read(playlist.source)
         val channels = M3uParser.parse(text)
-        if (channels.isEmpty()) throw IOException("No channels found in this playlist")
+        if (channels.isEmpty()) throw IOException(Txt.s(R.string.err_playlist_empty))
         File(cacheDir, "${playlist.id}.guide").writeText(M3uParser.guideUrls(text).joinToString("\n"))
         cache.writeText(JSONArray().also { a -> channels.forEach { a.put(it.toJson()) } }.toString())
         channels
@@ -141,7 +143,7 @@ class IptvRepository(context: Context) {
     private fun read(source: String): String {
         if (source.startsWith("content:") || source.startsWith("file:")) {
             return appContext.contentResolver.openInputStream(source.toUri())?.use { it.readBytes().toString(Charsets.UTF_8) }
-                ?: throw IOException("Can't open the playlist file")
+                ?: throw IOException(Txt.s(R.string.err_playlist_file))
         }
         val conn = URL(source).openConnection() as HttpURLConnection
         conn.connectTimeout = 15_000
@@ -149,7 +151,7 @@ class IptvRepository(context: Context) {
         conn.instanceFollowRedirects = true
         conn.setRequestProperty("User-Agent", "CastApp")
         try {
-            if (conn.responseCode !in 200..299) throw IOException("The playlist address answered ${conn.responseCode}")
+            if (conn.responseCode !in 200..299) throw IOException(Txt.sOr(R.string.err_playlist_answered, "The playlist address answered %d", conn.responseCode))
             return conn.inputStream.use { it.readBytes().toString(Charsets.UTF_8) }
         } finally {
             conn.disconnect()

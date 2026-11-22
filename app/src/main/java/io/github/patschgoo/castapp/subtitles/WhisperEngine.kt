@@ -1,5 +1,7 @@
 package io.github.patschgoo.castapp.subtitles
 
+import io.github.patschgoo.castapp.Txt
+import io.github.patschgoo.castapp.R
 import java.io.File
 import java.io.IOException
 import java.util.concurrent.CancellationException
@@ -18,15 +20,15 @@ class WhisperEngine(
     private val handle: Long
 
     init {
-        if (!modelFile.isFile) throw IOException("The Whisper model isn't downloaded")
+        if (!modelFile.isFile) throw IOException(Txt.s(R.string.err_whisper_missing))
         WhisperNative.load()
         handle = WhisperNative.open(modelFile.absolutePath)
-        if (handle == 0L) throw IOException("The Whisper model couldn't be read. Delete it in Settings and download it again.")
+        if (handle == 0L) throw IOException(Txt.s(R.string.err_whisper_unreadable))
     }
 
     private val chunker = WhisperChunker { samples, count ->
         val raw = WhisperNative.transcribe(handle, samples, count, language.ifEmpty { "auto" }, translate, threads, null)
-            ?: if (cancelled) throw CancellationException("Stopped") else throw IOException("Whisper couldn't understand the sound")
+            ?: if (cancelled) throw CancellationException("Stopped") else throw IOException(Txt.s(R.string.err_whisper_nosound))
         WhisperSegments.parse(raw)
     }
 

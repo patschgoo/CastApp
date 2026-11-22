@@ -1,5 +1,7 @@
 package io.github.patschgoo.castapp.render
 
+import io.github.patschgoo.castapp.R
+import io.github.patschgoo.castapp.Txt
 import io.github.patschgoo.castapp.cast.CastClient
 import io.github.patschgoo.castapp.cast.CastException
 import io.github.patschgoo.castapp.cast.RunningApp
@@ -47,7 +49,7 @@ class CastRenderer(override val device: CastDevice) : MediaRenderer {
             c.connect(6000)
         } catch (e: Exception) {
             c.close()
-            throw CastException("Can't reach ${device.name} at ${device.host}. Is it on the same Wi-Fi?")
+            throw CastException(Txt.s(R.string.err_cant_reach, device.name, device.host))
         }
         client = c
         app = c.launch(CastClient.DEFAULT_MEDIA_RECEIVER)
@@ -60,8 +62,8 @@ class CastRenderer(override val device: CastDevice) : MediaRenderer {
     }
 
     override suspend fun load(media: RendererMedia): RendererStatus {
-        val c = client ?: throw CastException("Not connected")
-        val a = app ?: throw CastException("Not connected")
+        val c = client ?: throw CastException(Txt.s(R.string.err_not_connected))
+        val a = app ?: throw CastException(Txt.s(R.string.err_not_connected))
         val mime = media.mimeType
         val metadata = JSONObject()
             .put("metadataType", if (mime.startsWith("audio/")) 3 else if (mime.startsWith("image/")) 4 else 0)

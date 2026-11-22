@@ -1,5 +1,6 @@
 package io.github.patschgoo.castapp.ui
 
+import io.github.patschgoo.castapp.R
 import android.Manifest
 import android.content.Context
 import android.content.pm.PackageManager
@@ -40,7 +41,7 @@ class CastLauncher(private val context: Context) {
         val playing = (CastController.state.value as? CastState.Active)?.takeIf { it.kind == CastKind.FILE }?.device
         if (playing != null && (playing.video || !needsPicture)) {
             CastService.startMedia(context, playing, items, index)
-            Toast.makeText(context, "Playing on ${playing.name}", Toast.LENGTH_SHORT).show()
+            Toast.makeText(context, context.getString(R.string.toast_playing_on, playing.name), Toast.LENGTH_SHORT).show()
         } else {
             request = Request(title, items, index)
         }
