@@ -1,0 +1,119 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- TV channels extras: guide grid, reminders, recordings, parental lock -->
+    <string name="iptvx_view_grid">Grid</string>
+    <string name="iptvx_menu_recordings">Recordings and reminders</string>
+    <string name="iptvx_menu_parental">Parental lock…</string>
+    <string name="iptvx_back">Back</string>
+    <string name="iptvx_done">Done</string>
+    <string name="iptvx_stop">Stop</string>
+    <string name="iptvx_delete">Delete</string>
+
+    <!-- Guide grid -->
+    <string name="iptvx_grid_now">Now</string>
+    <string name="iptvx_grid_earlier">Earlier</string>
+    <string name="iptvx_grid_later">Later</string>
+    <string name="iptvx_all_programmes">All programmes</string>
+    <string name="iptvx_programme_time">%1$s, %2$s – %3$s (%4$d min)</string>
+    <string name="iptvx_watch_now">Watch now</string>
+
+    <!-- Reminders -->
+    <string name="iptvx_remind_me">Remind me</string>
+    <string name="iptvx_cancel_reminder">Cancel reminder</string>
+    <string name="iptvx_reminder_set">Reminder set for %1$s at %2$s</string>
+    <string name="iptvx_reminder_removed">Reminder removed</string>
+    <string name="iptvx_channel_reminders">Programme reminders</string>
+    <string name="iptvx_channel_reminders_description">A few minutes before a programme you asked for starts</string>
+    <string name="iptvx_reminder_text">%1$s starts at %2$s on %3$s</string>
+    <string name="iptvx_reminder_started">%1$s started at %2$s on %3$s</string>
+    <string name="iptvx_reminder_watch_on">Watch on %1$s</string>
+    <string name="iptvx_reminder_row">%1$s · %2$s, %3$s</string>
+    <string name="iptvx_no_reminders">No reminders. Open a programme in the guide and tap \"Remind me\".</string>
+    <string name="iptvx_notifications_off">Notifications are turned off, so reminders and recording messages can\'t be shown.</string>
+    <string name="iptvx_open_notification_settings">Notification settings</string>
+
+    <!-- Recording -->
+    <string name="iptvx_record">Record</string>
+    <string name="iptvx_record_now">Record now…</string>
+    <string name="iptvx_record_from_now">Record from now</string>
+    <string name="iptvx_record_title">Record</string>
+    <string name="iptvx_record_range">Records from %1$s to %2$s</string>
+    <string name="iptvx_record_for">Record for</string>
+    <string name="iptvx_until_stopped">Until I stop it</string>
+    <string name="iptvx_pad_before">Start earlier</string>
+    <string name="iptvx_pad_after">End later</string>
+    <string name="iptvx_saved_to">Saved to: %1$s</string>
+    <string name="iptvx_cancel_recording">Cancel recording</string>
+    <string name="iptvx_stop_recording">Stop recording</string>
+    <string name="iptvx_recording_planned">Recording planned: %1$s</string>
+    <string name="iptvx_recording_started">Recording started</string>
+    <string name="iptvx_recording_cancelled">Recording cancelled</string>
+    <string name="iptvx_warn_watching">You are watching on the same account. Many providers allow only one connection, so the picture on the TV may stop while this records.</string>
+    <string name="iptvx_warn_two_recordings">Another recording uses the same account. Many providers allow only one connection, so one of them may fail.</string>
+    <string name="iptvx_warn_saved_on_phone">The network folder could not be reached (%1$s), so this was saved on the phone.</string>
+
+    <!-- Recordings list -->
+    <string name="iptvx_recordings_title">Recordings and reminders</string>
+    <string name="iptvx_tab_recordings">Recordings (%1$d)</string>
+    <string name="iptvx_tab_reminders">Reminders (%1$d)</string>
+    <string name="iptvx_no_recordings">No recordings yet. Open a programme in the guide and tap \"Record\", or long-press a channel to record it now.</string>
+    <string name="iptvx_state_scheduled">Planned</string>
+    <string name="iptvx_state_recording">Recording · %1$s · %2$s</string>
+    <string name="iptvx_state_done">Saved · %1$s · %2$s</string>
+    <string name="iptvx_state_partial">Incomplete · %1$s · %2$s</string>
+    <string name="iptvx_state_failed">Failed</string>
+    <string name="iptvx_gaps">Parts of the stream were missing (%1$d).</string>
+    <string name="iptvx_error_interrupted">The recording was interrupted when the app was closed.</string>
+    <string name="iptvx_error_missed">The phone was not ready at the start time, so this was not recorded.</string>
+    <string name="iptvx_play_on_tv">Play on TV</string>
+    <string name="iptvx_delete_title">Delete recording?</string>
+    <string name="iptvx_delete_text">\"%1$s\" and its file will be deleted.</string>
+    <string name="iptvx_recording_settings">Recording settings</string>
+    <string name="iptvx_save_to">Save recordings to</string>
+    <string name="iptvx_dest_phone">This phone (app folder)</string>
+    <string name="iptvx_dest_gallery">This phone (Movies folder)</string>
+    <string name="iptvx_dest_network">Network folder: %1$s</string>
+    <string name="iptvx_dest_missing">Network folder (not saved any more)</string>
+    <string name="iptvx_no_network_folders">Add a Windows share or WebDAV folder under Network and cloud to save recordings there.</string>
+
+    <!-- Recording notifications -->
+    <string name="iptvx_channel_recording">Recording</string>
+    <string name="iptvx_channel_recording_description">Shown while a TV channel is being recorded</string>
+    <string name="iptvx_channel_recording_events">Recording messages</string>
+    <string name="iptvx_notif_recording_title">Recording TV</string>
+    <string name="iptvx_notif_recording_idle">Getting ready…</string>
+    <string name="iptvx_notif_waiting">Waiting to start: %1$s</string>
+    <string name="iptvx_notif_recording_one">%1$s · %2$s · %3$s</string>
+    <string name="iptvx_notif_recording_many">%1$d recordings · %2$s</string>
+    <string name="iptvx_notif_finished">Recording saved: %1$s</string>
+    <string name="iptvx_notif_partial">Recording incomplete: %1$s</string>
+    <string name="iptvx_notif_failed">Recording failed: %1$s</string>
+    <string name="iptvx_notif_start_prompt">Time to record: %1$s</string>
+    <string name="iptvx_notif_start_prompt_text">Tap to start the recording.</string>
+
+    <!-- Parental lock -->
+    <string name="iptvx_parental_title">Parental lock</string>
+    <string name="iptvx_parental_explain">Lock groups or channels with a PIN. Locked ones ask for the PIN before they play or record, hidden ones are not shown at all until the PIN is entered. After entering it everything stays open for 15 minutes.</string>
+    <string name="iptvx_parental_set_up">Set up a PIN…</string>
+    <string name="iptvx_parental_pin">PIN</string>
+    <string name="iptvx_parental_new_pin">New PIN (at least 4 digits)</string>
+    <string name="iptvx_parental_repeat_pin">Repeat PIN</string>
+    <string name="iptvx_parental_set_pin">Set PIN</string>
+    <string name="iptvx_parental_unlock">Unlock</string>
+    <string name="iptvx_parental_wrong">Wrong PIN</string>
+    <string name="iptvx_parental_wait">Too many tries. Wait %1$d seconds.</string>
+    <string name="iptvx_parental_pin_rule">The PIN needs at least 4 digits.</string>
+    <string name="iptvx_parental_pin_mismatch">The two PINs are different.</string>
+    <string name="iptvx_parental_off">Open</string>
+    <string name="iptvx_parental_locked">Locked</string>
+    <string name="iptvx_parental_hidden">Hidden</string>
+    <string name="iptvx_parental_no_groups">This list has no groups. Long-press a channel to lock it.</string>
+    <string name="iptvx_parental_tap_hint">Tap a group to switch between open, locked and hidden. Long-press a channel for single channels.</string>
+    <string name="iptvx_parental_lock_now">Lock now</string>
+    <string name="iptvx_parental_change_pin">Change PIN</string>
+    <string name="iptvx_parental_remove_pin">Remove PIN</string>
+    <string name="iptvx_parental_remove_text">Removing the PIN also removes all locks and hidden channels.</string>
+    <string name="iptvx_parental_by_group">Locked through its group \"%1$s\".</string>
+    <string name="iptvx_parental_enter_pin_hint">Enter the PIN in the parental lock settings first to change this.</string>
+    <string name="iptvx_parental_pin_needed">PIN needed</string>
+</resources>
