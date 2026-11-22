@@ -1,0 +1,118 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- TV-Sender-Extras: Programmraster, Erinnerungen, Aufnahmen, Jugendschutz -->
+    <string name="iptvx_view_grid">Raster</string>
+    <string name="iptvx_menu_recordings">Aufnahmen und Erinnerungen</string>
+    <string name="iptvx_menu_parental">Jugendschutz…</string>
+    <string name="iptvx_done">Fertig</string>
+    <string name="iptvx_stop">Stopp</string>
+    <string name="iptvx_delete">Löschen</string>
+
+    <!-- Programmraster -->
+    <string name="iptvx_grid_now">Jetzt</string>
+    <string name="iptvx_grid_earlier">Früher</string>
+    <string name="iptvx_grid_later">Später</string>
+    <string name="iptvx_all_programmes">Alle Sendungen</string>
+    <string name="iptvx_programme_time">%1$s, %2$s – %3$s (%4$d Min.)</string>
+    <string name="iptvx_watch_now">Jetzt ansehen</string>
+
+    <!-- Erinnerungen -->
+    <string name="iptvx_remind_me">Erinnere mich</string>
+    <string name="iptvx_cancel_reminder">Erinnerung löschen</string>
+    <string name="iptvx_reminder_set">Erinnerung für %1$s um %2$s gesetzt</string>
+    <string name="iptvx_reminder_removed">Erinnerung gelöscht</string>
+    <string name="iptvx_channel_reminders">Sendungs-Erinnerungen</string>
+    <string name="iptvx_channel_reminders_description">Einige Minuten bevor eine Sendung beginnt, für die du eine Erinnerung gesetzt hast</string>
+    <string name="iptvx_reminder_text">%1$s beginnt um %2$s auf %3$s</string>
+    <string name="iptvx_reminder_started">%1$s hat um %2$s auf %3$s begonnen</string>
+    <string name="iptvx_reminder_watch_on">Auf %1$s ansehen</string>
+    <string name="iptvx_reminder_row">%1$s · %2$s, %3$s</string>
+    <string name="iptvx_no_reminders">Keine Erinnerungen. Öffne eine Sendung im Programm und tippe auf \"Erinnere mich\".</string>
+    <string name="iptvx_notifications_off">Benachrichtigungen sind ausgeschaltet, deshalb können Erinnerungen und Aufnahme-Meldungen nicht angezeigt werden.</string>
+    <string name="iptvx_open_notification_settings">Benachrichtigungs-Einstellungen</string>
+
+    <!-- Aufnehmen -->
+    <string name="iptvx_record">Aufnehmen</string>
+    <string name="iptvx_record_now">Jetzt aufnehmen…</string>
+    <string name="iptvx_record_from_now">Ab jetzt aufnehmen</string>
+    <string name="iptvx_record_title">Aufnehmen</string>
+    <string name="iptvx_record_range">Nimmt von %1$s bis %2$s auf</string>
+    <string name="iptvx_record_for">Aufnehmen für</string>
+    <string name="iptvx_until_stopped">Bis ich stoppe</string>
+    <string name="iptvx_pad_before">Früher starten</string>
+    <string name="iptvx_pad_after">Später beenden</string>
+    <string name="iptvx_saved_to">Gespeichert in: %1$s</string>
+    <string name="iptvx_cancel_recording">Aufnahme abbrechen</string>
+    <string name="iptvx_stop_recording">Aufnahme stoppen</string>
+    <string name="iptvx_recording_planned">Aufnahme geplant: %1$s</string>
+    <string name="iptvx_recording_started">Aufnahme gestartet</string>
+    <string name="iptvx_recording_cancelled">Aufnahme abgebrochen</string>
+    <string name="iptvx_warn_watching">Du schaust gerade mit demselben Konto. Viele Anbieter erlauben nur eine Verbindung, deshalb kann das Bild auf dem Fernseher stehen bleiben, solange aufgenommen wird.</string>
+    <string name="iptvx_warn_two_recordings">Eine andere Aufnahme nutzt dasselbe Konto. Viele Anbieter erlauben nur eine Verbindung, deshalb kann eine der beiden fehlschlagen.</string>
+    <string name="iptvx_warn_saved_on_phone">Der Netzwerkordner war nicht erreichbar (%1$s), deshalb wurde auf dem Handy gespeichert.</string>
+
+    <!-- Aufnahmeliste -->
+    <string name="iptvx_recordings_title">Aufnahmen und Erinnerungen</string>
+    <string name="iptvx_tab_recordings">Aufnahmen (%1$d)</string>
+    <string name="iptvx_tab_reminders">Erinnerungen (%1$d)</string>
+    <string name="iptvx_no_recordings">Noch keine Aufnahmen. Öffne eine Sendung im Programm und tippe auf \"Aufnehmen\", oder halte einen Sender gedrückt, um ihn jetzt aufzunehmen.</string>
+    <string name="iptvx_state_scheduled">Geplant</string>
+    <string name="iptvx_state_recording">Nimmt auf · %1$s · %2$s</string>
+    <string name="iptvx_state_done">Gespeichert · %1$s · %2$s</string>
+    <string name="iptvx_state_partial">Unvollständig · %1$s · %2$s</string>
+    <string name="iptvx_state_failed">Fehlgeschlagen</string>
+    <string name="iptvx_gaps">Teile des Streams fehlten (%1$d).</string>
+    <string name="iptvx_error_interrupted">Die Aufnahme wurde unterbrochen, als die App beendet wurde.</string>
+    <string name="iptvx_error_missed">Das Handy war zur Startzeit nicht bereit, deshalb wurde nicht aufgenommen.</string>
+    <string name="iptvx_play_on_tv">Auf dem Fernseher abspielen</string>
+    <string name="iptvx_delete_title">Aufnahme löschen?</string>
+    <string name="iptvx_delete_text">\"%1$s\" und die Datei werden gelöscht.</string>
+    <string name="iptvx_recording_settings">Aufnahme-Einstellungen</string>
+    <string name="iptvx_save_to">Aufnahmen speichern in</string>
+    <string name="iptvx_dest_phone">Diesem Handy (App-Ordner)</string>
+    <string name="iptvx_dest_gallery">Diesem Handy (Ordner Filme)</string>
+    <string name="iptvx_dest_network">Netzwerkordner: %1$s</string>
+    <string name="iptvx_dest_missing">Netzwerkordner (nicht mehr gespeichert)</string>
+    <string name="iptvx_no_network_folders">Füge unter Netzwerk und Cloud eine Windows-Freigabe oder einen WebDAV-Ordner hinzu, um Aufnahmen dort zu speichern.</string>
+
+    <!-- Aufnahme-Benachrichtigungen -->
+    <string name="iptvx_channel_recording">Aufnahme</string>
+    <string name="iptvx_channel_recording_description">Wird angezeigt, solange ein TV-Sender aufgenommen wird</string>
+    <string name="iptvx_channel_recording_events">Aufnahme-Meldungen</string>
+    <string name="iptvx_notif_recording_title">TV-Aufnahme</string>
+    <string name="iptvx_notif_recording_idle">Wird vorbereitet…</string>
+    <string name="iptvx_notif_waiting">Wartet auf den Start: %1$s</string>
+    <string name="iptvx_notif_recording_one">%1$s · %2$s · %3$s</string>
+    <string name="iptvx_notif_recording_many">%1$d Aufnahmen · %2$s</string>
+    <string name="iptvx_notif_finished">Aufnahme gespeichert: %1$s</string>
+    <string name="iptvx_notif_partial">Aufnahme unvollständig: %1$s</string>
+    <string name="iptvx_notif_failed">Aufnahme fehlgeschlagen: %1$s</string>
+    <string name="iptvx_notif_start_prompt">Zeit für die Aufnahme: %1$s</string>
+    <string name="iptvx_notif_start_prompt_text">Tippe, um die Aufnahme zu starten.</string>
+
+    <!-- Jugendschutz -->
+    <string name="iptvx_parental_title">Jugendschutz</string>
+    <string name="iptvx_parental_explain">Sperre Gruppen oder Sender mit einer PIN. Gesperrte fragen vor dem Abspielen oder Aufnehmen nach der PIN, versteckte werden gar nicht angezeigt, bis du die PIN eingibst. Nach der Eingabe bleibt 15 Minuten lang alles offen.</string>
+    <string name="iptvx_parental_set_up">PIN festlegen…</string>
+    <string name="iptvx_parental_pin">PIN</string>
+    <string name="iptvx_parental_new_pin">Neue PIN (mindestens 4 Ziffern)</string>
+    <string name="iptvx_parental_repeat_pin">PIN wiederholen</string>
+    <string name="iptvx_parental_set_pin">PIN festlegen</string>
+    <string name="iptvx_parental_unlock">Entsperren</string>
+    <string name="iptvx_parental_wrong">Falsche PIN</string>
+    <string name="iptvx_parental_wait">Zu viele Versuche. Warte %1$d Sekunden.</string>
+    <string name="iptvx_parental_pin_rule">Die PIN braucht mindestens 4 Ziffern.</string>
+    <string name="iptvx_parental_pin_mismatch">Die beiden PINs sind verschieden.</string>
+    <string name="iptvx_parental_off">Offen</string>
+    <string name="iptvx_parental_locked">Gesperrt</string>
+    <string name="iptvx_parental_hidden">Versteckt</string>
+    <string name="iptvx_parental_no_groups">Diese Liste hat keine Gruppen. Halte einen Sender gedrückt, um ihn zu sperren.</string>
+    <string name="iptvx_parental_tap_hint">Tippe auf eine Gruppe, um zwischen offen, gesperrt und versteckt zu wechseln. Einzelne Sender stellst du mit langem Drücken ein.</string>
+    <string name="iptvx_parental_lock_now">Jetzt sperren</string>
+    <string name="iptvx_parental_change_pin">PIN ändern</string>
+    <string name="iptvx_parental_remove_pin">PIN entfernen</string>
+    <string name="iptvx_parental_remove_text">Beim Entfernen der PIN werden auch alle Sperren und versteckten Sender aufgehoben.</string>
+    <string name="iptvx_parental_by_group">Gesperrt über die Gruppe \"%1$s\".</string>
+    <string name="iptvx_parental_enter_pin_hint">Gib zuerst in den Jugendschutz-Einstellungen die PIN ein, um das zu ändern.</string>
+    <string name="iptvx_parental_pin_needed">PIN nötig</string>
+</resources>
