@@ -24,7 +24,7 @@ jobs:
       - uses: gradle/actions/setup-gradle@v6
 
       - name: Install Android SDK packages
-        run: yes | "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" "platforms;android-37.1" "build-tools;37.0.0" > /dev/null
+        run: yes | "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" "platforms;android-37.1" "build-tools;37.0.0" "ndk;29.0.14206865" "cmake;3.22.1" > /dev/null
 
       - name: Unit tests
         run: ./gradlew testDebugUnitTest --console=plain

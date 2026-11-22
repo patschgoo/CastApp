@@ -181,6 +181,8 @@ fun SettingsScreen(
                 }
             }
 
+            item { SubtitleSourcesSection() }
+
             item { SectionTitle("Connection") }
             item { ReceiveOnPhoneItem() }
             item { io.github.patschgoo.castapp.tv.ReceiverProtectionItem() }
