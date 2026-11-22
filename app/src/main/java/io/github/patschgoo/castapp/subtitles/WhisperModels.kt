@@ -1,5 +1,7 @@
 package io.github.patschgoo.castapp.subtitles
 
+import io.github.patschgoo.castapp.Txt
+import io.github.patschgoo.castapp.R
 import android.content.Context
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -70,7 +72,7 @@ object WhisperModels {
             try {
                 download(app, model)
             } catch (e: Exception) {
-                _error.value = "Couldn't download the ${model.label} model: ${e.message ?: "no connection"}"
+                _error.value = Txt.s(R.string.err_whisper_download, model.label, e.message ?: Txt.s(R.string.err_no_connection))
             }
         }
     }
@@ -84,7 +86,7 @@ object WhisperModels {
             conn.connectTimeout = 20_000
             conn.readTimeout = 60_000
             conn.instanceFollowRedirects = true
-            if (conn.responseCode != 200) throw IOException("Download failed (${conn.responseCode})")
+            if (conn.responseCode != 200) throw IOException(Txt.s(R.string.err_download_failed_code, conn.responseCode))
             val digest = MessageDigest.getInstance("SHA-256")
             conn.inputStream.use { input ->
                 part.outputStream().use { out ->
@@ -101,7 +103,7 @@ object WhisperModels {
                 }
             }
             val hex = digest.digest().joinToString("") { "%02x".format(java.util.Locale.ROOT, it) }
-            if (hex != model.sha256) throw IOException("The download was damaged, please try again")
+            if (hex != model.sha256) throw IOException(Txt.s(R.string.err_whisper_damaged))
             val target = file(context, model)
             target.parentFile?.mkdirs()
             if (!part.renameTo(target)) {

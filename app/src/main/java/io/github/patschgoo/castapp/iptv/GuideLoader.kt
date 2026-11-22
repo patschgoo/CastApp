@@ -1,5 +1,7 @@
 package io.github.patschgoo.castapp.iptv
 
+import io.github.patschgoo.castapp.Txt
+import io.github.patschgoo.castapp.R
 import java.io.BufferedInputStream
 import java.io.FilterInputStream
 import java.io.IOException
@@ -35,7 +37,7 @@ object GuideLoader {
                 failure = e
             }
         }
-        if (parts.isEmpty()) throw (failure ?: IOException("No guide address"))
+        if (parts.isEmpty()) throw (failure ?: IOException(Txt.s(R.string.err_guide_none)))
         val merged = EpgData.merge(parts)
         return EpgData(merged.programmes, merged.names, now, signature)
     }
@@ -71,7 +73,7 @@ object GuideLoader {
                 301, 302, 303, 307, 308 -> {
                     val location = conn.getHeaderField("Location")
                     conn.disconnect()
-                    if (location.isNullOrBlank()) throw IOException("The guide address redirects nowhere")
+                    if (location.isNullOrBlank()) throw IOException(Txt.s(R.string.err_guide_redirect))
                     target = URL(URL(target), location).toString()
                 }
                 in 200..299 -> return object : FilterInputStream(conn.inputStream) {
@@ -85,10 +87,10 @@ object GuideLoader {
                 }
                 else -> {
                     conn.disconnect()
-                    throw IOException("The guide address answered $code")
+                    throw IOException(Txt.sOr(R.string.err_guide_answered, "The guide address answered %d", code))
                 }
             }
         }
-        throw IOException("Too many redirects")
+        throw IOException(Txt.s(R.string.err_redirects))
     }
 }

@@ -4,40 +4,56 @@ import android.app.UiModeManager
 import android.content.Context
 import androidx.core.content.edit
 import android.os.Build
+import androidx.annotation.StringRes
+import io.github.patschgoo.castapp.R
+import io.github.patschgoo.castapp.Txt
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 
-enum class Resolution(val width: Int, val height: Int, val label: String, val short: String) {
-    P480(848, 480, "480p (weak Wi-Fi)", "480p"),
-    P540(960, 540, "540p (saves data)", "540p"),
-    P720(1280, 720, "720p HD", "720p"),
-    P1080(1920, 1080, "1080p Full HD", "1080p"),
-    P1440(2560, 1440, "1440p (needs a 4K TV device)", "1440p"),
-    P2160(3840, 2160, "4K (Shield, Chromecast/Google TV 4K)", "4K"),
+enum class Resolution(val width: Int, val height: Int, @StringRes val labelRes: Int, val short: String) {
+    P480(848, 480, R.string.res_480, "480p"),
+    P540(960, 540, R.string.res_540, "540p"),
+    P720(1280, 720, R.string.res_720, "720p"),
+    P1080(1920, 1080, R.string.res_1080, "1080p"),
+    P1440(2560, 1440, R.string.res_1440, "1440p"),
+    P2160(3840, 2160, R.string.res_2160, "4K");
+
+    val label: String get() = Txt.s(labelRes)
 }
 
-enum class StreamMode(val label: String, val description: String) {
-    LOW_LATENCY("Low latency", "Fastest response. Falls back to Compatible automatically if the TV can't play it."),
-    COMPATIBLE("Compatible (HLS)", "Works with every Cast receiver, but lags a few seconds behind."),
+enum class StreamMode(@StringRes val labelRes: Int, @StringRes val descriptionRes: Int) {
+    LOW_LATENCY(R.string.mode_low_latency, R.string.mode_low_latency_desc),
+    COMPATIBLE(R.string.mode_compatible, R.string.mode_compatible_desc);
+
+    val label: String get() = Txt.s(labelRes)
+    val description: String get() = Txt.s(descriptionRes)
 }
 
-enum class ThemeMode(val label: String) {
-    SYSTEM("System default"),
-    LIGHT("Light"),
-    DARK("Dark"),
+enum class ThemeMode(@StringRes val labelRes: Int) {
+    SYSTEM(R.string.theme_system),
+    LIGHT(R.string.theme_light),
+    DARK(R.string.theme_dark);
+
+    val label: String get() = Txt.s(labelRes)
 }
 
-enum class PictureMode(val label: String, val description: String) {
-    FIT("Fit", "Whole picture, black bars where the shapes differ"),
-    FILL("Fill the TV", "Zooms in to remove black bars; edges are cut off"),
-    LANDSCAPE("Turn apps sideways", "Rotates the phone to landscape while casting, so apps fill the TV"),
+enum class PictureMode(@StringRes val labelRes: Int, @StringRes val descriptionRes: Int) {
+    FIT(R.string.picture_fit, R.string.picture_fit_desc),
+    FILL(R.string.picture_fill, R.string.picture_fill_desc),
+    LANDSCAPE(R.string.picture_landscape, R.string.picture_landscape_desc);
+
+    val label: String get() = Txt.s(labelRes)
+    val description: String get() = Txt.s(descriptionRes)
 }
 
-enum class ConvertMode(val label: String, val description: String) {
-    AUTO("Automatic", "Only when the TV can't play a file"),
-    ALWAYS("Always", "Every video is converted on the phone (uses more battery)"),
-    OFF("Never", "Show an error if the TV can't play a file"),
+enum class ConvertMode(@StringRes val labelRes: Int, @StringRes val descriptionRes: Int) {
+    AUTO(R.string.convert_auto, R.string.convert_auto_desc),
+    ALWAYS(R.string.convert_always, R.string.convert_always_desc),
+    OFF(R.string.convert_off, R.string.convert_off_desc);
+
+    val label: String get() = Txt.s(labelRes)
+    val description: String get() = Txt.s(descriptionRes)
 }
 
 /** Video codec for screen mirroring. */

@@ -1,5 +1,8 @@
 package io.github.patschgoo.castapp.service
 
+import androidx.annotation.StringRes
+import io.github.patschgoo.castapp.R
+import io.github.patschgoo.castapp.Txt
 import io.github.patschgoo.castapp.discovery.CastDevice
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -8,13 +11,15 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
 
-enum class CastPhase(val label: String) {
-    CONNECTING("Connecting to TV…"),
-    STARTING("Starting the player on the TV…"),
-    BUFFERING("Buffering…"),
-    RECONNECTING("Connection lost, reconnecting…"),
-    CONVERTING("Converting on the phone…"),
-    LIVE("Live"),
+enum class CastPhase(@StringRes val labelRes: Int) {
+    CONNECTING(R.string.phase_connecting),
+    STARTING(R.string.phase_starting),
+    BUFFERING(R.string.phase_buffering),
+    RECONNECTING(R.string.phase_reconnecting),
+    CONVERTING(R.string.phase_converting),
+    LIVE(R.string.phase_live);
+
+    val label: String get() = Txt.s(labelRes)
 }
 
 sealed interface CastState {

@@ -1,5 +1,7 @@
 package io.github.patschgoo.castapp.render
 
+import io.github.patschgoo.castapp.R
+import io.github.patschgoo.castapp.Txt
 import io.github.patschgoo.castapp.cast.CastException
 import io.github.patschgoo.castapp.discovery.CastDevice
 import io.github.patschgoo.castapp.dlna.Dlna
@@ -55,7 +57,7 @@ class DlnaRenderer(
         try {
             p.ensure(device, base)
         } catch (e: PairingClient.PairingException) {
-            throw CastException(e.message ?: "Pairing failed")
+            throw CastException(e.message ?: Txt.s(R.string.err_pairing_failed))
         }
         authHeaders = p.headersFor(device)
     }
@@ -63,7 +65,7 @@ class DlnaRenderer(
     override val localAddress: InetAddress? get() = local
 
     override suspend fun connect() = withContext(Dispatchers.IO) {
-        if (avt.isEmpty()) throw CastException("${device.name} can't play media")
+        if (avt.isEmpty()) throw CastException(Txt.s(R.string.err_cant_play_media, device.name))
         val uri = URI(avt)
         try {
             Socket().use { s ->
@@ -72,7 +74,7 @@ class DlnaRenderer(
             }
             soapCall(avt, Dlna.AV_TRANSPORT, "GetTransportInfo", listOf("InstanceID" to "0"))
         } catch (e: Exception) {
-            throw CastException("Can't reach ${device.name} at ${device.host}. Is it on the same Wi-Fi?")
+            throw CastException(Txt.s(R.string.err_cant_reach, device.name, device.host))
         }
         pairIfNeeded()
         readVolume()

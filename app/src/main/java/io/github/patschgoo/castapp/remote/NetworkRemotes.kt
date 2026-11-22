@@ -1,5 +1,7 @@
 package io.github.patschgoo.castapp.remote
 
+import io.github.patschgoo.castapp.Txt
+import io.github.patschgoo.castapp.R
 import android.content.Context
 import io.github.patschgoo.castapp.CastApp
 import io.github.patschgoo.castapp.discovery.CastDevice
@@ -35,7 +37,7 @@ import java.util.concurrent.ConcurrentHashMap
  * TVs used once are remembered so they're listed (and reconnect) right away.
  */
 object NetworkRemotes : RemoteProvider {
-    override val title = "TVs on the network"
+    override val title: String get() = Txt.s(R.string.remote_provider_network)
 
     private const val ATV_SERVICE = "_androidtvremote2._tcp.local"
     private const val SAMSUNG_SSDP = "urn:samsung.com:device:RemoteControlReceiver:1"

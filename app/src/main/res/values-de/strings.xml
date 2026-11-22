@@ -1,0 +1,142 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">CastApp</string>
+
+    <!-- Device list -->
+    <string name="devices_header">Fernseher in deinem Netzwerk</string>
+    <string name="devices_header_audio">Lautsprecher und Fernseher in deinem Netzwerk</string>
+    <string name="mode_video">Video</string>
+    <string name="mode_audio">Audio</string>
+    <string name="cast_sound">Ton des Handys streamen</string>
+    <string name="cast_sound_hint">Alles, was auf dem Handy läuft (Musik-Apps, Videos), wird auf dem Lautsprecher abgespielt</string>
+    <string name="cast_sound_hint_tv">Nur Ton, kein Bild</string>
+    <string name="cast_music_files">Musikdateien abspielen</string>
+    <string name="casting_sound_to">Ton wird an %1$s gestreamt</string>
+    <string name="web_video">Video von einer Website</string>
+    <string name="tv_channels">TV-Sender</string>
+    <string name="network_cloud">Netzwerk &amp; Cloud</string>
+    <string name="web_video_hint">Öffne eine Website im integrierten Browser; gefundene Videos laufen automatisch auf dem Fernseher</string>
+    <string name="mirror_screen_hint_dlna">Auf diesem Fernseher experimentell: Funktioniert bei vielen, mit einigen Sekunden Verzögerung</string>
+    <string name="refresh">Erneut suchen</string>
+    <string name="settings">Einstellungen</string>
+    <string name="back">Zurück</string>
+    <string name="searching">Suche nach Chromecast- und Android-TV-Geräten …</string>
+    <string name="scanning_network">Jede Adresse in deinem Netzwerk wird geprüft …</string>
+    <string name="help_title">Dein Fernseher fehlt?</string>
+    <string name="help_text">Handy und Fernseher müssen im selben WLAN sein (Gastnetzwerke blockieren das Streamen meist). Ein Netzwerk-Scan findet Fernseher auch dann, wenn die normale Suche scheitert. Fernseher, die du schon einmal benutzt hast, werden gespeichert.</string>
+    <string name="scan_network">Netzwerk scannen</string>
+    <string name="scanning_short">Scannen …</string>
+    <string name="add_by_ip">Per IP hinzufügen</string>
+    <string name="add_hint">Gib die IP-Adresse des Fernsehers ein. Du findest sie am Fernseher unter Einstellungen → Netzwerk oder in deinem Router.</string>
+    <string name="ip_address">IP-Adresse</string>
+    <string name="add_not_found">Unter %1$s hat kein Cast-Gerät geantwortet</string>
+    <string name="add">Hinzufügen</string>
+    <string name="cancel">Abbrechen</string>
+    <string name="save">Speichern</string>
+
+    <!-- Casting -->
+    <string name="casting_to">Streamen an %1$s</string>
+    <string name="action_cast">Streamen</string>
+    <string name="action_stop">Stopp</string>
+    <string name="action_volume_up">Lauter</string>
+    <string name="action_volume_down">Leiser</string>
+    <string name="action_mute">Stummschalten</string>
+    <string name="action_play">Wiedergabe</string>
+    <string name="action_pause">Pause</string>
+    <string name="action_rewind">10 s zurück</string>
+    <string name="action_previous">Zurück</string>
+    <string name="action_next">Weiter</string>
+    <string name="action_subtitles">Untertitel</string>
+    <string name="action_forward">30 s vor</string>
+    <string name="action_dark_screen">Bildschirm abdunkeln</string>
+    <string name="action_wake_screen">Bildschirm aufwecken</string>
+    <string name="dark_screen_hint">Schaltet den Handybildschirm schwarz, während die App weiter auf dem Fernseher läuft. Zum Aufwecken doppelt tippen.</string>
+    <string name="dark_screen_overlay_text">Bildschirm ist dunkel – das Streamen läuft weiter.\nZum Aufwecken irgendwo doppelt tippen.</string>
+    <string name="action_stop_casting">Streamen beenden</string>
+    <string name="dark_screen_permission">Erlaube CastApp, über anderen Apps zu erscheinen, und tippe dann noch einmal auf „Bildschirm abdunkeln“.</string>
+    <string name="mirror_screen">Ganzen Bildschirm spiegeln</string>
+    <string name="mirror_screen_hint">Alles auf deinem Handy erscheint auf dem Fernseher</string>
+    <string name="cast_app">Einzelne App streamen</string>
+    <string name="cast_app_hint_system">Wähle die App im nächsten Bildschirm aus – nur diese App wird auf dem Fernseher angezeigt</string>
+    <string name="cast_app_hint_legacy">Wähle eine App – dein Bildschirm wird gespiegelt und die App öffnet sich sofort</string>
+    <string name="cast_file">Videos, Musik oder Fotos streamen</string>
+    <string name="cast_file_hint">Der Fernseher spielt die Datei selbst ab, dein Handybildschirm kann also aus bleiben</string>
+    <string name="forget_tv">Diesen Fernseher vergessen</string>
+    <string name="pick_a_tv_first">Wähle zuerst einen Fernseher aus</string>
+    <string name="sound_needs_android10">Zum Streamen des Handytons ist Android 10 oder neuer nötig</string>
+    <string name="sound_needs_permission">CastApp braucht die Audioberechtigung, um den Ton des Handys zu streamen (das Mikrofon wird nie benutzt)</string>
+    <string name="no_screen_capture">Dieses Handy unterstützt kein Bildschirm-Streaming</string>
+
+    <!-- App picker -->
+    <string name="pick_app_title">App auswählen</string>
+    <string name="pick_app_hint">Dein Bildschirm wird auf den Fernseher gespiegelt und die App öffnet sich. (Ab Android 14 kann nur eine App angezeigt werden.)</string>
+    <string name="search_apps">Apps suchen</string>
+
+    <!-- Browser -->
+    <string name="browser_hint">Suchen oder Webadresse eingeben</string>
+    <string name="browser_cast_video">Video streamen</string>
+    <plurals name="browser_cast_videos">
+        <item quantity="one">Video streamen (%1$d gefunden)</item>
+        <item quantity="other">Video streamen (%1$d gefunden)</item>
+    </plurals>
+    <string name="browser_found">Videos auf dieser Seite</string>
+    <string name="browser_casting">Wiedergabe auf %1$s. Du kannst die App verlassen oder das Handy sperren.</string>
+
+    <!-- Share / open with -->
+    <string name="share_label">Auf Fernseher streamen</string>
+    <string name="share_title">Auf Fernseher streamen</string>
+    <string name="share_unsupported">Nur Videos, Musik, Fotos und Weblinks können gestreamt werden</string>
+    <plurals name="share_count">
+        <item quantity="one">%1$d Datei</item>
+        <item quantity="other">%1$d Dateien</item>
+    </plurals>
+
+    <!-- Notification -->
+    <string name="channel_casting">Streamen</string>
+    <string name="channel_casting_description">Wird angezeigt, solange dein Bildschirm auf einen Fernseher gestreamt wird</string>
+    <string name="notification_title">Streamen an %1$s</string>
+    <string name="notification_title_sound">Ton wird an %1$s gestreamt</string>
+
+    <!-- Quick Settings tile and shortcuts -->
+    <string name="tile_label">Bildschirm streamen</string>
+    <string name="tile_label_active">Streamen</string>
+    <string name="tile_pick_tv">Tippen, um einen Fernseher zu wählen</string>
+    <string name="shortcut_mirror_short">Bildschirm spiegeln</string>
+    <string name="shortcut_mirror_long">Bildschirm auf %1$s spiegeln</string>
+    <string name="shortcut_app_short">App streamen</string>
+    <string name="shortcut_app_long">App auf %1$s streamen</string>
+
+    <!-- TV receiver mode (Fire TV, Android TV, Google TV) -->
+    <string name="tv_title">CastApp TV</string>
+    <string name="tv_ready">Bereit zum Streamen</string>
+    <string name="tv_ready_hint">Streame von CastApp auf deinem Handy an „%1$s“</string>
+    <string name="tv_starting">Wird gestartet …</string>
+    <string name="tv_playing">Wiedergabe von deinem Handy</string>
+    <string name="tv_name_label">Dieser Fernseher erscheint als</string>
+    <string name="tv_address">Adresse: %1$s</string>
+    <string name="tv_rename">Umbenennen</string>
+    <string name="tv_boot_on">Mit dem Fernseher starten: an</string>
+    <string name="tv_boot_off">Mit dem Fernseher starten: aus</string>
+    <string name="tv_how_title">So streamst du an diesen Fernseher</string>
+    <string name="tv_step1">1. Verbinde dein Handy mit demselben WLAN wie diesen Fernseher.</string>
+    <string name="tv_step2">2. Öffne CastApp auf dem Handy und wähle „%1$s“ (mit CastApp TV gekennzeichnet).</string>
+    <string name="tv_step3">3. Spiegle den Bildschirm mit geringer Verzögerung oder spiele Videos, Musik, Fotos, TV-Sender, Netzwerkdateien und Webvideos ab.</string>
+    <string name="tv_other_apps">Auch andere DLNA-Apps (BubbleUPnP, Web Video Caster, eine NAS-App …) können an diesen Fernseher streamen.</string>
+    <string name="tv_background_title">Wiedergabe starten, während eine andere App geöffnet ist</string>
+    <string name="tv_background_text">Bei dieser Android-Version darf CastApp den Player auf dem Fernseher nur dann von selbst öffnen, wenn die App über anderen Apps erscheinen darf. Ohne diese Erlaubnis muss CastApp beim Streamen auf dem Fernseher geöffnet bleiben.</string>
+    <string name="tv_background_allow">Erlauben</string>
+    <string name="tv_background_unavailable">Dieser Fernseher hat dafür keine Einstellung. Lass CastApp beim Streamen geöffnet.</string>
+    <string name="tv_incoming">Stream von deinem Handy: %1$s</string>
+    <string name="tv_incoming_hint">Zum Ansehen auswählen</string>
+    <string name="tv_now_playing_audio">♪  %1$s</string>
+    <string name="tv_cant_play">Kann nicht abgespielt werden (%1$s)</string>
+    <string name="tv_cant_show_photo">Dieses Foto kann nicht angezeigt werden</string>
+    <string name="tv_channel_receiver">Empfänger</string>
+    <string name="tv_channel_play">Eingehende Streams</string>
+
+    <!-- AirPlay pairing -->
+    <string name="pin_title">Code auf dem Fernseher</string>
+    <string name="pin_text">%1$s zeigt einen Code an. Gib ihn ein, damit dieses Handy darauf streamen darf. Das ist nur einmal nötig.</string>
+    <string name="pin_label">Code</string>
+    <string name="pin_pair">Koppeln</string>
+</resources>

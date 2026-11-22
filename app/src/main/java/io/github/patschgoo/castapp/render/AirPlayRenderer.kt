@@ -1,5 +1,7 @@
 package io.github.patschgoo.castapp.render
 
+import io.github.patschgoo.castapp.R
+import io.github.patschgoo.castapp.Txt
 import android.util.Log
 import io.github.patschgoo.castapp.airplay.AirPlayConnection
 import io.github.patschgoo.castapp.airplay.AirPlayCredentials
@@ -78,7 +80,7 @@ class AirPlayRenderer(
             throw e
         } catch (e: Exception) {
             Log.w(TAG, "AirPlay connect failed", e)
-            throw CastException("Can't connect to ${device.name}: ${e.message}")
+            throw CastException(Txt.s(R.string.err_cant_connect, device.name, e.message))
         }
         conn = c
         startPolling()
@@ -111,11 +113,11 @@ class AirPlayRenderer(
             val pairing = AirPlayPairing.WithPin(c)
             pairing.start()
             // The TV now shows a 4-digit code.
-            val pin = askPin(device.name) ?: throw CastException("Pairing with ${device.name} was cancelled")
+            val pin = askPin(device.name) ?: throw CastException(Txt.s(R.string.err_airplay_cancelled, device.name))
             val creds = try {
                 pairing.finish(pin)
             } catch (_: AirPlayPairing.WrongPinException) {
-                throw CastException("That code wasn't right. Cast again to get a new code.")
+                throw CastException(Txt.s(R.string.err_airplay_wrong_code))
             }
             store.save(device.id, creds)
             return creds
@@ -265,7 +267,7 @@ class AirPlayRenderer(
         lastPosition = 0
         lastDuration = 0
         loadedAt = System.currentTimeMillis()
-        val c = conn ?: throw CastException("Not connected to ${device.name}")
+        val c = conn ?: throw CastException(Txt.s(R.string.err_not_connected_to, device.name))
         if (v2) {
             setUpSession()
             val body = mapOf(
@@ -331,7 +333,7 @@ class AirPlayRenderer(
                 resp.ok -> return
                 // Apple TVs sometimes answer 500 at first; try again like pyatv does.
                 resp.code == 500 && ++tries < 3 -> delay(1000)
-                else -> throw CastException("${device.name} refused to play (${resp.code})")
+                else -> throw CastException(Txt.s(R.string.err_refused_play, device.name, resp.code))
             }
         }
     }
