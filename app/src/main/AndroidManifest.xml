@@ -103,6 +103,18 @@
             android:label="@string/web_video"
             android:windowSoftInputMode="adjustResize" />
 
+        <activity
+            android:name=".TvChannelsActivity"
+            android:exported="false"
+            android:label="@string/tv_channels"
+            android:windowSoftInputMode="adjustResize" />
+
+        <activity
+            android:name=".NetworkActivity"
+            android:exported="false"
+            android:label="@string/network_cloud"
+            android:windowSoftInputMode="adjustResize" />
+
         <service
             android:name=".service.CastService"
             android:exported="false"

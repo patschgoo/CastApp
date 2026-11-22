@@ -26,10 +26,11 @@ import java.nio.ByteOrder
  */
 class Transcoder(
     private val context: Context,
-    private val uri: Uri,
-    private val headers: Map<String, String>,
+    private val input: TranscodeInput,
     private val startUs: Long,
     private val queue: InterleavingQueue,
+    /** Height limit of the output (1080 = Full HD; 720, 480 for weaker Wi-Fi). */
+    private val maxHeight: Int = 1080,
     val hub: StreamHub = StreamHub(),
 ) {
     @Volatile private var running = false
@@ -73,10 +74,7 @@ class Transcoder(
         threads.forEach { it.interrupt() }
     }
 
-    private fun newExtractor(): MediaExtractor = MediaExtractor().apply {
-        if (uri.scheme == "http" || uri.scheme == "https") setDataSource(uri.toString(), headers)
-        else setDataSource(context, uri, headers)
-    }
+    private fun newExtractor(): MediaExtractor = input.open(context)
 
     private fun hasDecoder(format: MediaFormat): Boolean = try {
         val mime = format.getString(MediaFormat.KEY_MIME)!!
@@ -104,7 +102,9 @@ class Transcoder(
             val rotation = if (format.containsKey(MediaFormat.KEY_ROTATION)) format.getInteger(MediaFormat.KEY_ROTATION) else 0
             val (dispW, dispH) = if (rotation % 180 != 0) srcH to srcW else srcW to srcH
             // Long side at most 1920, short side at most 1080 (portrait videos stay portrait).
-            val scale = minOf(1f, MAX_W.toFloat() / maxOf(dispW, dispH).coerceAtLeast(1), MAX_H.toFloat() / minOf(dispW, dispH).coerceAtLeast(1))
+            val maxShort = minOf(MAX_H, maxHeight)
+            val maxLong = maxShort * 16 / 9
+            val scale = minOf(1f, maxLong.toFloat() / maxOf(dispW, dispH).coerceAtLeast(1), maxShort.toFloat() / minOf(dispW, dispH).coerceAtLeast(1))
             val outW = ((dispW * scale).toInt() / 2) * 2
             val outH = ((dispH * scale).toInt() / 2) * 2
             val fps = if (format.containsKey(MediaFormat.KEY_FRAME_RATE)) format.getInteger(MediaFormat.KEY_FRAME_RATE).coerceIn(10, 60) else 30
@@ -112,7 +112,7 @@ class Transcoder(
             val enc = MediaCodec.createEncoderByType(MediaFormat.MIMETYPE_VIDEO_AVC)
             val encFormat = MediaFormat.createVideoFormat(MediaFormat.MIMETYPE_VIDEO_AVC, outW, outH).apply {
                 setInteger(MediaFormat.KEY_COLOR_FORMAT, MediaCodecInfo.CodecCapabilities.COLOR_FormatSurface)
-                setInteger(MediaFormat.KEY_BIT_RATE, if (outH >= 1080) 8_000_000 else 5_000_000)
+                setInteger(MediaFormat.KEY_BIT_RATE, when { minOf(outW, outH) >= 1080 -> 8_000_000; minOf(outW, outH) >= 720 -> 5_000_000; else -> 2_500_000 })
                 setInteger(MediaFormat.KEY_FRAME_RATE, fps)
                 setInteger(MediaFormat.KEY_I_FRAME_INTERVAL, 2)
             }
@@ -406,9 +406,8 @@ class Transcoder(
         private const val MAX_H = 1080
 
         /** Length of a video in milliseconds, or 0 if it can't be read. */
-        fun probeDurationMs(context: Context, uri: Uri, headers: Map<String, String>): Long = try {
-            val ex = MediaExtractor()
-            if (uri.scheme == "http" || uri.scheme == "https") ex.setDataSource(uri.toString(), headers) else ex.setDataSource(context, uri, headers)
+        fun probeDurationMs(context: Context, input: TranscodeInput): Long = try {
+            val ex = input.open(context)
             var d = 0L
             for (i in 0 until ex.trackCount) {
                 val f = ex.getTrackFormat(i)
@@ -419,5 +418,53 @@ class Transcoder(
         } catch (_: Exception) {
             0
         }
+    }
+}
+
+/** Where a video to convert (or to transcribe for subtitles) comes from. */
+sealed class TranscodeInput {
+    abstract fun open(context: Context): MediaExtractor
+
+    /** A content:// file, or a web address with request headers. */
+    class FromUri(val uri: Uri, val headers: Map<String, String> = emptyMap()) : TranscodeInput() {
+        override fun open(context: Context) = MediaExtractor().apply {
+            if (uri.scheme == "http" || uri.scheme == "https") setDataSource(uri.toString(), headers)
+            else setDataSource(context, uri, headers)
+        }
+    }
+
+    /** Anything readable from any position, e.g. a file on a network share. */
+    class FromSource(val source: io.github.patschgoo.castapp.stream.MediaSource) : TranscodeInput() {
+        override fun open(context: Context) = MediaExtractor().apply { setDataSource(SourceDataSource(source)) }
+    }
+}
+
+/** Lets Android's MediaExtractor read from a [io.github.patschgoo.castapp.stream.MediaSource]. */
+class SourceDataSource(private val source: io.github.patschgoo.castapp.stream.MediaSource) : android.media.MediaDataSource() {
+    private var stream: java.io.InputStream? = null
+    private var streamPos = -1L
+
+    @Synchronized
+    override fun readAt(position: Long, buffer: ByteArray, offset: Int, size: Int): Int {
+        val length = source.length
+        if (length in 0..position) return -1
+        if (size == 0) return 0
+        if (stream == null || streamPos != position) {
+            try { stream?.close() } catch (_: Exception) {}
+            stream = source.open(position)
+            streamPos = position
+        }
+        val n = stream!!.read(buffer, offset, size)
+        if (n < 0) return -1
+        streamPos += n
+        return n
+    }
+
+    override fun getSize(): Long = source.length
+
+    @Synchronized
+    override fun close() {
+        try { stream?.close() } catch (_: Exception) {}
+        stream = null
     }
 }

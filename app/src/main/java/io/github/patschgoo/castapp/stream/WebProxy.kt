@@ -16,6 +16,15 @@ import java.util.Base64
  */
 class WebProxy(private val server: MediaServer, @Volatile var headers: Map<String, String> = emptyMap()) {
 
+    /** Accept self-signed HTTPS certificates (the user's own NAS). */
+    @Volatile var trustAll: Boolean = false
+
+    /** When set, HLS master playlists are cut down to this quality level. */
+    @Volatile var variantUrl: String? = null
+
+    /** Called with the quality levels whenever a master playlist passes through. */
+    @Volatile var onVariants: ((List<HlsVariant>) -> Unit)? = null
+
     init {
         server.addPrefixRoute(PREFIX) { request, socket, out -> handle(request, socket, out) }
     }
@@ -37,6 +46,10 @@ class WebProxy(private val server: MediaServer, @Volatile var headers: Map<Strin
         var conn: HttpURLConnection? = null
         try {
             conn = (URL(target).openConnection() as HttpURLConnection).apply {
+                if (trustAll && this is javax.net.ssl.HttpsURLConnection) {
+                    sslSocketFactory = io.github.patschgoo.castapp.network.RawHttp.trustAllFactory()
+                    hostnameVerifier = javax.net.ssl.HostnameVerifier { _, _ -> true }
+                }
                 connectTimeout = 10_000
                 readTimeout = 30_000
                 instanceFollowRedirects = true
@@ -47,8 +60,14 @@ class WebProxy(private val server: MediaServer, @Volatile var headers: Map<Strin
             val code = conn.responseCode
             val type = conn.contentType
             if (code in 200..299 && HlsRewriter.isPlaylist(target, type)) {
-                val text = conn.inputStream.use { readLimited(it, 4 * 1024 * 1024) }.toString(Charsets.UTF_8)
+                var text = conn.inputStream.use { readLimited(it, 4 * 1024 * 1024) }.toString(Charsets.UTF_8)
                 val base = URI(conn.url.toString())
+                if (HlsVariants.isMaster(text)) {
+                    val variants = HlsVariants.parse(text, base)
+                    onVariants?.invoke(variants)
+                    val keep = variantUrl
+                    if (keep != null && variants.any { it.url == keep }) text = HlsVariants.keepOnly(text, base, keep)
+                }
                 val rewritten = HlsRewriter.rewrite(text, base) { pathFor(it) }.toByteArray()
                 server.writeResponseHead(out, 200, "OK", "application/vnd.apple.mpegurl", rewritten.size.toLong(), emptyMap())
                 if (!request.isHead) out.write(rewritten)

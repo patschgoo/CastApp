@@ -48,8 +48,14 @@ import io.github.patschgoo.castapp.settings.ConvertMode
 import io.github.patschgoo.castapp.settings.PictureMode
 import io.github.patschgoo.castapp.settings.StreamMode
 import io.github.patschgoo.castapp.settings.ThemeMode
+import io.github.patschgoo.castapp.subtitles.VoskModels
+import androidx.compose.foundation.layout.size
+import androidx.compose.material.icons.rounded.Delete
+import androidx.compose.material.icons.rounded.Download
+import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.ui.platform.LocalContext
 
-private enum class SettingDialog { RESOLUTION, FPS, BITRATE, MODE, PORT, THEME, PICTURE, CONVERT, SLIDESHOW, RECEIVER }
+private enum class SettingDialog { RESOLUTION, FPS, BITRATE, MODE, PORT, THEME, PICTURE, CONVERT, SLIDESHOW, RECEIVER, LANGUAGE }
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -133,6 +139,43 @@ fun SettingsScreen(
             item { SectionTitle("Videos, music and photos") }
             item { SettingItem("Convert videos the TV can't play", s.convert.label + " — " + s.convert.description) { dialog = SettingDialog.CONVERT } }
             item { SettingItem("Slideshow", "Next photo after ${s.slideshowSeconds} seconds") { dialog = SettingDialog.SLIDESHOW } }
+
+            item { SectionTitle("Subtitles") }
+            item {
+                val lang = VoskModels.byCode(s.subtitleLanguage)
+                val installed by VoskModels.installed.collectAsStateWithLifecycle()
+                SettingItem(
+                    "Spoken language",
+                    when {
+                        lang == null -> "Choose the language spoken in your videos to write subtitles on the phone (works offline)"
+                        lang.code in installed -> "${lang.label} — ready, works offline"
+                        else -> "${lang.label} — needs to be downloaded"
+                    },
+                ) { dialog = SettingDialog.LANGUAGE }
+            }
+            item {
+                ListItem(
+                    onClick = { settings.update { it.copy(autoSubtitles = !it.autoSubtitles) } },
+                    supportingContent = {
+                        Text("For videos and music without subtitles, start writing them as soon as they play. Otherwise use \"Write subtitles\" while casting.")
+                    },
+                    trailingContent = {
+                        Switch(checked = s.autoSubtitles, onCheckedChange = { c -> settings.update { it.copy(autoSubtitles = c) } })
+                    },
+                ) { Text("Write subtitles automatically") }
+            }
+            item {
+                val context = LocalContext.current
+                SettingItem(
+                    "Live Caption (screen casting)",
+                    "Android can caption anything playing on the phone. When you cast the screen, the captions show on the TV too.",
+                ) {
+                    try {
+                        context.startActivity(android.content.Intent(android.provider.Settings.ACTION_CAPTIONING_SETTINGS))
+                    } catch (_: Exception) {
+                    }
+                }
+            }
 
             item { SectionTitle("Connection") }
             item { SettingItem("Stream mode", s.streamMode.label + " — " + s.streamMode.description) { dialog = SettingDialog.MODE } }
@@ -237,6 +280,11 @@ fun SettingsScreen(
         SettingDialog.RECEIVER -> ReceiverDialog(
             appId = s.receiverAppId,
             onSave = { id -> settings.update { it.copy(receiverAppId = id) } },
+            onDismiss = { dialog = null },
+        )
+        SettingDialog.LANGUAGE -> LanguageDialog(
+            selected = s.subtitleLanguage,
+            onSelect = { code -> settings.update { it.copy(subtitleLanguage = code) } },
             onDismiss = { dialog = null },
         )
         SettingDialog.PORT -> PortDialog(
@@ -389,5 +437,62 @@ private fun ReceiverDialog(appId: String, onSave: (String) -> Unit, onDismiss: (
             TextButton(onClick = { onSave(text.trim()); onDismiss() }, enabled = valid) { Text(stringResource(R.string.save)) }
         },
         dismissButton = { TextButton(onClick = onDismiss) { Text(stringResource(R.string.cancel)) } },
+    )
+}
+
+/** Speech-recognition languages: download (once, ~40 MB), pick, delete. */
+@Composable
+private fun LanguageDialog(selected: String, onSelect: (String) -> Unit, onDismiss: () -> Unit) {
+    val context = LocalContext.current
+    val installed by VoskModels.installed.collectAsStateWithLifecycle()
+    val downloads by VoskModels.downloads.collectAsStateWithLifecycle()
+    val error by VoskModels.error.collectAsStateWithLifecycle()
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("Spoken language") },
+        text = {
+            LazyColumn {
+                item {
+                    Text(
+                        "Subtitles are written on the phone by speech recognition, without internet once the language is downloaded. " +
+                            "Clear speech works best; music and noise make mistakes more likely.",
+                        style = MaterialTheme.typography.bodySmall,
+                        modifier = Modifier.padding(bottom = 8.dp),
+                    )
+                }
+                error?.let { e -> item { Text(e, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall) } }
+                items(VoskModels.ALL.size) { i ->
+                    val lang = VoskModels.ALL[i]
+                    val progress = downloads[lang.code]
+                    val ready = lang.code in installed
+                    ListItem(
+                        onClick = {
+                            onSelect(lang.code)
+                            if (!ready) VoskModels.startDownload(context, lang)
+                        },
+                        leadingContent = { RadioButton(selected = lang.code == selected, onClick = null) },
+                        supportingContent = {
+                            Text(
+                                when {
+                                    progress != null -> "Downloading… ${(progress * 100).toInt()}%"
+                                    ready -> "Downloaded"
+                                    else -> "${lang.sizeMb} MB download"
+                                },
+                            )
+                        },
+                        trailingContent = {
+                            when {
+                                progress != null -> CircularProgressIndicator(progress = { progress }, modifier = Modifier.size(22.dp), strokeWidth = 2.5.dp)
+                                ready -> IconButton(onClick = {
+                                    VoskModels.delete(context, lang)
+                                }) { Icon(Icons.Rounded.Delete, contentDescription = "Delete ${lang.label}") }
+                                else -> Icon(Icons.Rounded.Download, contentDescription = null)
+                            }
+                        },
+                    ) { Text(lang.label) }
+                }
+            }
+        },
+        confirmButton = { TextButton(onClick = onDismiss) { Text("Done") } },
     )
 }

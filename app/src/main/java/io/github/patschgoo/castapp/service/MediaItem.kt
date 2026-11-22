@@ -23,8 +23,12 @@ data class MediaItem(
     val mimeType: String,
     /** content://… or http(s)://… of an .srt / .vtt file. */
     val subtitleUri: String? = null,
-    /** Web videos: request headers the site expects (Referer, Cookie, User-Agent). */
+    /** Web videos: request headers the site expects (Referer, Cookie, User-Agent, Authorization). */
     val headers: Map<String, String> = emptyMap(),
+    /** A live stream (TV channel): no seeking, no end. */
+    val live: Boolean = false,
+    /** Accept a self-signed HTTPS certificate (own NAS). */
+    val trustAll: Boolean = false,
 ) {
     val type: MediaType
         get() = when {
@@ -34,6 +38,8 @@ data class MediaItem(
         }
 
     val isWeb: Boolean get() = uri.startsWith("http://") || uri.startsWith("https://")
+    /** A file on a Windows/Samba share: smb://<source id>/<path inside the share>. */
+    val isSmb: Boolean get() = uri.startsWith("smb://")
     val isHls: Boolean get() = mimeType.contains("mpegurl", ignoreCase = true) || uri.substringBefore('?').endsWith(".m3u8", ignoreCase = true)
 
     fun toJson(): JSONObject = JSONObject()
@@ -42,6 +48,8 @@ data class MediaItem(
         .put("mime", mimeType)
         .put("sub", subtitleUri ?: "")
         .put("headers", JSONObject(headers as Map<*, *>))
+        .put("live", live)
+        .put("trustAll", trustAll)
 
     companion object {
         fun fromJson(o: JSONObject): MediaItem {
@@ -54,6 +62,8 @@ data class MediaItem(
                 mimeType = o.optString("mime"),
                 subtitleUri = o.optString("sub").ifEmpty { null },
                 headers = headers,
+                live = o.optBoolean("live"),
+                trustAll = o.optBoolean("trustAll"),
             )
         }
 
@@ -78,6 +88,14 @@ data class MediaItem(
                 path.endsWith(".ogg") || path.endsWith(".opus") -> "audio/ogg"
                 path.endsWith(".flac") -> "audio/flac"
                 path.endsWith(".wav") -> "audio/wav"
+                path.endsWith(".ts") -> "video/mp2t"
+                path.endsWith(".jpg") || path.endsWith(".jpeg") -> "image/jpeg"
+                path.endsWith(".png") -> "image/png"
+                path.endsWith(".webp") -> "image/webp"
+                path.endsWith(".heic") -> "image/heic"
+                path.endsWith(".avi") -> "video/x-msvideo"
+                path.endsWith(".srt") -> "application/x-subrip"
+                path.endsWith(".vtt") -> "text/vtt"
                 else -> "video/mp4"
             }
         }
@@ -121,11 +139,28 @@ data class MediaItem(
          * are often 50+ megapixels or HEIC, which Cast devices can't show.
          */
         // android.media.ExifInterface is fine here: it's only used on Android 8.x (26-27), which supports streams.
-        @android.annotation.SuppressLint("ExifInterface")
-        fun loadPhotoForTv(resolver: ContentResolver, uri: Uri, maxW: Int = 1920, maxH: Int = 1080): ByteArray? {
+        // The decoder lambdas only run on Android 9+ (checked in decodeForTv).
+        @android.annotation.SuppressLint("NewApi")
+        fun loadPhotoForTv(resolver: ContentResolver, uri: Uri, maxW: Int = 1920, maxH: Int = 1080): ByteArray? = decodeForTv(
+            source = { ImageDecoder.createSource(resolver, uri) },
+            open = { resolver.openInputStream(uri) },
+            maxW = maxW,
+            maxH = maxH,
+        )
+
+        /** Same for a photo already read into memory (e.g. from a network share). */
+        @android.annotation.SuppressLint("NewApi")
+        fun loadPhotoForTv(data: ByteArray, maxW: Int = 1920, maxH: Int = 1080): ByteArray? = decodeForTv(
+            source = { ImageDecoder.createSource(java.nio.ByteBuffer.wrap(data)) },
+            open = { java.io.ByteArrayInputStream(data) },
+            maxW = maxW,
+            maxH = maxH,
+        )
+
+        @android.annotation.SuppressLint("NewApi", "ExifInterface")
+        private fun decodeForTv(source: () -> ImageDecoder.Source, open: () -> java.io.InputStream?, maxW: Int, maxH: Int): ByteArray? {
             val bitmap: Bitmap = if (Build.VERSION.SDK_INT >= 28) {
-                val src = ImageDecoder.createSource(resolver, uri)
-                ImageDecoder.decodeBitmap(src) { decoder, info, _ ->
+                ImageDecoder.decodeBitmap(source()) { decoder, info, _ ->
                     val w = info.size.width
                     val h = info.size.height
                     val scale = minOf(1f, maxW.toFloat() / maxOf(w, h).coerceAtLeast(1) * 1f, maxH.toFloat() / minOf(w, h).coerceAtLeast(1))
@@ -134,11 +169,11 @@ data class MediaItem(
                 }
             } else {
                 val bounds = BitmapFactory.Options().apply { inJustDecodeBounds = true }
-                resolver.openInputStream(uri)?.use { BitmapFactory.decodeStream(it, null, bounds) }
+                open()?.use { BitmapFactory.decodeStream(it, null, bounds) }
                 var sample = 1
                 while (bounds.outWidth / (sample * 2) >= maxW && bounds.outHeight / (sample * 2) >= maxH) sample *= 2
-                val decoded = resolver.openInputStream(uri)?.use { BitmapFactory.decodeStream(it, null, BitmapFactory.Options().apply { inSampleSize = sample }) } ?: return null
-                val orientation = resolver.openInputStream(uri)?.use { ExifInterface(it).getAttributeInt(ExifInterface.TAG_ORIENTATION, ExifInterface.ORIENTATION_NORMAL) }
+                val decoded = open()?.use { BitmapFactory.decodeStream(it, null, BitmapFactory.Options().apply { inSampleSize = sample }) } ?: return null
+                val orientation = open()?.use { ExifInterface(it).getAttributeInt(ExifInterface.TAG_ORIENTATION, ExifInterface.ORIENTATION_NORMAL) }
                 val degrees = when (orientation) {
                     ExifInterface.ORIENTATION_ROTATE_90 -> 90f
                     ExifInterface.ORIENTATION_ROTATE_180 -> 180f

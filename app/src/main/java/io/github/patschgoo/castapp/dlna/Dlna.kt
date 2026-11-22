@@ -14,6 +14,8 @@ object Dlna {
     const val MEDIA_RENDERER = "urn:schemas-upnp-org:device:MediaRenderer:1"
     const val AV_TRANSPORT = "urn:schemas-upnp-org:service:AVTransport:1"
     const val RENDERING_CONTROL = "urn:schemas-upnp-org:service:RenderingControl:1"
+    const val MEDIA_SERVER = "urn:schemas-upnp-org:device:MediaServer:1"
+    const val CONTENT_DIRECTORY = "urn:schemas-upnp-org:service:ContentDirectory:1"
     const val SSDP_ADDRESS = "239.255.255.250"
     const val SSDP_PORT = 1900
 
@@ -43,19 +45,25 @@ object Dlna {
         val avTransportUrl: String?,
         val renderingControlUrl: String?,
         val isRenderer: Boolean,
-    )
+        val contentDirectoryUrl: String? = null,
+        val iconUrl: String? = null,
+    ) {
+        val isServer: Boolean get() = contentDirectoryUrl != null
+    }
 
     /** Parses a UPnP device description (the XML behind an SSDP LOCATION). */
     fun parseDescription(xml: String, location: String): Description {
         val base = tag(xml, "URLBase")?.takeIf { it.startsWith("http") } ?: location
         var avt: String? = null
         var rc: String? = null
+        var cd: String? = null
         for (service in blocks(xml, "service")) {
             val type = tag(service, "serviceType") ?: continue
             val control = tag(service, "controlURL") ?: continue
             when {
                 type.startsWith("urn:schemas-upnp-org:service:AVTransport:") && avt == null -> avt = resolve(base, control)
                 type.startsWith("urn:schemas-upnp-org:service:RenderingControl:") && rc == null -> rc = resolve(base, control)
+                type.startsWith("urn:schemas-upnp-org:service:ContentDirectory:") && cd == null -> cd = resolve(base, control)
             }
         }
         return Description(
@@ -66,6 +74,8 @@ object Dlna {
             avTransportUrl = avt,
             renderingControlUrl = rc,
             isRenderer = xml.contains("MediaRenderer") || avt != null,
+            contentDirectoryUrl = cd,
+            iconUrl = blocks(xml, "icon").firstNotNullOfOrNull { tag(it, "url") }?.let { resolve(base, it) },
         )
     }
 
@@ -182,5 +192,79 @@ object Dlna {
         }
     } catch (_: Exception) {
         null
+    }
+
+    /** A folder or file on a DLNA media server (Plex, Jellyfin, a NAS, Windows media sharing…). */
+    data class Entry(
+        val id: String,
+        val title: String,
+        val isFolder: Boolean,
+        val url: String? = null,
+        val mimeType: String? = null,
+        val size: Long? = null,
+        val durationMs: Long? = null,
+        val resolution: String? = null,
+        val artUrl: String? = null,
+    )
+
+    /** Parses a ContentDirectory Browse result (DIDL-Lite) into folders and files. */
+    fun parseDidl(didl: String): List<Entry> {
+        val out = ArrayList<Entry>()
+        val element = Regex("<(container|item)\\b([^>]*)>(.*?)</\\1>", RegexOption.DOT_MATCHES_ALL)
+        for (m in element.findAll(didl)) {
+            val kind = m.groupValues[1]
+            val attrs = m.groupValues[2]
+            val body = m.groupValues[3]
+            val id = Regex("\\bid=\"([^\"]*)\"").find(attrs)?.groupValues?.get(1)?.let(::unescape) ?: continue
+            val title = tag(body, "title")?.let(::unescape) ?: "?"
+            if (kind == "container") {
+                out += Entry(id, title, isFolder = true)
+                continue
+            }
+            // Prefer the first plain HTTP resource (the original file).
+            val res = Regex("<res\\b([^>]*)>(.*?)</res>", RegexOption.DOT_MATCHES_ALL).findAll(body)
+                .map { it.groupValues[1] to unescape(it.groupValues[2].trim()) }
+                .firstOrNull { (a, url) -> url.startsWith("http") && Regex("protocolInfo=\"http-get:").containsMatchIn(a) }
+                ?: continue
+            val (resAttrs, url) = res
+            fun attr(name: String) = Regex("\\b$name=\"([^\"]*)\"").find(resAttrs)?.groupValues?.get(1)
+            val mime = attr("protocolInfo")?.split(':')?.getOrNull(2)?.takeIf { it.contains('/') }
+            out += Entry(
+                id = id,
+                title = title,
+                isFolder = false,
+                url = url,
+                mimeType = mime,
+                size = attr("size")?.toLongOrNull(),
+                durationMs = parseTime(attr("duration")),
+                resolution = attr("resolution"),
+                artUrl = tag(body, "albumArtURI")?.let(::unescape),
+            )
+        }
+        return out
+    }
+
+    /** Lists a folder of a media server ("0" is the top). Follows paging up to [max] entries. */
+    fun browse(contentDirectoryUrl: String, objectId: String, max: Int = 2000): List<Entry> {
+        val all = ArrayList<Entry>()
+        var start = 0
+        while (all.size < max) {
+            val response = call(
+                contentDirectoryUrl, CONTENT_DIRECTORY, "Browse",
+                listOf(
+                    "ObjectID" to objectId, "BrowseFlag" to "BrowseDirectChildren", "Filter" to "*",
+                    "StartingIndex" to start.toString(), "RequestedCount" to "200", "SortCriteria" to "",
+                ),
+                timeoutMs = 15_000,
+            )
+            val result = tag(response, "Result")?.let(::unescape) ?: break
+            val page = parseDidl(result)
+            all += page
+            val returned = tag(response, "NumberReturned")?.toIntOrNull() ?: page.size
+            val total = tag(response, "TotalMatches")?.toIntOrNull() ?: 0
+            start += returned
+            if (returned == 0 || start >= total) break
+        }
+        return all
     }
 }

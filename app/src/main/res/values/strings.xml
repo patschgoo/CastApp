@@ -13,6 +13,8 @@
     <string name="cast_music_files">Play music files</string>
     <string name="casting_sound_to">Casting sound to %1$s</string>
     <string name="web_video">Video from a website</string>
+    <string name="tv_channels">TV channels</string>
+    <string name="network_cloud">Network &amp; cloud</string>
     <string name="web_video_hint">Open a site in the built-in browser; found videos play on the TV by themselves</string>
     <string name="mirror_screen_hint_dlna">Experimental on DLNA TVs: works on many, with a few seconds of delay</string>
     <string name="refresh">Search again</string>

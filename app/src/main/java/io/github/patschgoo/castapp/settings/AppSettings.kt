@@ -8,10 +8,13 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 
-enum class Resolution(val width: Int, val height: Int, val label: String) {
-    P540(960, 540, "540p (saves data)"),
-    P720(1280, 720, "720p HD"),
-    P1080(1920, 1080, "1080p Full HD"),
+enum class Resolution(val width: Int, val height: Int, val label: String, val short: String) {
+    P480(848, 480, "480p (weak Wi-Fi)", "480p"),
+    P540(960, 540, "540p (saves data)", "540p"),
+    P720(1280, 720, "720p HD", "720p"),
+    P1080(1920, 1080, "1080p Full HD", "1080p"),
+    P1440(2560, 1440, "1440p (needs a 4K TV device)", "1440p"),
+    P2160(3840, 2160, "4K (Shield, Chromecast/Google TV 4K)", "4K"),
 }
 
 enum class StreamMode(val label: String, val description: String) {
@@ -55,14 +58,21 @@ data class CastSettings(
     val receiverAppId: String = "",
     val convert: ConvertMode = ConvertMode.AUTO,
     val slideshowSeconds: Int = 6,
+    /** Language code of the speech model used to create subtitles ("" = none chosen). */
+    val subtitleLanguage: String = "",
+    /** Create subtitles automatically for videos that have none. */
+    val autoSubtitles: Boolean = false,
 ) {
     val effectiveBitrate: Int
         get() {
             if (bitrateMbps > 0) return bitrateMbps * 1_000_000
             val base = when (resolution) {
+                Resolution.P480 -> 1_800_000
                 Resolution.P540 -> 2_500_000
                 Resolution.P720 -> 4_500_000
                 Resolution.P1080 -> 8_000_000
+                Resolution.P1440 -> 12_000_000
+                Resolution.P2160 -> 20_000_000
             }
             return if (fps > 30) base * 3 / 2 else base
         }
@@ -92,6 +102,8 @@ class AppSettings(context: Context) {
             receiverAppId = prefs.getString("receiver_app_id", d.receiverAppId) ?: "",
             convert = enumOr(prefs.getString("convert", null), d.convert),
             slideshowSeconds = prefs.getInt("slideshow_seconds", d.slideshowSeconds),
+            subtitleLanguage = prefs.getString("subtitle_language", d.subtitleLanguage) ?: "",
+            autoSubtitles = prefs.getBoolean("auto_subtitles", d.autoSubtitles),
         )
     }
 
@@ -111,13 +123,17 @@ class AppSettings(context: Context) {
             putString("receiver_app_id", s.receiverAppId.trim())
             putString("convert", s.convert.name)
             putInt("slideshow_seconds", s.slideshowSeconds)
+            putString("subtitle_language", s.subtitleLanguage)
+            putBoolean("auto_subtitles", s.autoSubtitles)
         }
         _state.value = s
         applyTheme()
     }
 
     /** Resets the casting options; the chosen theme is kept. */
-    fun reset() = update { CastSettings(theme = it.theme, receiverAppId = it.receiverAppId) }
+    fun reset() = update {
+        CastSettings(theme = it.theme, receiverAppId = it.receiverAppId, subtitleLanguage = it.subtitleLanguage, autoSubtitles = it.autoSubtitles)
+    }
 
     /**
      * On Android 12+ the app's light/dark choice is handed to the system, so every

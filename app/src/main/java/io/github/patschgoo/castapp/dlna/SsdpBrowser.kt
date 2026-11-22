@@ -11,8 +11,15 @@ import java.net.URI
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.Executors
 
-/** Finds DLNA media renderers (smart TVs) with SSDP M-SEARCH. */
-class SsdpBrowser(private val onDevice: (CastDevice) -> Unit) {
+/**
+ * Finds UPnP devices with SSDP M-SEARCH: media renderers (smart TVs) or media
+ * servers (Plex, Jellyfin, NAS boxes, Windows media sharing). [onFound] gets the
+ * device description of each one.
+ */
+class SsdpBrowser(
+    private val target: String = Dlna.MEDIA_RENDERER,
+    private val onFound: (location: String, description: Dlna.Description) -> Unit,
+) {
     @Volatile private var running = false
     private var socket: MulticastSocket? = null
     private val seen = ConcurrentHashMap.newKeySet<String>()
@@ -58,7 +65,7 @@ class SsdpBrowser(private val onDevice: (CastDevice) -> Unit) {
     }
 
     private fun send(s: MulticastSocket) {
-        val data = Dlna.searchMessage().toByteArray()
+        val data = Dlna.searchMessage(target).toByteArray()
         try {
             s.send(DatagramPacket(data, data.size, InetAddress.getByName(Dlna.SSDP_ADDRESS), Dlna.SSDP_PORT))
         } catch (_: Exception) {
@@ -84,12 +91,16 @@ class SsdpBrowser(private val onDevice: (CastDevice) -> Unit) {
 
     private fun describe(location: String) {
         val xml = Dlna.fetch(location) ?: run { seen.remove(location); return }
-        val d = Dlna.parseDescription(xml, location)
-        if (!d.isRenderer || d.avTransportUrl == null) return
-        val uri = try { URI(location) } catch (_: Exception) { return }
-        val host = uri.host ?: return
-        onDevice(
-            CastDevice(
+        onFound(location, Dlna.parseDescription(xml, location))
+    }
+
+    companion object {
+        /** A smart TV (DLNA renderer) as a castable device, or null if it can't play media. */
+        fun rendererDevice(location: String, d: Dlna.Description): CastDevice? {
+            if (!d.isRenderer || d.avTransportUrl == null) return null
+            val uri = try { URI(location) } catch (_: Exception) { return null }
+            val host = uri.host ?: return null
+            return CastDevice(
                 id = "dlna:" + (d.udn ?: "$host:${uri.port}"),
                 name = d.friendlyName,
                 host = host,
@@ -98,7 +109,7 @@ class SsdpBrowser(private val onDevice: (CastDevice) -> Unit) {
                 kind = DeviceKind.DLNA,
                 avTransportUrl = d.avTransportUrl,
                 renderingControlUrl = d.renderingControlUrl,
-            ),
-        )
+            )
+        }
     }
 }

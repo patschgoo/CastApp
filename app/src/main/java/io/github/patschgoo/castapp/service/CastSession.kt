@@ -21,6 +21,7 @@ import io.github.patschgoo.castapp.render.RendererMedia
 import io.github.patschgoo.castapp.render.RendererStatus
 import io.github.patschgoo.castapp.settings.CastSettings
 import io.github.patschgoo.castapp.settings.PictureMode
+import io.github.patschgoo.castapp.settings.Resolution
 import io.github.patschgoo.castapp.settings.StreamMode
 import io.github.patschgoo.castapp.stream.AdaptiveBitrate
 import io.github.patschgoo.castapp.stream.AvcUtils
@@ -69,7 +70,7 @@ class CastSession(
     @Volatile override var device: CastDevice = device
         private set
 
-    private val settings = settingsFlow.value
+    private var settings = settingsFlow.value
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
     private val mainHandler = Handler(Looper.getMainLooper())
     private val ended = AtomicBoolean(false)
@@ -108,6 +109,8 @@ class CastSession(
                 canDarkScreen = singleApp && !audioOnly && Build.VERSION.SDK_INT >= 34,
                 audioOnly = audioOnly,
                 audio = audioOnly,
+                qualityLabel = if (audioOnly) "" else settings.resolution.short,
+                qualityOptions = if (audioOnly) emptyList() else Resolution.entries.map { it.short },
             ),
         )
         scope.launch { run() }
@@ -508,6 +511,52 @@ class CastSession(
     }
 
     // ---- user controls ----------------------------------------------------------
+
+    /** Switches the mirroring resolution while casting (e.g. "720p", "4K"). */
+    fun setQuality(label: String) {
+        val res = Resolution.entries.firstOrNull { it.short == label } ?: return
+        if (audioOnly || res == settings.resolution) return
+        scope.launch {
+            val v = video ?: return@launch
+            val h = hub ?: return@launch
+            val s = server ?: return@launch
+            settings = settings.copy(resolution = res)
+            CastApp.get(context).settings.update { it.copy(resolution = res) } // remembered for next time
+            val bitrate = settings.effectiveBitrate
+            update { it.copy(phase = CastPhase.BUFFERING, qualityLabel = res.short, resolution = res.label, bitrateKbps = bitrate / 1000) }
+            loadMutex.withLock {
+                withContext(Dispatchers.Main) {
+                    v.reconfigure(res.width, res.height, bitrate) {
+                        h.resetVideo()
+                        s.restartStreams()
+                    }
+                }
+                if (settings.adaptiveQuality) {
+                    h.congestionListener = AdaptiveBitrate(bitrate) { bps ->
+                        video?.setBitrate(bps)
+                        update { it.copy(bitrateKbps = bps / 1000) }
+                    }
+                }
+            }
+            if (h.awaitInitSegment(8_000) == null) {
+                finish("The phone can't encode ${res.short}")
+                return@launch
+            }
+            // The TV has to reload to pick up the new picture size.
+            try {
+                when {
+                    device.isDlna -> dlna?.let { r ->
+                        val local = localAddress ?: return@let
+                        r.load(RendererMedia(s.urlFor(local, s.tsPath), "video/mp2t", TITLE, device.name, live = true))
+                    }
+                    usingCustomPlayer -> client?.let { c -> if (!tryCustomPlayer(c, settings.receiverAppId.trim())) reload() }
+                    else -> reload()
+                }
+            } catch (e: Exception) {
+                Log.w(TAG, "Reload after resolution change failed", e)
+            }
+        }
+    }
 
     override fun changeVolume(delta: Double) {
         val c = client
