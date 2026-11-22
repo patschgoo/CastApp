@@ -289,12 +289,12 @@ Tap **Network & cloud** on the main screen.
 - **Plex** and **Jellyfin / Emby**, built in (section *Plex & Jellyfin*):
   - *Jellyfin / Emby*: servers on your Wi-Fi are found automatically, or type the address. Sign in with your user name and password; only the server's access token is kept, encrypted.
   - *Plex*: sign in with a code at plex.tv/link (the only time CastApp talks to plex.tv, apart from **Refresh servers**). Local addresses are preferred.
-  - Libraries with posters, **Continue watching** and **Next up**, series, seasons and episodes, music. Videos the TV can play are sent as they are; others are converted by the server. Server subtitles come along, the next episodes are queued, and **resume points and watched marks are reported back to the server**, so other Plex/Jellyfin apps see them.
+  - Libraries with posters, **Continue watching** and **Next up**, series, seasons and episodes, music. Videos the TV can play are sent as they are; others are converted by the server. A **CastApp TV** (Shield, Fire TV, Android TV) gets the file itself first, since it plays MKV, HEVC and ASS subtitles, so the server doesn't have to convert. Server subtitles come along, the next episodes are queued, and **resume points and watched marks are reported back to the server**, so other Plex/Jellyfin apps see them.
 - **Media servers on this Wi-Fi (DLNA)** are found automatically too: Plex, Jellyfin, Emby, Synology/QNAP media servers, Kodi, Windows Media sharing and other DLNA/UPnP servers. Browse their folders and play.
   - *Plex* over DLNA: turn on **Settings → DLNA → Enable the DLNA server** in Plex.
   - *Jellyfin* 10.9 and newer over DLNA: install the **DLNA** plugin.
 - **Network folders** you add with **+**:
-  - **Windows / Samba share** (SMB 2/3): most NAS boxes, a router's USB disk, a PC's shared folder, a Shield's shared drives. Enter the server name or IP, the share name and, unless it allows guests, user name and password. `\\nas\Media` also works as the address.
+  - **Windows / Samba share** (SMB 2/3): most NAS boxes, a router's USB disk, a PC's shared folder, a Shield's shared drives. Enter the server name or IP, the share name and, unless it allows guests, user name and password. You can also paste the address from File Explorer, such as `\\nas\Media` or `\\192.168.178.20\External USB drive-1A2B3C4D\NVIDIA_SHIELD\Anime`: share names with spaces work, and a folder inside the share becomes the starting folder.
   - **WebDAV**: Nextcloud and ownCloud (`https://your-server/remote.php/dav/files/USER/`, an app password is best), Synology/QNAP WebDAV, many other NAS and cloud services. You can allow a self-signed certificate for your own NAS.
 
   CastApp checks the folder before saving it. Passwords are stored encrypted (Android Keystore) on the phone only.
