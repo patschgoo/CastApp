@@ -93,6 +93,8 @@ data class CastSettings(
     val microphone: Boolean = false,
     /** Microphone level in percent (100 = as recorded). */
     val micLevel: Int = 100,
+    /** Show "Recent on this phone" (the newest videos) on the main screen. */
+    val recentVideos: Boolean = true,
 ) {
     /**
      * Bitrate for [hevc] streams: automatic bitrates are about a third lower for
@@ -145,6 +147,7 @@ class AppSettings(context: Context) {
             videoCodec = enumOr(prefs.getString("video_codec", null), d.videoCodec),
             microphone = prefs.getBoolean("microphone", d.microphone),
             micLevel = prefs.getInt("mic_level", d.micLevel).coerceIn(0, 200),
+            recentVideos = prefs.getBoolean("recent_videos", d.recentVideos),
         )
     }
 
@@ -169,14 +172,18 @@ class AppSettings(context: Context) {
             putString("video_codec", s.videoCodec.name)
             putBoolean("microphone", s.microphone)
             putInt("mic_level", s.micLevel)
+            putBoolean("recent_videos", s.recentVideos)
         }
         _state.value = s
         applyTheme()
     }
 
-    /** Resets the casting options; the chosen theme is kept. */
+    /** Resets the casting options; the chosen theme and what the main screen shows are kept. */
     fun reset() = update {
-        CastSettings(theme = it.theme, receiverAppId = it.receiverAppId, subtitleLanguage = it.subtitleLanguage, autoSubtitles = it.autoSubtitles)
+        CastSettings(
+            theme = it.theme, receiverAppId = it.receiverAppId, subtitleLanguage = it.subtitleLanguage, autoSubtitles = it.autoSubtitles,
+            recentVideos = it.recentVideos,
+        )
     }
 
     /**

@@ -8,7 +8,12 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.Immutable
 import androidx.compose.runtime.staticCompositionLocalOf
+import androidx.compose.material3.Typography
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.text.font.Font
+import androidx.compose.ui.text.font.FontFamily
+import androidx.compose.ui.text.font.FontWeight
+import io.github.patschgoo.castapp.R
 import io.github.patschgoo.castapp.settings.ThemeMode
 
 private val LightColors = lightColorScheme(
@@ -120,6 +125,36 @@ private val DarkCast = CastColors(
 
 val LocalCastColors = staticCompositionLocalOf { LightCast }
 
+/** Plus Jakarta Sans (SIL Open Font License, see assets/licenses), bundled so the app looks the same on every phone. */
+private val Jakarta = FontFamily(
+    Font(R.font.plus_jakarta_sans_regular, FontWeight.Normal),
+    Font(R.font.plus_jakarta_sans_medium, FontWeight.Medium),
+    Font(R.font.plus_jakarta_sans_semibold, FontWeight.SemiBold),
+    Font(R.font.plus_jakarta_sans_bold, FontWeight.Bold),
+    Font(R.font.plus_jakarta_sans_extrabold, FontWeight.ExtraBold),
+)
+
+/** Material's type scale, unchanged except for the font. */
+private val AppTypography = Typography().run {
+    copy(
+        displayLarge = displayLarge.copy(fontFamily = Jakarta),
+        displayMedium = displayMedium.copy(fontFamily = Jakarta),
+        displaySmall = displaySmall.copy(fontFamily = Jakarta),
+        headlineLarge = headlineLarge.copy(fontFamily = Jakarta),
+        headlineMedium = headlineMedium.copy(fontFamily = Jakarta),
+        headlineSmall = headlineSmall.copy(fontFamily = Jakarta),
+        titleLarge = titleLarge.copy(fontFamily = Jakarta),
+        titleMedium = titleMedium.copy(fontFamily = Jakarta),
+        titleSmall = titleSmall.copy(fontFamily = Jakarta),
+        bodyLarge = bodyLarge.copy(fontFamily = Jakarta),
+        bodyMedium = bodyMedium.copy(fontFamily = Jakarta),
+        bodySmall = bodySmall.copy(fontFamily = Jakarta),
+        labelLarge = labelLarge.copy(fontFamily = Jakarta),
+        labelMedium = labelMedium.copy(fontFamily = Jakarta),
+        labelSmall = labelSmall.copy(fontFamily = Jakarta),
+    )
+}
+
 /** Whether the app should be dark for [mode] right now. */
 @Composable
 fun isAppInDarkTheme(mode: ThemeMode): Boolean = when (mode) {
@@ -129,13 +164,13 @@ fun isAppInDarkTheme(mode: ThemeMode): Boolean = when (mode) {
 }
 
 /**
- * CastApp's own violet theme. It follows the system's light/dark setting by default
- * (or the choice in Settings); the colors are the same on every Android version.
+ * CastApp's own violet theme with its own font. It follows the system's light/dark setting
+ * by default (or the choice in Settings); it looks the same on every Android version.
  */
 @Composable
 fun CastAppTheme(mode: ThemeMode = ThemeMode.SYSTEM, content: @Composable () -> Unit) {
     val dark = isAppInDarkTheme(mode)
     CompositionLocalProvider(LocalCastColors provides if (dark) DarkCast else LightCast) {
-        MaterialTheme(colorScheme = if (dark) DarkColors else LightColors, content = content)
+        MaterialTheme(colorScheme = if (dark) DarkColors else LightColors, typography = AppTypography, content = content)
     }
 }

@@ -121,7 +121,7 @@ Any device you've cast to once is **remembered**. If its IP address changes, Cas
 - **TV remote** from the top of the main screen and, in small, inside the casting card; see below.
 - **Launcher shortcuts**: long-press the app icon for "Mirror screen to *your TV*".
 
-**Looks:** CastApp's own violet look in a light and a dark mode that follow the system. You can force Light or Dark in Settings. On **tablets and in landscape** (600 dp and wider) the screens use two panes. The app is in **English and German** and follows the phone's language.
+**Looks:** CastApp's own violet look and font (Plus Jakarta Sans, bundled) in a light and a dark mode that follow the system. You can force Light or Dark in Settings. On **tablets and in landscape** (600 dp and wider) the screens use two panes. The app is in **English and German** and follows the phone's language.
 
 ## Install
 
@@ -145,6 +145,8 @@ You need JDK 17+, the Android SDK with platform `android-37.1`, the Android **ND
 3. Choose what to send:
    - **Mirror screen**, **One app** or **Phone sound** send what this phone shows or plays. For a speaker, the buttons are **Phone sound** and **Music files**.
    - The tiles below play something else: **Phone videos**, **Photos** and **Music** from this phone, **Plex**, **Jellyfin** (and Emby), **Network & cloud**, **TV channels** and **Web videos**. Files from the phone go to the TV in **Cast to**; in the other tiles you pick the TV when you start something. While a file or channel is already playing, anything new goes straight to that TV.
+
+   **Recent on this phone** below the tiles shows your newest videos with their pictures; a tap plays one on the TV in **Cast to**. Listing videos needs Android's video permission, so the row first only offers **Show videos**. It is optional: **Not now** removes the row, and **Settings → Appearance → Recent videos on the main screen** brings it back. The list is only read on the phone.
 
    While something is cast, a bar at the bottom shows what and where, with pause. Tap it to open the **casting card**: all playback controls, quality, subtitles, the queue, more screens, volume, Stop, Dark screen and a small remote. On tablets and in landscape the casting card and the TV list stand beside the tiles.
 4. Confirm Android's "Start casting?" dialog. File and web-video casting doesn't need this dialog.
@@ -585,3 +587,5 @@ Unit tests run with `./gradlew testDebugUnitTest`. Before a release, or when som
 ## License
 
 No license has been chosen yet. Add one (for example MIT or GPL-3.0) if you want others to be able to reuse the code.
+
+The bundled font, Plus Jakarta Sans, is © 2020 The Plus Jakarta Sans Project Authors and licensed under the SIL Open Font License 1.1; its text ships in the APK and is in [`app/src/main/assets/licenses/PlusJakartaSans-OFL.txt`](app/src/main/assets/licenses/PlusJakartaSans-OFL.txt).

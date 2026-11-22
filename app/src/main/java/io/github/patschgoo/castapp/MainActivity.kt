@@ -127,7 +127,24 @@ private fun AppRoot(app: CastApp, activity: MainActivity, tourAtStart: Boolean) 
 
     val notificationPermission = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { }
 
-    // "Cast videos, music or photos": the system file picker (several files = a play list).
+    // Plays files of this phone on a TV (several files = a play list).
+    fun startFiles(device: CastDevice, uris: List<android.net.Uri>) {
+        val items = MediaItem.fromUris(context.contentResolver, uris)
+        if (items.isEmpty()) {
+            Toast.makeText(context, R.string.share_unsupported, Toast.LENGTH_LONG).show()
+            return
+        }
+        CastService.startMedia(context, device, items)
+        io.github.patschgoo.castapp.support.BatteryPrompt.onBackgroundCastStarted(context)
+        if (Build.VERSION.SDK_INT >= 33 &&
+            context.checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED
+        ) {
+            // The notification holds the lock-screen controls.
+            notificationPermission.launch(Manifest.permission.POST_NOTIFICATIONS)
+        }
+    }
+
+    // "Cast videos, music or photos": the system file picker.
     val filePicker = rememberLauncherForActivityResult(ActivityResultContracts.OpenMultipleDocuments()) { uris ->
         val device = fileDeviceId?.let { app.devices.find(it) }
         if (uris.isNotEmpty() && device != null) {
@@ -137,19 +154,7 @@ private fun AppRoot(app: CastApp, activity: MainActivity, tourAtStart: Boolean) 
                 } catch (_: Exception) {
                 }
             }
-            val items = MediaItem.fromUris(context.contentResolver, uris)
-            if (items.isEmpty()) {
-                Toast.makeText(context, R.string.share_unsupported, Toast.LENGTH_LONG).show()
-                return@rememberLauncherForActivityResult
-            }
-            CastService.startMedia(context, device, items)
-            io.github.patschgoo.castapp.support.BatteryPrompt.onBackgroundCastStarted(context)
-            if (Build.VERSION.SDK_INT >= 33 &&
-                context.checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED
-            ) {
-                // The notification holds the lock-screen controls.
-                notificationPermission.launch(Manifest.permission.POST_NOTIFICATIONS)
-            }
+            startFiles(device, uris)
         }
     }
 
@@ -189,6 +194,10 @@ private fun AppRoot(app: CastApp, activity: MainActivity, tourAtStart: Boolean) 
             onOpenTvChannels = { context.startActivity(Intent(context, TvChannelsActivity::class.java)) },
             onOpenNetwork = { context.startActivity(Intent(context, NetworkActivity::class.java)) },
             onOpenServers = { kind -> context.startActivity(NetworkActivity.serversIntent(context, kind)) },
+            onCastUris = { device, uris ->
+                app.devices.save(device)
+                startFiles(device, uris)
+            },
         )
         Route.SETTINGS -> SettingsScreen(
             settings = app.settings,

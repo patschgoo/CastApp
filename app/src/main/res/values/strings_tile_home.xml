@@ -38,4 +38,16 @@
     <string name="home_remote_use">Use this phone as the remote</string>
     <string name="home_remote_other">%1$s has no remote over Wi-Fi. Under All buttons you can pick a Bluetooth or infrared remote.</string>
     <string name="home_remote_retry">Try again</string>
+
+    <!-- "Recent on this phone": the newest videos, behind Android's permission for them. -->
+    <string name="home_recent_title">Recent on this phone</string>
+    <string name="home_recent_all">See all</string>
+    <string name="home_recent_play">Play on the TV</string>
+    <string name="home_recent_ask_title">Your newest videos, one tap away</string>
+    <string name="home_recent_ask_text">Allow CastApp to see the videos on this phone and they show up here. The list stays on the phone.</string>
+    <string name="home_recent_allow">Show videos</string>
+    <string name="home_recent_hide">Not now</string>
+    <string name="home_recent_hidden">Turned off. You can turn it on again in Settings under Appearance.</string>
+    <string name="set_recent_title">Recent videos on the main screen</string>
+    <string name="set_recent_summary">Shows the newest videos on this phone, to cast them with one tap</string>
 </resources>

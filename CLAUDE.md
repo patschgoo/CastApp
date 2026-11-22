@@ -49,7 +49,8 @@ Wear OS remote.
 ## State (version 4.0.0)
 
 Everything is built and unit-tested, but most features since 3.1 have **not been tried on real devices yet**.
-The redesigned main screen (violet theme, no Material You colors any more) hasn't been seen on a real phone at all.
+The redesigned main screen (violet theme and bundled Plus Jakarta Sans font, no Material You colors any more;
+"Recent on this phone" behind the optional video permission) hasn't been seen on a real phone at all.
 Reports from the TESTING.md round are the next input: expect fixes in device handshakes (Cast, DLNA, AirPlay,
 Roku), Plex/Jellyfin transcoding parameters, hand-over on Google Cast, recordings on Android 12+ and the
 Wear OS Data Layer.
