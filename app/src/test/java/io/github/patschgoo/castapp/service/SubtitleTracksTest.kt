@@ -92,18 +92,14 @@ class SubtitleTracksTest {
         )
         val file = SubtitleChoice.FILE
         assertTrue(t.mayWrite(bare, SubtitleChoice.OFF))
-        assertTrue(t.mayWrite(bare, SubtitleChoice.OFF, auto = true))
-        // An SRT shows: nothing to write, by hand or by itself.
+        // An SRT shows: nothing to write.
         assertFalse(t.mayWrite(srt, file))
-        assertFalse(t.mayWrite(srt, file, auto = true))
-        // Only ASS/SSA files: by hand yes, by itself no (they do show).
+        // Only ASS/SSA files: subtitles may be written, also by themselves (the ASS file keeps showing).
         assertTrue(t.mayWrite(ass, file))
-        assertFalse(t.mayWrite(ass, file, auto = true))
         assertTrue(t.mayWrite(picked, file))
         // The SRT shown turned out to hold no text: as if there were none.
         t.setFileCues(srt.uri, "smb://src/Vela 03.English.srt", emptyList())
         assertTrue(t.mayWrite(srt, file))
-        assertTrue(t.mayWrite(srt, file, auto = true))
         // Never for photos, live streams and HLS; written ones can be kept for any file with sound.
         assertFalse(t.mayWrite(MediaItem("Pic.jpg", "content://p/1", "image/jpeg"), SubtitleChoice.OFF))
         assertFalse(t.mayWrite(bare.copy(live = true), SubtitleChoice.OFF))

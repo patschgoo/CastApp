@@ -595,14 +595,14 @@ class MediaCastSession(
 
     /**
      * New subtitles may be written for [item] ([SubtitleTracks.mayWrite]: no subtitle file, or only
-     * ASS/SSA ones, or the one shown is empty; [auto]: written by itself, only when none shows).
+     * ASS/SSA ones, or the one shown is empty; [auto]: written by itself, without changing what shows).
      * Ones written before are loaded and offered whenever the file can have them
      * ([SubtitleTracks.canHaveWritten]), subtitle files or not.
      */
-    private fun mayWrite(item: MediaItem, auto: Boolean = false) = subtitleTracks.mayWrite(item, activeSubtitle(item), auto)
+    private fun mayWrite(item: MediaItem) = subtitleTracks.mayWrite(item, activeSubtitle(item))
 
-    private fun canCreateSubtitles(item: MediaItem, auto: Boolean = false) =
-        mayWrite(item, auto) && item.uri !in generatedDone && subtitleFor != item.uri
+    private fun canCreateSubtitles(item: MediaItem) =
+        mayWrite(item) && item.uri !in generatedDone && subtitleFor != item.uri
 
     /**
      * Writes subtitles for the current file with offline speech recognition in the
@@ -611,7 +611,7 @@ class MediaCastSession(
      */
     fun createSubtitles(auto: Boolean = false) {
         val item = current
-        if (!canCreateSubtitles(item, auto)) return
+        if (!canCreateSubtitles(item)) return
         if (subtitleJob?.isActive == true) {
             if (writingAhead && subtitleFor != item.uri) {
                 // Only writing ahead for a later file: the one playing now goes first.
@@ -637,10 +637,10 @@ class MediaCastSession(
      */
     private fun writeAhead() {
         if (!settings.autoSubtitles || ended.get() || subtitleJob?.isActive == true) return
-        if (canCreateSubtitles(current, auto = true)) return
+        if (canCreateSubtitles(current)) return
         val setup = SpeechEngines.ready(context, settings.subtitleLanguage).first ?: return
         val next = queue.upcoming(WRITE_AHEAD).map { it.item }.firstOrNull { item ->
-            if (!mayWrite(item, auto = true) || item.uri in generatedDone) return@firstOrNull false
+            if (!mayWrite(item) || item.uri in generatedDone) return@firstOrNull false
             loadCachedSubtitles(item)
             item.uri !in generatedDone
         } ?: return
@@ -961,7 +961,7 @@ class MediaCastSession(
                     PlaybackChecks.playedAsIsNote(refused, d, convertPicked(item))?.let { problem ->
                         CastController.message(Txt.s(R.string.convert_cant_played_original, item.title, problem.describe()))
                     }
-                    if (settings.autoSubtitles && canCreateSubtitles(item, auto = true)) createSubtitles(auto = true) else writeAhead()
+                    if (settings.autoSubtitles && canCreateSubtitles(item)) createSubtitles(auto = true) else writeAhead()
                     probeTracks(item)
                     return
                 }

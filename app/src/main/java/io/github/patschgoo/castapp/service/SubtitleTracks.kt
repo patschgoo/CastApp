@@ -157,16 +157,17 @@ class SubtitleTracks {
     /**
      * Whether new subtitles may be written for [item] by speech recognition while [active] is
      * shown. Yes when no subtitle file came with it, when the one shown turned out to hold no
-     * text, and, written by hand (not [auto]), when all of them are ASS/SSA (often only signs or
-     * karaoke). Written ones kept from before are offered either way ([canHaveWritten]).
+     * text, and when all of them are ASS/SSA (often only signs or karaoke), by hand or by itself:
+     * the ASS file keeps showing and the written ones are offered next to it.
+     * Written ones kept from before are offered either way ([canHaveWritten]).
      */
-    fun mayWrite(item: MediaItem, active: SubtitleChoice, auto: Boolean = false): Boolean {
+    fun mayWrite(item: MediaItem, active: SubtitleChoice): Boolean {
         if (!canHaveWritten(item)) return false
         val files = item.subtitleFiles
         if (files.isEmpty()) return true
         val shown = files.getOrNull(active.track)?.takeIf { active.kind == SubtitleKind.FILE }
         if (shown != null && fileCues(item.uri, shown)?.isEmpty() == true) return true
-        return !auto && files.all { Sidecars.isStyled(item.subtitleName(it)) }
+        return files.all { Sidecars.isStyled(item.subtitleName(it)) }
     }
 
     companion object {
