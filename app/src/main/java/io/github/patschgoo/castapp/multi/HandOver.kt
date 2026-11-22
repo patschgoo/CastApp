@@ -102,10 +102,11 @@ data class HandOverOffer(
             else -> HandOverMode.CONTROL
         }
 
-        /** What travels to the other device: subtitles only it can read are dropped. */
+        /** What travels to the other device: subtitle files only this one can read are dropped. */
         fun portable(items: List<MediaItem>): List<MediaItem> = items.map { item ->
-            val sub = item.subtitleUri
-            if (sub != null && !sub.startsWith("http://") && !sub.startsWith("https://")) item.copy(subtitleUri = null) else item
+            val files = item.subtitleFiles
+            val kept = files.filter { it.startsWith("http://") || it.startsWith("https://") }
+            if (kept.size == files.size) item else item.copy(subtitleUri = kept.firstOrNull(), moreSubtitles = kept.drop(1))
         }
     }
 }

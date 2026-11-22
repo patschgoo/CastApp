@@ -131,6 +131,9 @@ For a Shield that holds the drives (Plex Media Server and/or **Transfer files ov
 | Standby | Let the Shield go to standby, then open a share in CastApp | It answers (maybe after a few seconds) | Debug log + how long you waited |
 | Two at once | Play one file on the phone and another on a TV from the same drive | Both play without stutter | Debug log |
 | Anime file from the share | Play an MKV with HEVC 10-bit video and ASS subtitles on a Chromecast | The phone converts it; the subtitles can be picked | Debug log + the file's details (MediaInfo) |
+| Episode order | Open a folder whose episodes mix 2- and 3-digit numbers (`02`, `028`, `10`, `100`) | Listed and played counted: 02, 10, 028, 100 | Folder listing (names only) |
+| Subtitle files per language | Play a video that has many `Video.<Language>.srt` files next to it | Your language's file is shown (Subtitle languages setting, else the phone's language, else English); the subtitle picker lists every language by name | Debug log + the subtitle file names |
+| `.ass` and `.divx` files | Play a video with only a `.ass` file next to it, and open a folder with `.divx` files | The ASS subtitles show (as plain text); the `.divx` files are listed and play | Debug log + file details |
 | Plex on the Shield → CastApp TV on the Shield | Sign in to Plex in CastApp, play an anime episode (MKV/HEVC) on the Shield's CastApp TV | Plays the file itself (no converting on the Shield), with its subtitles; seeking works | Debug log + file details; say if it fell back to the converted stream |
 | Plex on the Shield → Chromecast | The same episode on a Chromecast | Plex converts it; plays | Debug log + whether other converts were running |
 

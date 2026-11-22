@@ -28,6 +28,67 @@ class CueParserTest {
     }
 
     @Test
+    fun readsAss() {
+        val ass = """
+            [Script Info]
+            ; made up for the test
+            ScriptType: v4.00+
+
+            [V4+ Styles]
+            Format: Name, Fontname, Fontsize, PrimaryColour, SecondaryColour, OutlineColour, BackColour, Bold, Italic, Underline, StrikeOut, ScaleX, ScaleY, Spacing, Angle, BorderStyle, Outline, Shadow, Alignment, MarginL, MarginR, MarginV, Encoding
+            Style: Default,Arial,20,&H00FFFFFF,&H000000FF,&H00000000,&H00000000,0,0,0,0,100,100,0,0,1,2,2,2,10,10,10,1
+
+            [Events]
+            Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
+            Dialogue: 0,0:00:05.00,0:00:06.25,Default,,0,0,0,,Later, but listed first
+            Dialogue: 0,0:00:01.50,0:00:03.00,Default,,0,0,0,,{\i1}Hello, you,{\i0}\Nthere
+            Comment: 0,0:00:02.00,0:00:04.00,Default,,0,0,0,,Not shown
+            Dialogue: 0,0:00:10.00,0:00:12.00,Default,,0,0,0,,{\an8\pos(320,50)\c&H00FFFF&}Top\hsign\nnext
+            Dialogue: 0,0:00:20.00,0:00:21.00,Default,,0,0,0,,{\p1}m 0 0 l 100 0 100 100 0 100{\p0}
+            Dialogue: 1,0:00:30.00,0:00:31.00,Default,,0,0,0,,{\bord3}Twice
+            Dialogue: 0,0:00:30.00,0:00:31.00,Default,,0,0,0,,Twice
+            Dialogue: 0,0:00:30.00,0:00:31.00,Sign,,0,0,0,,Shop
+            Dialogue: 0,1:02:03.40,1:02:04.00,Default,,0,0,0,,
+        """.trimIndent()
+        assertEquals(
+            listOf(
+                Cue(1.5, 3.0, "Hello, you,\nthere"),
+                Cue(5.0, 6.25, "Later, but listed first"),
+                Cue(10.0, 12.0, "Top sign\nnext"),
+                Cue(30.0, 31.0, "Twice\nShop"),
+            ),
+            CueParser.parse(ass),
+        )
+    }
+
+    @Test
+    fun readsAssWithoutFormatLineAndSsa() {
+        // No Format line: the v4+ field order. Windows line ends and a byte order mark.
+        val bare = "﻿[Events]\r\nDialogue: 0,0:01:00.5,0:01:02.00,Default,,0,0,0,,One, two, three\r\n"
+        assertEquals(listOf(Cue(60.5, 62.0, "One, two, three")), CueParser.parse(bare))
+        // Only Dialogue lines, no sections at all.
+        assertEquals(listOf(Cue(1.0, 2.0, "Just this")), CueParser.parse("Dialogue: 0,0:00:01.00,0:00:02.00,Default,,0,0,0,,Just this\n"))
+        // SubStation Alpha v4 (.ssa): "Marked" instead of Layer, fields in another order here.
+        val ssa = """
+            [Script Info]
+            ScriptType: v4.00
+
+            [Events]
+            Format: Marked, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
+            Dialogue: Marked=0,0:00:04.10,0:00:05.20,Default,NTP,0000,0000,0000,!Effect,Old style
+        """.trimIndent()
+        assertEquals(listOf(Cue(4.1, 5.2, "Old style")), CueParser.parse(ssa))
+        val reordered = "[Events]\nFormat: Start, End, Text\nDialogue: 0:00:07.00,0:00:08.00,Short, format\n"
+        assertEquals(listOf(Cue(7.0, 8.0, "Short, format")), CueParser.parse(reordered))
+    }
+
+    @Test
+    fun srtMentioningDialogueStaysSrt() {
+        val srt = "1\n00:00:01,000 --> 00:00:02,000\nDialogue: is what they said\n"
+        assertEquals(listOf(Cue(1.0, 2.0, "Dialogue: is what they said")), CueParser.parse(srt))
+    }
+
+    @Test
     fun delayMovesLaterOrEarlier() {
         val cues = listOf(Cue(1.0, 2.0, "a"), Cue(5.0, 6.0, "b"))
         assertEquals(listOf(Cue(1.5, 2.5, "a"), Cue(5.5, 6.5, "b")), CueParser.delay(cues, 500))

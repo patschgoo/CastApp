@@ -9,6 +9,9 @@ import android.media.ExifInterface
 import android.net.Uri
 import android.os.Build
 import android.provider.OpenableColumns
+import io.github.patschgoo.castapp.network.NetworkSources
+import io.github.patschgoo.castapp.stream.Subtitles
+import io.github.patschgoo.castapp.subtitles.Sidecars
 import org.json.JSONArray
 import org.json.JSONObject
 import java.io.ByteArrayOutputStream
@@ -21,7 +24,7 @@ data class MediaItem(
     /** content://… for files on the phone, http(s)://… for web videos. */
     val uri: String,
     val mimeType: String,
-    /** content://… or http(s)://… of an .srt / .vtt file. */
+    /** content://…, smb://… or http(s)://… of an .srt / .vtt / .ass file: the one shown unless another is picked. */
     val subtitleUri: String? = null,
     /** Web videos: request headers the site expects (Referer, Cookie, User-Agent, Authorization). */
     val headers: Map<String, String> = emptyMap(),
@@ -38,6 +41,8 @@ data class MediaItem(
      */
     val original: String? = null,
     val originalMime: String? = null,
+    /** More subtitle files that came with the video (other languages), offered in the subtitle picker after [subtitleUri]. */
+    val moreSubtitles: List<String> = emptyList(),
 ) {
     val type: MediaType
         get() = when {
@@ -51,6 +56,9 @@ data class MediaItem(
     val isSmb: Boolean get() = uri.startsWith("smb://")
     val isHls: Boolean get() = mimeType.contains("mpegurl", ignoreCase = true) || uri.substringBefore('?').endsWith(".m3u8", ignoreCase = true)
 
+    /** All subtitle files that came with the video, [subtitleUri] first. */
+    val subtitleFiles: List<String> get() = subtitleUri?.let { listOf(it) + moreSubtitles } ?: emptyList()
+
     fun toJson(): JSONObject = JSONObject()
         .put("title", title)
         .put("uri", uri)
@@ -62,6 +70,7 @@ data class MediaItem(
         .put("ref", serverRef ?: "")
         .put("orig", original ?: "")
         .put("origMime", originalMime ?: "")
+        .also { o -> if (moreSubtitles.isNotEmpty()) o.put("subs", JSONArray(moreSubtitles)) }
 
     companion object {
         fun fromJson(o: JSONObject): MediaItem {
@@ -79,6 +88,7 @@ data class MediaItem(
                 serverRef = o.optString("ref").ifEmpty { null },
                 original = o.optString("orig").ifEmpty { null },
                 originalMime = o.optString("origMime").ifEmpty { null },
+                moreSubtitles = o.optJSONArray("subs")?.let { a -> (0 until a.length()).mapNotNull { a.optString(it).ifEmpty { null } } }.orEmpty(),
             )
         }
 
@@ -90,8 +100,14 @@ data class MediaItem(
         }
 
         /** Guesses the type of a web video address from its extension. */
-        fun mimeForUrl(url: String): String {
-            val path = url.substringBefore('?').substringBefore('#').lowercase()
+        fun mimeForUrl(url: String): String = mimeForName(url.substringBefore('?').substringBefore('#'))
+
+        /**
+         * Guesses the type of a file from the extension of its [name] ("Show #9.mkv"): unlike in
+         * an address, '?' and '#' are part of a name.
+         */
+        fun mimeForName(name: String): String {
+            val path = name.lowercase()
             return when {
                 path.endsWith(".m3u8") -> "application/x-mpegurl"
                 path.endsWith(".mpd") -> "application/dash+xml"
@@ -108,7 +124,7 @@ data class MediaItem(
                 path.endsWith(".png") -> "image/png"
                 path.endsWith(".webp") -> "image/webp"
                 path.endsWith(".heic") -> "image/heic"
-                path.endsWith(".avi") -> "video/x-msvideo"
+                path.endsWith(".avi") || path.endsWith(".divx") -> "video/x-msvideo"
                 path.endsWith(".srt") -> "application/x-subrip"
                 path.endsWith(".vtt") -> "text/vtt"
                 else -> "video/mp4"
@@ -117,29 +133,43 @@ data class MediaItem(
 
         /**
          * Builds the play list from picked/shared files: videos, music and photos are
-         * kept in order, and .srt/.vtt files are attached to the video with the same
-         * name (or to the only video).
+         * kept in order, and subtitle files are attached to the video they are named
+         * after ([Sidecars]; or to the only video), one in a [languages] language first.
          */
-        fun fromUris(resolver: ContentResolver, uris: List<Uri>): List<MediaItem> {
+        fun fromUris(resolver: ContentResolver, uris: List<Uri>, languages: List<String> = Sidecars.preferredLanguages()): List<MediaItem> {
             val named = uris.map { uri ->
                 val name = displayName(resolver, uri) ?: uri.lastPathSegment ?: "File"
-                Triple(uri, name, resolver.getType(uri) ?: "")
+                Triple(uri, name, typeOf(resolver.getType(uri), name))
             }
-            val subtitleFiles = named.filter { (_, name, _) -> io.github.patschgoo.castapp.stream.Subtitles.isSubtitleFile(name) }
+            return fromNamed(named, languages)
+        }
+
+        /** [fromUris] for files already named and typed: (address, name, type). */
+        internal fun <U> fromNamed(named: List<Triple<U, String, String>>, languages: List<String>): List<MediaItem> {
+            val subtitleFiles = named.filter { (_, name, _) -> Subtitles.isSubtitleFile(name) }
             val media = named.filter { (_, name, mime) ->
-                !io.github.patschgoo.castapp.stream.Subtitles.isSubtitleFile(name) &&
-                    (mime.startsWith("video/") || mime.startsWith("audio/") || mime.startsWith("image/"))
+                !Subtitles.isSubtitleFile(name) && (mime.startsWith("video/") || mime.startsWith("audio/") || mime.startsWith("image/"))
             }
             val videos = media.filter { it.third.startsWith("video/") }
-            return media.map { (uri, name, mime) ->
-                val base = name.substringBeforeLast('.')
-                val sub = if (mime.startsWith("video/")) {
-                    subtitleFiles.firstOrNull { it.second.substringBeforeLast('.').startsWith(base, ignoreCase = true) }
-                        ?: subtitleFiles.firstOrNull().takeIf { videos.size == 1 }
-                } else null
-                MediaItem(title = name, uri = uri.toString(), mimeType = mime, subtitleUri = sub?.first?.toString())
+            val owned = Sidecars.assign(videos.map { it.second }, subtitleFiles.map { it.second })
+            return media.map { file ->
+                val (uri, name, mime) = file
+                val v = videos.indexOf(file)
+                val candidates = when {
+                    v < 0 -> emptyList()
+                    owned[v].isEmpty() && videos.size == 1 -> subtitleFiles
+                    else -> owned[v].map { subtitleFiles[it] }
+                }
+                val subs = Sidecars.ranked(name, candidates, languages) { it.second }.map { it.first.toString() }
+                MediaItem(title = name, uri = uri.toString(), mimeType = mime, subtitleUri = subs.firstOrNull(), moreSubtitles = subs.drop(1))
             }
         }
+
+        /** The type the phone gives a picked file, or one from its name when it gives none ("Film.divx"). */
+        private fun typeOf(given: String?, name: String): String =
+            given?.takeIf { it.isNotEmpty() && it != "application/octet-stream" }
+                ?: mimeForName(name).takeIf { NetworkSources.isMediaName(name) }
+                ?: given.orEmpty()
 
         fun displayName(resolver: ContentResolver, uri: Uri): String? = try {
             resolver.query(uri, arrayOf(OpenableColumns.DISPLAY_NAME), null, null, null)?.use { c ->

@@ -37,7 +37,7 @@
     <string name="subsrc_password">Password (optional)</string>
     <string name="subsrc_remove">Remove</string>
     <string name="subsrc_search_languages">Subtitle languages</string>
-    <string name="subsrc_search_languages_hint">Language codes, e.g. en, de</string>
+    <string name="subsrc_search_languages_hint">Language codes, the one you want most first, e.g. en, de. Also decides which subtitle file next to a video is shown.</string>
     <string name="subsrc_search_languages_default">%1$s (the phone\'s language)</string>
 
     <!-- While casting -->

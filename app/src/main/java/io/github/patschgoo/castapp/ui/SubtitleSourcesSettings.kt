@@ -46,7 +46,6 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import io.github.patschgoo.castapp.R
 import io.github.patschgoo.castapp.opensubtitles.OpenSubtitlesAccount
-import io.github.patschgoo.castapp.opensubtitles.OpenSubtitlesClient
 import io.github.patschgoo.castapp.settings.SpeechEngineKind
 import io.github.patschgoo.castapp.settings.SubtitleSourceSettings
 import io.github.patschgoo.castapp.subtitles.VoskModels
@@ -341,7 +340,12 @@ private fun AccountDialog(account: OpenSubtitlesAccount, languages: String, onSa
         confirmButton = {
             TextButton(onClick = {
                 account.save(OpenSubtitlesAccount.Credentials(key, user, password))
-                onSaveLanguages(OpenSubtitlesClient.normalizeLanguages(listOf(langs)).joinToString(", "))
+                // Kept in the order typed: the first is the preferred one for subtitle files next to a video
+                // (the online search sorts them itself).
+                onSaveLanguages(
+                    langs.split(',', ' ', ';').map { it.trim().lowercase(java.util.Locale.ROOT).replace('_', '-') }
+                        .filter { it.isNotEmpty() }.distinct().joinToString(", "),
+                )
                 onDismiss()
             }) { Text(stringResource(R.string.save)) }
         },

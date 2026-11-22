@@ -86,7 +86,7 @@ class SmbConnection(private val target: SmbTarget) : AutoCloseable {
                     size = if (isDir) null else it.endOfFile,
                 )
             }
-            .sortedWith(compareByDescending<RemoteEntry> { it.isFolder }.thenBy { it.name.lowercase() })
+            .sortedWith(NaturalOrder.entries)
     }
 
     fun size(path: String): Long = share().getFileInformation(smbPath(path)).standardInformation.endOfFile

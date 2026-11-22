@@ -69,7 +69,7 @@ Any device you've cast to once is **remembered**. If its IP address changes, Cas
 - **Videos, music and photos from the phone**, with the phone's screen off.
   - Pick several files to get a **play list**.
   - **Photos** become a slideshow, shrunk to TV size; HEIC and huge photos work too.
-  - **Subtitles**: pick an `.srt`/`.vtt` file with the same name as the video (or pick just one video and one subtitle file). They can be switched on and off.
+  - **Subtitles**: pick an `.srt`/`.vtt`/`.ass` file named after the video (or pick just one video and its subtitle files). With one file per language (`Video.English.srt`, `Video.German.srt`…), the one in your subtitle language is shown and the others can be picked. They can be switched on and off.
   - Also available from any gallery or file app via **Share → Cast to TV**.
 - **TV channels (IPTV)**, **network shares, NAS, media servers and cloud folders**: see the sections below.
 - **Change the picture quality at any moment** with the **Quality** button on the casting card (see below).
@@ -300,7 +300,7 @@ Tap **Network & cloud** on the main screen.
   CastApp checks the folder before saving it. Passwords are stored encrypted (Android Keystore) on the phone only.
 - **Phone & cloud** opens Android's file picker, which also shows installed cloud apps (Google Drive, OneDrive, Dropbox, Nextcloud…).
 
-Tapping a file plays the whole folder as a play list, starting with that file; **Play all** starts at the top. Subtitles with the same name as a video (`.srt`, `.vtt`) are picked up automatically. Files on shares and password-protected servers are streamed by the phone (with seeking); media servers are played by the TV directly.
+Tapping a file plays the whole folder as a play list, starting with that file; **Play all** starts at the top. Files are listed with numbers counted (episode 2 before episode 10). Subtitles named after a video (`.srt`, `.vtt`, `.ass`/`.ssa`, also `Video.English.srt`, `Video [eng].srt`, `Video_German.srt`) are picked up automatically: the one in the first of your **Subtitle languages** (in the OpenSubtitles settings; otherwise the phone's language, then English) is shown, and every other one can be chosen in the subtitle picker. Files on shares and password-protected servers are streamed by the phone (with seeking); media servers are played by the TV directly.
 
 ## Using your NAS away from home
 
