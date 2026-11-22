@@ -19,6 +19,8 @@ data class RendererMedia(
     val startMs: Long = 0,
     /** CastApp's screen stream to a CastApp TV receiver: play with minimal buffering. */
     val lowLatency: Boolean = false,
+    /** How the subtitles should look, where the TV can be told (Google Cast, CastApp TV). */
+    val subtitleStyle: io.github.patschgoo.castapp.subtitles.SubtitleStyle? = null,
 )
 
 enum class PlayState { PLAYING, PAUSED, BUFFERING, IDLE, FINISHED, ERROR, STOPPED }

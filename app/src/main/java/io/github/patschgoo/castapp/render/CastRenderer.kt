@@ -89,7 +89,8 @@ class CastRenderer(override val device: CastDevice) : MediaRenderer {
             )
             info.put(
                 "textTrackStyle",
-                JSONObject().put("backgroundColor", "#00000099").put("foregroundColor", "#FFFFFFFF").put("fontScale", 1.0),
+                media.subtitleStyle?.toCastJson()
+                    ?: JSONObject().put("backgroundColor", "#00000099").put("foregroundColor", "#FFFFFFFF").put("fontScale", 1.0),
             )
             if (media.subtitlesOn) extra.put("activeTrackIds", JSONArray().put(SUBTITLE_TRACK))
         }
