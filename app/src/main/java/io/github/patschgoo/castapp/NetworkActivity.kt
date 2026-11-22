@@ -187,6 +187,16 @@ internal fun NetworkScreen(network: NetworkSources, onBack: () -> Unit) {
     val place = stack.lastOrNull()
     var folderItems by remember { mutableStateOf<List<MediaItem>>(emptyList()) }
 
+    // Plex / Jellyfin / Emby: their own screens (sign-in, libraries, Continue watching, playing).
+    var serverKind by rememberSaveable { mutableStateOf<String?>(null) }
+    serverKind?.let { name ->
+        io.github.patschgoo.castapp.mediaservers.MediaServersHost(
+            io.github.patschgoo.castapp.mediaservers.ServerKind.valueOf(name), launcher, onBack = { serverKind = null },
+        )
+        CastLauncherSheet(launcher)
+        return
+    }
+
     Scaffold(
         topBar = {
             TopAppBar(
@@ -221,6 +231,7 @@ internal fun NetworkScreen(network: NetworkSources, onBack: () -> Unit) {
                     network = network,
                     onPickFiles = { picker.launch(arrayOf("video/*", "audio/*", "image/*", "application/x-subrip", "text/vtt")) },
                     onOpen = { stack.add(it) },
+                    onOpenServers = { serverKind = it.name },
                 )
             } else {
                 Folder(network, place, launcher, onOpen = { stack.add(it) }, onItems = { folderItems = it })
@@ -233,7 +244,12 @@ internal fun NetworkScreen(network: NetworkSources, onBack: () -> Unit) {
 }
 
 @Composable
-private fun Home(network: NetworkSources, onPickFiles: () -> Unit, onOpen: (Place) -> Unit) {
+private fun Home(
+    network: NetworkSources,
+    onPickFiles: () -> Unit,
+    onOpen: (Place) -> Unit,
+    onOpenServers: (io.github.patschgoo.castapp.mediaservers.ServerKind) -> Unit,
+) {
     val servers by network.servers.collectAsStateWithLifecycle()
     val sources by network.sources.collectAsStateWithLifecycle()
     LazyColumn(contentPadding = PaddingValues(bottom = 24.dp)) {
@@ -258,6 +274,7 @@ private fun Home(network: NetworkSources, onPickFiles: () -> Unit, onOpen: (Plac
                 }
             }
         }
+        item { io.github.patschgoo.castapp.mediaservers.MediaServersHomeEntries(onOpenServers) }
         item { SectionTitle(stringResource(R.string.net_sec_servers)) }
         if (servers.isEmpty()) {
             item {
