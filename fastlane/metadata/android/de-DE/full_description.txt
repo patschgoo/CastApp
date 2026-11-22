@@ -1,0 +1,18 @@
+CastApp überträgt auf Chromecast, NVIDIA Shield, Google TV, Google- und Nest-Lautsprecher, DLNA-Smart-TVs (Samsung, LG, Sony), Fire TV und andere Android-TV-Boxen (mit der mitgelieferten CastApp-TV-App), Kodi, Apple TV (AirPlay) und Roku (experimentell). Die App spricht direkt über dein WLAN mit deinen Geräten. Ohne Google Play Services, ohne Konto, ohne Werbung, ohne Tracking.
+
+<b>Was die App kann</b>
+• Den ganzen Bildschirm oder eine einzelne App spiegeln, die Bildqualität jederzeit ändern
+• Den Ton des Handys auf Fernseher oder Lautsprecher übertragen (ab Android 10)
+• Videos, Musik und Fotos vom Handy, von einem NAS, einem freigegebenen PC-Ordner, einem Medienserver wie Plex oder Jellyfin oder aus einem Cloud-Ordner abspielen
+• TV-Sender und Radio aus IPTV-/M3U-Listen abspielen, mit Programmführer
+• Videos von Webseiten abspielen
+• Untertitel für Videos ohne Untertitel erzeugen, auf dem Handy und offline, oder online finden
+• Das Handy als TV-Fernbedienung nutzen, per Netzwerk, Bluetooth oder Infrarot
+• Auf dem Handy selbst empfangen und die Richtung tauschen
+• Dort weiterschauen, wo du aufgehört hast, Warteschlange bearbeiten, Einschlaftimer, Ton- und Untertitelspur wählen
+• YouTube-Links an die YouTube-App auf dem Fernseher schicken
+
+<b>Hilfe, wenn etwas nicht klappt</b>
+Unter Einstellungen → Hilfe &amp; Support gibt es eine Netzwerkprüfung („Warum finde ich meinen Fernseher nicht?“), den Selbsttest „Dieses Handy testen“, Akku-Tipps für deine Handymarke und ein Fehlerprotokoll, das du nur sendest, wenn du es willst.
+
+Die App gibt es auf Englisch und Deutsch. Der Quellcode ist offen.
