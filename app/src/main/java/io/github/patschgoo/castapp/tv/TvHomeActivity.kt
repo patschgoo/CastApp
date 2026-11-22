@@ -136,6 +136,8 @@ internal fun TvHome() {
                         Text(stringResource(R.string.tv_other_apps), style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
                     }
                 }
+                Spacer(Modifier.height(20.dp))
+                ReceiverProtectionCard()
                 if (needsOverlay) {
                     Spacer(Modifier.height(20.dp))
                     Card(Modifier.fillMaxWidth()) {

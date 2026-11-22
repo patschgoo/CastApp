@@ -1,0 +1,51 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Home-screen widget -->
+    <string name="widget_label">CastApp</string>
+    <string name="widget_description">Mirror to your TV and control what you cast</string>
+    <string name="widget_mirror_to">Mirror to %1$s</string>
+    <string name="widget_pick_tv">Pick a TV</string>
+    <string name="widget_open">Open CastApp</string>
+    <string name="widget_mirroring">Mirroring your screen</string>
+    <string name="widget_subtitle_queue">%1$s · %2$d of %3$d</string>
+    <string name="widget_subtitle_device">%1$s · %2$s</string>
+
+    <!-- Quick Settings tiles -->
+    <string name="tile_receive_label">Receive on this phone</string>
+    <string name="tile_receive_on">On</string>
+    <string name="tile_receive_off">Off</string>
+    <string name="tile_remote_label">TV remote</string>
+    <string name="tile_remote_subtitle">Control your TV</string>
+
+    <!-- Who may cast to a receiver -->
+    <string name="protect_title">Who can cast here</string>
+    <string name="protect_mode_anyone">Anyone on the network</string>
+    <string name="protect_mode_anyone_hint">Every phone and DLNA app on your Wi-Fi can cast without asking.</string>
+    <string name="protect_mode_ask">Ask first</string>
+    <string name="protect_mode_ask_hint">The first cast from an unknown phone or app asks for your OK here.</string>
+    <string name="protect_mode_paired">Only paired phones (code)</string>
+    <string name="protect_mode_paired_hint">CastApp phones that type in the code shown here once. Other apps are refused.</string>
+    <string name="protect_code_label">Pairing code</string>
+    <string name="protect_new_code">New code</string>
+    <string name="protect_change">Who can cast…</string>
+    <string name="protect_known_title">Remembered senders</string>
+    <string name="protect_known_none">None yet.</string>
+    <string name="protect_kind_paired">Paired phone</string>
+    <string name="protect_kind_allowed">Always allowed · %1$s</string>
+    <string name="protect_kind_blocked">Blocked · %1$s</string>
+    <string name="protect_forget">Forget</string>
+    <string name="protect_forget_all">Forget all</string>
+    <string name="protect_done">Done</string>
+    <string name="protect_close">Close</string>
+    <string name="protect_allow">Allow</string>
+    <string name="protect_allow_always">Allow always</string>
+    <string name="protect_block">Block</string>
+    <string name="protect_prompt_title">Allow %1$s to cast?</string>
+    <string name="protect_prompt_text">Wants to cast here (%1$s)</string>
+    <string name="protect_prompt_text_tv">%1$s wants to cast to this TV. Answer with the remote.</string>
+    <string name="protect_prompt_text_phone">%1$s wants to cast to this phone.</string>
+    <string name="protect_prompt_more">%1$d more waiting</string>
+    <string name="protect_pairing_title">Pair %1$s</string>
+    <string name="protect_pairing_text">Type this code in CastApp on the phone. It works once.</string>
+    <string name="protect_pairing_notification">Code: %1$s</string>
+</resources>
