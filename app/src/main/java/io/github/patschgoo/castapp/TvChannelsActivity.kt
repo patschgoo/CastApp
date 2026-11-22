@@ -33,10 +33,13 @@ import androidx.compose.material.icons.automirrored.rounded.ArrowBack
 import androidx.compose.material.icons.rounded.Add
 import androidx.compose.material.icons.rounded.Clear
 import androidx.compose.material.icons.rounded.Delete
+import androidx.compose.material.icons.rounded.Info
+import androidx.compose.material.icons.rounded.Link
 import androidx.compose.material.icons.rounded.LiveTv
 import androidx.compose.material.icons.rounded.MoreVert
 import androidx.compose.material.icons.rounded.Radio
 import androidx.compose.material.icons.rounded.Refresh
+import androidx.compose.material.icons.rounded.Schedule
 import androidx.compose.material.icons.rounded.Search
 import androidx.compose.material.icons.rounded.SkipNext
 import androidx.compose.material.icons.rounded.SkipPrevious
@@ -75,6 +78,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
@@ -82,28 +86,42 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import io.github.patschgoo.castapp.iptv.Channel
+import io.github.patschgoo.castapp.iptv.ChannelEntry
+import io.github.patschgoo.castapp.iptv.EpgData
+import io.github.patschgoo.castapp.iptv.GuideList
 import io.github.patschgoo.castapp.iptv.IptvRepository
+import io.github.patschgoo.castapp.iptv.LiveStream
+import io.github.patschgoo.castapp.iptv.NowNext
+import io.github.patschgoo.castapp.iptv.ScheduleSheet
+import io.github.patschgoo.castapp.iptv.VodPane
+import io.github.patschgoo.castapp.iptv.rememberNow
+import io.github.patschgoo.castapp.iptv.rememberTimeFormat
 import io.github.patschgoo.castapp.service.CastController
 import io.github.patschgoo.castapp.service.CastKind
 import io.github.patschgoo.castapp.service.CastService
 import io.github.patschgoo.castapp.service.CastState
+import io.github.patschgoo.castapp.service.MediaItem
 import io.github.patschgoo.castapp.service.MediaType
 import io.github.patschgoo.castapp.ui.CastLauncherSheet
 import io.github.patschgoo.castapp.ui.RemoteImage
 import io.github.patschgoo.castapp.ui.rememberCastLauncher
 import io.github.patschgoo.castapp.ui.theme.CastAppTheme
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import java.net.URLEncoder
 
 /**
  * IPTV: TV channel lists (M3U / M3U8 playlists from a provider, a public list or a
  * file). Pick a channel and it plays on the TV; Next/Previous on the phone or the
- * lock screen switch channels.
+ * lock screen switch channels. With a TV guide (XMLTV) each channel shows what is on
+ * now and next; Xtream log-ins also list the provider's movies and series.
  */
 class TvChannelsActivity : ComponentActivity() {
 
@@ -145,6 +163,8 @@ internal fun ChannelsScreen(repo: IptvRepository, onBack: () -> Unit) {
     val playlists by repo.playlists.collectAsStateWithLifecycle()
     val favorites by repo.favorites.collectAsStateWithLifecycle()
     val castState by CastController.state.collectAsStateWithLifecycle()
+    val now by rememberNow()
+    val time = rememberTimeFormat()
 
     var selectedId by rememberSaveable { mutableStateOf<String?>(null) }
     val selected = playlists.firstOrNull { it.id == selectedId }
@@ -159,13 +179,33 @@ internal fun ChannelsScreen(repo: IptvRepository, onBack: () -> Unit) {
     var refreshNext by remember { mutableStateOf(false) }
     var loading by remember { mutableStateOf(false) }
     var channels by remember { mutableStateOf<List<Channel>>(emptyList()) }
+    /** Which list [channels] belongs to, so the guide is never matched against the previous list's channels. */
+    var channelsOf by remember { mutableStateOf<String?>(null) }
     var showAdd by remember { mutableStateOf(false) }
     var menu by remember { mutableStateOf(false) }
+
+    // Live / Movies / Series: the last two only for Xtream log-ins.
+    var tab by rememberSaveable(selectedId) { mutableIntStateOf(0) }
+    val xtream = remember(selected?.id, selected?.source) { selected?.let { repo.xtreamClient(it) } }
+    val currentTab = if (xtream != null && !showingFavorites) tab else 0
+    var vodReload by remember { mutableIntStateOf(0) }
+
+    // TV guide
+    var epg by remember { mutableStateOf<EpgData?>(null) }
+    var guideBusy by remember { mutableStateOf(false) }
+    var guideError by remember { mutableStateOf<String?>(null) }
+    var guideReload by remember { mutableIntStateOf(0) }
+    var forceGuide by remember { mutableStateOf(false) }
+    var liveView by rememberSaveable { mutableIntStateOf(0) }
+    var showGuideAddress by remember { mutableStateOf(false) }
+    var scheduleFor by remember { mutableStateOf<ChannelEntry?>(null) }
+    var archive by remember(selectedId) { mutableStateOf<Map<String, LiveStream>?>(null) }
 
     LaunchedEffect(selectedId, reload, if (showingFavorites) favorites else null) {
         loading = true
         val refresh = refreshNext
         refreshNext = false
+        if (refresh) forceGuide = true
         channels = try {
             when {
                 showingFavorites -> playlists.flatMap { p -> runCatching { repo.channels(p) }.getOrDefault(emptyList()) }
@@ -177,22 +217,73 @@ internal fun ChannelsScreen(repo: IptvRepository, onBack: () -> Unit) {
             snackbar.showSnackbar(e.message ?: "Couldn't load the channels")
             emptyList()
         }
+        channelsOf = selectedId
         loading = false
     }
 
-    val groups = remember(channels) { channels.mapNotNull { it.group }.distinct() }
-    val shown = remember(channels, group, query) {
-        val q = query.trim()
-        channels.filter { c ->
-            (group == null || c.group == group) && (q.isEmpty() || c.name.contains(q, ignoreCase = true))
+    // The guide: what is saved on the phone shows at once, then it is refreshed in the background when it is old.
+    LaunchedEffect(selectedId, channelsOf, channels, guideReload) {
+        guideError = null
+        if (channelsOf != selectedId) return@LaunchedEffect
+        if (showingFavorites) {
+            val all = playlists.mapNotNull { repo.cachedGuide(it) }
+            epg = if (all.isEmpty()) null else EpgData.merge(all)
+            return@LaunchedEffect
         }
+        val p = selected
+        if (p == null) {
+            epg = null
+            return@LaunchedEffect
+        }
+        epg = repo.cachedGuide(p)
+        if (channels.isEmpty()) return@LaunchedEffect
+        val force = forceGuide
+        forceGuide = false
+        guideBusy = true
+        try {
+            repo.updateGuide(p, channels, force)?.let { epg = it }
+        } catch (e: Exception) {
+            guideError = e.message ?: e.javaClass.simpleName
+        }
+        guideBusy = false
     }
 
-    fun play(index: Int) {
+    val plain = remember(channels) { channels.map { ChannelEntry(it, emptyList()) } }
+    val scheduled by produceState<List<ChannelEntry>?>(null, channels, epg) {
+        value = null
+        val g = epg
+        if (g != null) value = withContext(Dispatchers.Default) { channels.map { ChannelEntry(it, g.forChannel(it)) } }
+    }
+    val entries = scheduled ?: plain
+
+    val groups = remember(channels) { channels.mapNotNull { it.group }.distinct() }
+    val shown = remember(entries, group, query) {
+        val q = query.trim()
+        entries.filter { e ->
+            (group == null || e.channel.group == group) &&
+                (q.isEmpty() || e.channel.name.contains(q, ignoreCase = true) || e.schedule.any { it.title.contains(q, ignoreCase = true) })
+        }
+    }
+    val hasGuide = epg?.isEmpty == false && entries.any { it.schedule.isNotEmpty() }
+    val guideShown = remember(shown) { shown.filter { it.schedule.isNotEmpty() } }
+
+    fun play(entry: ChannelEntry) {
         // The shown list becomes the play list, so Next/Previous zap through it.
+        val index = shown.indexOfFirst { it === entry }.takeIf { it >= 0 } ?: return
         val from = (index - TvChannelsActivity.MAX_QUEUE / 2).coerceIn(0, (shown.size - TvChannelsActivity.MAX_QUEUE).coerceAtLeast(0))
-        val window = shown.subList(from, minOf(shown.size, from + TvChannelsActivity.MAX_QUEUE))
+        val window = shown.subList(from, minOf(shown.size, from + TvChannelsActivity.MAX_QUEUE)).map { it.channel }
         launcher.cast(IptvRepository.toItems(window), index - from)
+    }
+
+    // Catch-up information is only fetched when a schedule is opened.
+    LaunchedEffect(scheduleFor != null, selectedId) {
+        if (scheduleFor != null && archive == null && xtream != null) {
+            archive = try {
+                withContext(Dispatchers.IO) { xtream.archiveChannels() }
+            } catch (_: Exception) {
+                emptyMap()
+            }
+        }
     }
 
     Scaffold(
@@ -214,7 +305,26 @@ internal fun ChannelsScreen(repo: IptvRepository, onBack: () -> Unit) {
                                     onClick = {
                                         menu = false
                                         refreshNext = true
+                                        xtream?.clearCache()
+                                        vodReload++
                                         reload++
+                                    },
+                                )
+                                DropdownMenuItem(
+                                    text = { Text(stringResource(R.string.iptvg_menu_update_guide)) },
+                                    leadingIcon = { Icon(Icons.Rounded.Schedule, contentDescription = null) },
+                                    onClick = {
+                                        menu = false
+                                        forceGuide = true
+                                        guideReload++
+                                    },
+                                )
+                                DropdownMenuItem(
+                                    text = { Text(stringResource(R.string.iptvg_menu_guide_address)) },
+                                    leadingIcon = { Icon(Icons.Rounded.Link, contentDescription = null) },
+                                    onClick = {
+                                        menu = false
+                                        showGuideAddress = true
                                     },
                                 )
                                 DropdownMenuItem(
@@ -259,10 +369,29 @@ internal fun ChannelsScreen(repo: IptvRepository, onBack: () -> Unit) {
                     )
                 }
             }
+            if (xtream != null && !showingFavorites) {
+                SingleChoiceSegmentedButtonRow(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 4.dp)) {
+                    listOf(R.string.iptvg_tab_live, R.string.iptvg_tab_movies, R.string.iptvg_tab_series).forEachIndexed { i, label ->
+                        SegmentedButton(
+                            selected = currentTab == i,
+                            onClick = { tab = i },
+                            shape = SegmentedButtonDefaults.itemShape(i, 3),
+                        ) { Text(stringResource(label)) }
+                    }
+                }
+            }
             OutlinedTextField(
                 value = query,
                 onValueChange = { query = it },
-                placeholder = { Text("Search channels") },
+                placeholder = {
+                    Text(
+                        when (currentTab) {
+                            1 -> stringResource(R.string.iptvg_search_movies)
+                            2 -> stringResource(R.string.iptvg_search_series)
+                            else -> stringResource(R.string.iptvg_search_channels)
+                        },
+                    )
+                },
                 leadingIcon = { Icon(Icons.Rounded.Search, contentDescription = null) },
                 trailingIcon = {
                     if (query.isNotEmpty()) IconButton(onClick = { query = "" }) { Icon(Icons.Rounded.Clear, contentDescription = "Clear") }
@@ -270,6 +399,28 @@ internal fun ChannelsScreen(repo: IptvRepository, onBack: () -> Unit) {
                 singleLine = true,
                 modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp),
             )
+            if (currentTab != 0 && xtream != null) {
+                VodPane(
+                    client = xtream,
+                    series = currentTab == 2,
+                    query = query,
+                    reload = vodReload,
+                    launcher = launcher,
+                    modifier = Modifier.weight(1f),
+                )
+                return@Column
+            }
+            if (hasGuide) {
+                SingleChoiceSegmentedButtonRow(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 2.dp)) {
+                    listOf(R.string.iptvg_view_channels, R.string.iptvg_view_guide).forEachIndexed { i, label ->
+                        SegmentedButton(
+                            selected = liveView == i,
+                            onClick = { liveView = i },
+                            shape = SegmentedButtonDefaults.itemShape(i, 2),
+                        ) { Text(stringResource(label)) }
+                    }
+                }
+            }
             if (groups.size > 1) {
                 LazyRow(
                     contentPadding = PaddingValues(horizontal = 16.dp),
@@ -294,26 +445,104 @@ internal fun ChannelsScreen(repo: IptvRepository, onBack: () -> Unit) {
                 )
                 else -> {
                     val playingTitle = (castState as? CastState.Active)?.takeIf { it.kind == CastKind.FILE && it.live }?.title
-                    Text(
-                        "${shown.size} channels",
-                        style = MaterialTheme.typography.labelMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        modifier = Modifier.padding(start = 20.dp, top = 8.dp),
-                    )
-                    LazyColumn(contentPadding = PaddingValues(bottom = 16.dp), modifier = Modifier.weight(1f)) {
-                        itemsIndexed(shown, key = { i, c -> "$i:${c.url}" }) { i, c ->
-                            ChannelRow(
-                                channel = c,
-                                playing = c.name == playingTitle,
-                                favorite = c.url in favorites,
-                                onPlay = { play(i) },
-                                onFavorite = { repo.toggleFavorite(c.url) },
+                    Row(Modifier.padding(start = 20.dp, end = 16.dp, top = 8.dp), verticalAlignment = Alignment.CenterVertically) {
+                        Text(
+                            stringResource(R.string.iptvg_channel_count, shown.size),
+                            style = MaterialTheme.typography.labelMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                        if (guideBusy) {
+                            Spacer(Modifier.width(10.dp))
+                            CircularProgressIndicator(Modifier.size(12.dp), strokeWidth = 2.dp)
+                            Spacer(Modifier.width(6.dp))
+                            Text(
+                                stringResource(R.string.iptvg_updating_guide),
+                                style = MaterialTheme.typography.labelMedium,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
                             )
+                        }
+                    }
+                    if (guideError != null && !guideBusy && epg == null) {
+                        Text(
+                            stringResource(R.string.iptvg_guide_failed, guideError.orEmpty()),
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            maxLines = 2,
+                            overflow = TextOverflow.Ellipsis,
+                            modifier = Modifier.padding(horizontal = 20.dp),
+                        )
+                    }
+                    if (liveView == 1 && hasGuide) {
+                        if (guideShown.isEmpty()) {
+                            Text(
+                                stringResource(R.string.iptvg_guide_empty),
+                                style = MaterialTheme.typography.bodyMedium,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                modifier = Modifier.padding(24.dp),
+                            )
+                        } else {
+                            GuideList(
+                                entries = guideShown,
+                                now = now,
+                                onPlay = { play(it) },
+                                onInfo = { scheduleFor = it },
+                                modifier = Modifier.weight(1f),
+                            )
+                        }
+                    } else {
+                        LazyColumn(contentPadding = PaddingValues(bottom = 16.dp), modifier = Modifier.weight(1f)) {
+                            itemsIndexed(shown, key = { i, e -> "$i:${e.channel.url}" }) { _, e ->
+                                ChannelRow(
+                                    entry = e,
+                                    now = now,
+                                    time = time,
+                                    query = query.trim(),
+                                    playing = e.channel.name == playingTitle,
+                                    favorite = e.channel.url in favorites,
+                                    onPlay = { play(e) },
+                                    onFavorite = { repo.toggleFavorite(e.channel.url) },
+                                    onInfo = { scheduleFor = e },
+                                )
+                            }
                         }
                     }
                 }
             }
         }
+    }
+
+    scheduleFor?.let { entry ->
+        val account = selected?.let { repo.xtream(it) }
+        val streamId = account?.liveStreamId(entry.channel.url)
+        val live = if (streamId != null) archive?.get(streamId) else null
+        ScheduleSheet(
+            entry = entry,
+            now = now,
+            catchUpDays = live?.archiveDays ?: 0,
+            onPlayLive = {
+                scheduleFor = null
+                play(entry)
+            },
+            onReplay = { p ->
+                scheduleFor = null
+                if (account != null && streamId != null) {
+                    // Catch-up: the provider plays the programme again from its start (a little extra at the end).
+                    val minutes = ((p.stop - p.start) / 60_000L).toInt().coerceAtLeast(1) + 5
+                    val url = account.timeshiftUrl(streamId, p.start, minutes)
+                    launcher.cast(
+                        listOf(
+                            MediaItem(
+                                title = "${entry.channel.name} · ${p.title}",
+                                uri = url,
+                                mimeType = "video/mp2t",
+                                headers = entry.channel.headers,
+                            ),
+                        ),
+                    )
+                }
+            },
+            onDismiss = { scheduleFor = null },
+        )
     }
 
     if (showAdd) {
@@ -334,11 +563,70 @@ internal fun ChannelsScreen(repo: IptvRepository, onBack: () -> Unit) {
             },
         )
     }
+    if (showGuideAddress && selected != null) {
+        GuideAddressDialog(
+            current = selected.guide,
+            detected = remember(selected, guideReload) { repo.guideUrls(selected) },
+            onDismiss = { showGuideAddress = false },
+            onSave = { url ->
+                showGuideAddress = false
+                repo.setGuide(selected.id, url)
+                epg = null
+                forceGuide = true
+                guideReload++
+            },
+        )
+    }
     CastLauncherSheet(launcher)
 }
 
+/** A guide (XMLTV) address for the open playlist; empty means the playlist's or provider's own. */
 @Composable
-private fun ChannelRow(channel: Channel, playing: Boolean, favorite: Boolean, onPlay: () -> Unit, onFavorite: () -> Unit) {
+private fun GuideAddressDialog(current: String, detected: List<String>, onDismiss: () -> Unit, onSave: (String) -> Unit) {
+    var url by rememberSaveable { mutableStateOf(current) }
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text(stringResource(R.string.iptvg_guide_dialog_title)) },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                Text(stringResource(R.string.iptvg_guide_dialog_text), style = MaterialTheme.typography.bodySmall)
+                OutlinedTextField(
+                    value = url,
+                    onValueChange = { url = it },
+                    label = { Text(stringResource(R.string.iptvg_guide_dialog_field)) },
+                    placeholder = { Text("https://…/guide.xml.gz") },
+                    singleLine = true,
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Uri),
+                    modifier = Modifier.fillMaxWidth(),
+                )
+                Text(
+                    if (detected.isEmpty()) stringResource(R.string.iptvg_guide_dialog_none)
+                    else stringResource(R.string.iptvg_guide_dialog_current, detected.joinToString(", ").replace(Regex("(password=)[^&]*"), "$1…")),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    maxLines = 4,
+                    overflow = TextOverflow.Ellipsis,
+                )
+            }
+        },
+        confirmButton = { TextButton(onClick = { onSave(url.trim()) }) { Text(stringResource(R.string.iptvg_save)) } },
+        dismissButton = { TextButton(onClick = onDismiss) { Text(stringResource(R.string.iptvg_cancel)) } },
+    )
+}
+
+@Composable
+private fun ChannelRow(
+    entry: ChannelEntry,
+    now: Long,
+    time: (Long) -> String,
+    query: String,
+    playing: Boolean,
+    favorite: Boolean,
+    onPlay: () -> Unit,
+    onFavorite: () -> Unit,
+    onInfo: () -> Unit,
+) {
+    val channel = entry.channel
     val radio = IptvRepository.toItems(listOf(channel)).first().type == MediaType.AUDIO
     ListItem(
         onClick = onPlay,
@@ -358,15 +646,36 @@ private fun ChannelRow(channel: Channel, playing: Boolean, favorite: Boolean, on
                 channel.group,
                 if (radio && channel.group?.contains("radio", ignoreCase = true) != true) "Radio" else null,
             )
-            if (details.isNotEmpty()) Text(details.joinToString(" · "), maxLines = 1, overflow = TextOverflow.Ellipsis)
+            // A search hit inside the programme (not the channel name) shows the programme that matched.
+            val hit = if (query.isNotEmpty() && !channel.name.contains(query, ignoreCase = true)) entry.matching(query, now) else null
+            Column {
+                if (details.isNotEmpty()) Text(details.joinToString(" · "), maxLines = 1, overflow = TextOverflow.Ellipsis)
+                if (hit != null) {
+                    Text(
+                        stringResource(R.string.iptvg_found, time(hit.start), hit.title),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.primary,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                    )
+                }
+                if (entry.schedule.isNotEmpty()) NowNext(entry.schedule, now, time)
+            }
         },
         trailingContent = {
-            IconButton(onClick = onFavorite) {
-                Icon(
-                    if (favorite) Icons.Rounded.Star else Icons.Rounded.StarBorder,
-                    contentDescription = if (favorite) "Remove from favourites" else "Add to favourites",
-                    tint = if (favorite) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
-                )
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                if (entry.schedule.isNotEmpty()) {
+                    IconButton(onClick = onInfo) {
+                        Icon(Icons.Rounded.Info, contentDescription = stringResource(R.string.iptvg_info, channel.name), tint = MaterialTheme.colorScheme.onSurfaceVariant)
+                    }
+                }
+                IconButton(onClick = onFavorite) {
+                    Icon(
+                        if (favorite) Icons.Rounded.Star else Icons.Rounded.StarBorder,
+                        contentDescription = if (favorite) "Remove from favourites" else "Add to favourites",
+                        tint = if (favorite) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
             }
         },
     ) {
@@ -459,7 +768,7 @@ private fun AddPlaylistDialog(onDismiss: () -> Unit, onAdd: suspend (name: Strin
             } catch (_: Exception) {
             }
             file = uri.toString()
-            if (name.isBlank()) name = io.github.patschgoo.castapp.service.MediaItem.displayName(context.contentResolver, uri)
+            if (name.isBlank()) name = MediaItem.displayName(context.contentResolver, uri)
                 ?.substringBeforeLast('.').orEmpty()
         }
     }

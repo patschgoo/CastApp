@@ -118,6 +118,24 @@ object M3uParser {
         return channels
     }
 
+    /**
+     * TV-guide (XMLTV) addresses named in the `#EXTM3U` header line: `url-tvg="…"`,
+     * `x-tvg-url="…"` or `tvg-url="…"`, each possibly several addresses separated by commas.
+     */
+    fun guideUrls(text: String): List<String> {
+        val header = text.trimStart(Char(0xFEFF)).lineSequence().map { it.trim() }.firstOrNull { it.isNotEmpty() } ?: return emptyList()
+        if (!header.startsWith("#EXTM3U", ignoreCase = true)) return emptyList()
+        return ATTR.findAll(header)
+            .filter { it.groupValues[1].lowercase() in GUIDE_ATTRS }
+            .flatMap { it.groupValues[2].split(',', ';', ' ') }
+            .map { it.trim() }
+            .filter { it.startsWith("http://", ignoreCase = true) || it.startsWith("https://", ignoreCase = true) }
+            .distinct()
+            .toList()
+    }
+
+    private val GUIDE_ATTRS = setOf("url-tvg", "x-tvg-url", "tvg-url")
+
     /** The channel name: everything after the first comma that is not inside quotes. */
     private fun titleOf(body: String): String {
         var quoted = false
