@@ -361,6 +361,8 @@ class TvPlayerActivity : ComponentActivity() {
     private val hideNotice = Runnable { noticeView.visibility = View.GONE }
 
     private fun reportState() {
+        // Let go of by TvReceiver.stop(): until it's gone this screen mustn't speak for a new one starting.
+        if (TvReceiver.player !== this) return
         val media = showing
         if (media == null) {
             TvReceiver.report(TransportState.NO_MEDIA_PRESENT, 0, 0)
