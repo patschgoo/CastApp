@@ -67,9 +67,9 @@ class SamsungRemoteTest {
     @Test
     fun allowsThenSendsKeys() = runBlocking {
         val got = LinkedBlockingQueue<String>()
-        var path = ""
+        val path = java.util.concurrent.atomic.AtomicReference("")
         val server = FakeWsServer(secure = true) { peer ->
-            path = peer.path
+            path.set(peer.path)
             // The TV shows "Allow?" and answers a moment later.
             Thread.sleep(3000)
             peer.sendText("""{"event":"ms.channel.connect","data":{"clients":[],"id":"x","token":"98765"}}""")
@@ -82,10 +82,11 @@ class SamsungRemoteTest {
                 assertTrue(secure)
                 "wss://127.0.0.1:${server.port}/api/v2/channels/samsung.remote.control?name=x" + (token?.let { "&token=$it" } ?: "")
             })
-            val conn = client.connect(token = "old", onPrompt = { prompted = true })
+            // A short "Allow?" wait keeps the test independent of how busy the machine is.
+            val conn = client.connect(token = "old", onPrompt = { prompted = true }, promptAfterMs = 300)
             assertTrue(prompted)
             assertEquals("98765", conn.token)
-            assertTrue(path.endsWith("&token=old"))
+            assertTrue(path.get().endsWith("&token=old"))
             conn.press(RemoteKey.VOLUME_UP)
             conn.press(RemoteKey.PLAY_PAUSE)
             conn.press(RemoteKey.PLAY_PAUSE)
