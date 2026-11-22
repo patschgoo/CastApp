@@ -367,6 +367,8 @@ private fun LazyListScope.castingItems(active: CastState.Active?, actions: Devic
     if (active != null) {
         item(key = "casting") { CastingCard(state = active, actions = actions) }
     }
+    // Other CastApp devices that cast: join them, or ask them to hand over.
+    item(key = "peers") { PeerCards(localCasting = active != null) }
 }
 
 private fun LazyListScope.modeItem(audioMode: Boolean, actions: DevicesActions) {
@@ -508,6 +510,7 @@ private fun CastingCard(state: CastState.Active, actions: DevicesActions) {
             else if (file) PlaybackControls(state, actions)
             ExtrasRow(state, actions)
             PlaybackExtras(state)
+            MultiScreenSection(state)
             Spacer(Modifier.height(12.dp))
             Row(verticalAlignment = Alignment.CenterVertically) {
                 VolumeControls(state, actions)

@@ -267,6 +267,15 @@
             android:name=".tv.ReceiverPromptReceiver"
             android:exported="false" />
 
+        <!-- Questions from other CastApp devices: "Allow <name> to watch?", "<name> offers you <TV>", "<name> wants to cast" -->
+        <activity
+            android:name=".multi.MultiPromptActivity"
+            android:excludeFromRecents="true"
+            android:exported="false"
+            android:launchMode="singleTop"
+            android:taskAffinity=""
+            android:theme="@style/Theme.CastApp.Transparent" />
+
         <!-- Home-screen widget -->
         <receiver
             android:name=".widget.CastWidgetProvider"
