@@ -23,6 +23,8 @@ data class ReportInput(
     val devices: List<DeviceLine>,
     val logLines: List<String>,
     val generated: String = "",
+    /** The newest "Test this phone" result, if the self-test was run. */
+    val selfTest: List<String> = emptyList(),
 )
 
 /**
@@ -82,6 +84,12 @@ object DebugLog {
             appendLine("${d.name} | ${d.kind} | ${d.address} | ${if (d.online) "answers" else "no answer"}${if (d.saved) " | remembered" else ""}")
         }
         appendLine()
+        if (input.selfTest.isNotEmpty()) {
+            appendLine("Self-test (Test this phone)")
+            appendLine("---------------------------")
+            input.selfTest.forEach { appendLine(it) }
+            appendLine()
+        }
         val clean = input.logLines.map { redact(it) }
         val errors = clean.filter { isProblem(it) }.takeLast(MAX_ERRORS)
         appendLine("Recent errors and warnings (${errors.size})")
@@ -144,6 +152,7 @@ object DebugLog {
                 DeviceLine(it.device.name, it.device.kind.name, "${it.device.host}:${it.device.port}", it.online, it.saved)
             },
             logLines = readOwnLogcat(),
+            selfTest = SelfTest.last,
             generated = java.text.SimpleDateFormat("yyyy-MM-dd HH:mm:ss Z", java.util.Locale.US).format(java.util.Date()),
         )
         val dir = File(context.cacheDir, "support/logs").apply { mkdirs() }

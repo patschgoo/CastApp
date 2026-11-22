@@ -29,6 +29,8 @@ data class MediaItem(
     val live: Boolean = false,
     /** Accept a self-signed HTTPS certificate (own NAS). */
     val trustAll: Boolean = false,
+    /** Plex / Jellyfin: which server item this is ([io.github.patschgoo.castapp.mediaservers.ItemRef]), so progress can be reported. */
+    val serverRef: String? = null,
 ) {
     val type: MediaType
         get() = when {
@@ -50,6 +52,7 @@ data class MediaItem(
         .put("headers", JSONObject(headers as Map<*, *>))
         .put("live", live)
         .put("trustAll", trustAll)
+        .put("ref", serverRef ?: "")
 
     companion object {
         fun fromJson(o: JSONObject): MediaItem {
@@ -64,6 +67,7 @@ data class MediaItem(
                 headers = headers,
                 live = o.optBoolean("live"),
                 trustAll = o.optBoolean("trustAll"),
+                serverRef = o.optString("ref").ifEmpty { null },
             )
         }
 

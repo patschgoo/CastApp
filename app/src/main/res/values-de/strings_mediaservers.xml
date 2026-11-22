@@ -1,0 +1,72 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Netzwerk & Cloud: Einträge -->
+    <string name="ms_section">Plex &amp; Jellyfin</string>
+    <string name="ms_plex">Plex</string>
+    <string name="ms_plex_signed_in">Angemeldet als %1$s</string>
+    <string name="ms_plex_signed_out">Melde dich an, um deine Bibliotheken, „Weiterschauen“ und „Als Nächstes“ zu sehen</string>
+    <string name="ms_jellyfin">Jellyfin &amp; Emby</string>
+    <string name="ms_jellyfin_none">Melde dich bei einem Server an, um seine Bibliotheken, „Weiterschauen“ und „Als Nächstes“ zu sehen</string>
+    <string name="ms_jellyfin_signed_in">Angemeldet: %1$s</string>
+
+    <!-- Server-Bildschirme -->
+    <string name="ms_title_plex">Plex</string>
+    <string name="ms_title_jellyfin">Jellyfin &amp; Emby</string>
+    <string name="ms_servers">Server</string>
+    <string name="ms_libraries">Bibliotheken</string>
+    <string name="ms_continue">Weiterschauen</string>
+    <string name="ms_next_up">Als Nächstes</string>
+    <string name="ms_found_wifi">In diesem WLAN gefunden</string>
+    <string name="ms_searching">Suche nach Servern …</string>
+    <string name="ms_add_server">Server hinzufügen</string>
+    <string name="ms_sign_in">Anmelden</string>
+    <string name="ms_sign_out">Abmelden</string>
+    <string name="ms_more">Mehr</string>
+    <string name="ms_empty">Hier ist nichts</string>
+    <string name="ms_try_again">Nochmal versuchen</string>
+    <string name="ms_no_libraries">Dieser Server hat noch keine Bibliotheken</string>
+
+    <!-- Jellyfin- / Emby-Anmeldung -->
+    <string name="ms_jf_signin_title">Bei Jellyfin oder Emby anmelden</string>
+    <string name="ms_address">Serveradresse</string>
+    <string name="ms_address_hint">192.168.1.10:8096 oder jellyfin.example.com</string>
+    <string name="ms_username">Benutzername</string>
+    <string name="ms_password">Passwort</string>
+    <string name="ms_trust_all">Das eigene (selbstsignierte) Zertifikat des Servers akzeptieren</string>
+    <string name="ms_http_warning">Diese Adresse ist nicht verschlüsselt (http). Zu Hause ist das in Ordnung, aber übers Internet könnte dein Passwort unterwegs mitgelesen werden: Nimm https oder verbinde dich über ein VPN.</string>
+    <string name="ms_token_note">Gespeichert wird nur das Anmelde-Token, verschlüsselt auf diesem Handy. Das Passwort wird nicht gespeichert.</string>
+    <string name="ms_err_auth">Benutzername oder Passwort stimmt nicht</string>
+    <string name="ms_err_unreachable">Der Server antwortet nicht (%1$s)</string>
+    <string name="ms_err_http">Der Server hat mit einem Fehler geantwortet (%1$s)</string>
+    <string name="ms_err_enter_address">Gib die Adresse des Servers ein</string>
+
+    <!-- Plex-Anmeldung -->
+    <string name="ms_plex_intro">Melde dich mit deinem Plex-Konto an, um deine Server zu sehen. Beim Anmelden und beim Aktualisieren der Serverliste spricht die App mit plex.tv, sonst nie; Bibliotheken und Videos kommen direkt von deinem Server.</string>
+    <string name="ms_plex_signin_button">Mit Plex anmelden</string>
+    <string name="ms_plex_code_title">Mit Plex anmelden</string>
+    <string name="ms_plex_code_text">Gehe auf plex.tv/link und gib diesen Code ein:</string>
+    <string name="ms_plex_open_link">plex.tv/link öffnen</string>
+    <string name="ms_plex_code_waiting">Warte darauf, dass du den Code eingibst …</string>
+    <string name="ms_plex_code_expired">Der Code ist abgelaufen. Versuche es nochmal.</string>
+    <string name="ms_plex_refresh">Server von plex.tv aktualisieren</string>
+    <string name="ms_plex_no_servers">Auf diesem Plex-Konto wurde kein Server gefunden. Läuft dein Server und ist er mit demselben Konto angemeldet?</string>
+    <string name="ms_plex_refreshing">Frage plex.tv nach deinen Servern …</string>
+
+    <!-- Inhalte -->
+    <string name="ms_play">Abspielen</string>
+    <string name="ms_play_all">Alle abspielen</string>
+    <string name="ms_resume_title">Weiterschauen?</string>
+    <string name="ms_resume_at">Weiter bei %1$s</string>
+    <string name="ms_start_over">Von vorn beginnen</string>
+    <string name="ms_resume_text">Du hast „%1$s“ bei %2$s unterbrochen.</string>
+    <string name="ms_mark_watched">Als gesehen markieren</string>
+    <string name="ms_mark_unwatched">Als nicht gesehen markieren</string>
+    <string name="ms_marked_watched">Als gesehen markiert</string>
+    <string name="ms_marked_unwatched">Als nicht gesehen markiert</string>
+    <string name="ms_watched">Gesehen</string>
+    <string name="ms_unwatched_count">Neu: %1$d</string>
+    <string name="ms_duration_h_min">%1$d Std. %2$d Min.</string>
+    <string name="ms_duration_min">%1$d Min.</string>
+    <string name="ms_starting">Wird vorbereitet …</string>
+    <string name="ms_cant_play">Konnte nicht gestartet werden: %1$s</string>
+</resources>
