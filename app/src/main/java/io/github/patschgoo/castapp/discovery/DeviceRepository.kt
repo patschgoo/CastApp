@@ -188,7 +188,7 @@ class DeviceRepository(context: Context) {
             val match = saved[device.id] ?: saved.values.firstOrNull { sameEndpoint(it, device) && it.id.startsWith("host:") }
             if (match != null && (match.host != device.host || match.port != device.port || match.name != device.name || match.id != device.id)) {
                 saved.remove(match.id)
-                saved[device.id] = device.copy(status = null)
+                saved[device.id] = device.copy(status = null, mac = device.mac ?: match.mac)
                 persistSaved()
                 if (prefs.getString(KEY_LAST, null) == match.id) prefs.edit { putString(KEY_LAST, device.id) }
             }
@@ -200,9 +200,20 @@ class DeviceRepository(context: Context) {
 
     fun save(device: CastDevice) {
         synchronized(saved) {
+            val mac = device.mac ?: saved[device.id]?.mac
             saved.remove(device.id)
             saved.values.removeAll { sameEndpoint(it, device) && it.id.startsWith("host:") }
-            saved[device.id] = device.copy(status = null)
+            saved[device.id] = device.copy(status = null, mac = mac)
+            persistSaved()
+        }
+        publish()
+    }
+
+    /** Sets (or clears, with null) the MAC address used to wake [device]; remembers the device unless [onlyIfSaved]. */
+    fun setMac(device: CastDevice, mac: String?, onlyIfSaved: Boolean = false) {
+        synchronized(saved) {
+            val base = saved[device.id] ?: if (onlyIfSaved) return else device
+            saved[device.id] = base.copy(status = null, mac = mac)
             persistSaved()
         }
         publish()
@@ -252,7 +263,7 @@ class DeviceRepository(context: Context) {
     private fun publish() {
         val savedCopy = synchronized(saved) { saved.toMap() }
         val entries = LinkedHashMap<String, DeviceEntry>()
-        for ((id, d) in discovered) entries[id] = DeviceEntry(d, savedCopy.containsKey(id), true)
+        for ((id, d) in discovered) entries[id] = DeviceEntry(d.copy(mac = d.mac ?: savedCopy[id]?.mac), savedCopy.containsKey(id), true)
         for ((id, d) in savedCopy) if (id !in entries) entries[id] = DeviceEntry(d, true, id in reachable)
         // Many TVs answer in several ways (Chromecast built in, DLNA, AirPlay, Roku); show each once,
         // the best way first: Cast, DLNA, Roku, AirPlay. CastApp TV receivers are always listed.
