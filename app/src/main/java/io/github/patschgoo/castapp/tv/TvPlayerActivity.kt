@@ -26,6 +26,7 @@ import androidx.media3.common.MimeTypes
 import androidx.media3.common.PlaybackException
 import androidx.media3.common.PlaybackParameters
 import androidx.media3.common.Player
+import androidx.media3.common.Tracks
 import androidx.media3.common.util.UnstableApi
 import androidx.media3.datasource.DefaultDataSource
 import androidx.media3.datasource.DefaultHttpDataSource
@@ -59,6 +60,9 @@ class TvPlayerActivity : ComponentActivity() {
     private var photoState = TransportState.STOPPED
     private var photoLoader: Thread? = null
     private var failed = false
+    /** The tracks of the media now loaded were judged ([checkTracks]). */
+    private var tracksChecked = false
+    private lateinit var noticeView: TextView
     private var closing = false
     private var speed = 1f
     /** Synced playback: follows the host's shared timeline (several screens, joined viewers). */
@@ -101,9 +105,21 @@ class TvPlayerActivity : ComponentActivity() {
             setPadding(64, 64, 64, 64)
             visibility = View.GONE
         }
+        noticeView = TextView(this).apply {
+            setTextColor(Color.WHITE)
+            setTextSize(TypedValue.COMPLEX_UNIT_SP, 20f)
+            setBackgroundColor(0xB0000000.toInt())
+            setPadding(32, 16, 32, 16)
+            visibility = View.GONE
+        }
         root.addView(playerView, FrameLayout.LayoutParams(FrameLayout.LayoutParams.MATCH_PARENT, FrameLayout.LayoutParams.MATCH_PARENT))
         root.addView(photoView, FrameLayout.LayoutParams(FrameLayout.LayoutParams.MATCH_PARENT, FrameLayout.LayoutParams.MATCH_PARENT))
         root.addView(infoView, FrameLayout.LayoutParams(FrameLayout.LayoutParams.MATCH_PARENT, FrameLayout.LayoutParams.WRAP_CONTENT, Gravity.CENTER))
+        root.addView(
+            noticeView,
+            FrameLayout.LayoutParams(FrameLayout.LayoutParams.WRAP_CONTENT, FrameLayout.LayoutParams.WRAP_CONTENT, Gravity.TOP or Gravity.CENTER_HORIZONTAL)
+                .apply { topMargin = (32 * resources.displayMetrics.density).toInt() },
+        )
         // After "swap" (a TV mirroring to this phone): go back to the phone mirroring to the TV.
         swapButton = android.widget.Button(this).apply {
             text = getString(io.github.patschgoo.castapp.R.string.swap_back)
@@ -176,8 +192,11 @@ class TvPlayerActivity : ComponentActivity() {
     fun load(media: TvMedia, autoPlay: Boolean) {
         showing = media
         failed = false
+        tracksChecked = false
         startFollowing(media)
         infoView.visibility = View.GONE
+        handler.removeCallbacks(hideNotice)
+        noticeView.visibility = View.GONE
         if (media.kind == TvMediaKind.PHOTO) {
             exo?.stop()
             playerView.visibility = View.GONE
@@ -299,12 +318,47 @@ class TvPlayerActivity : ComponentActivity() {
 
             override fun onPlaybackStateChanged(playbackState: Int) = reportState()
             override fun onIsPlayingChanged(isPlaying: Boolean) = reportState()
+            override fun onTracksChanged(tracks: Tracks) = checkTracks(tracks)
         })
         playerView.player = player
         exo = player
         exoLowLatency = lowLatency
         return player
     }
+
+    /**
+     * A video whose picture has no decoder on this box fails like a player error (the phone moves on to
+     * its next way, e.g. converting); sound without a decoder is only pointed out, the picture plays on.
+     */
+    private fun checkTracks(tracks: Tracks) {
+        val media = showing ?: return
+        if (failed || tracksChecked || tracks.isEmpty) return
+        when (val verdict = TrackSupport.verdict(TrackSupport.groupsOf(tracks), media.kind, media.lowLatency, media.joinedFrom != null)) {
+            is TrackSupport.Verdict.CantPlay -> {
+                tracksChecked = true
+                failed = true
+                infoView.text = getString(io.github.patschgoo.castapp.R.string.tv_cant_play, verdict.codec)
+                infoView.visibility = View.VISIBLE
+                exo?.stop()
+                reportState()
+            }
+            is TrackSupport.Verdict.NoSound -> {
+                tracksChecked = true
+                showNotice(getString(io.github.patschgoo.castapp.R.string.tv_no_sound_codec, verdict.codec))
+            }
+            TrackSupport.Verdict.Fine -> Unit
+        }
+    }
+
+    /** A short line at the top that goes away by itself. */
+    private fun showNotice(text: String) {
+        handler.removeCallbacks(hideNotice)
+        noticeView.text = text
+        noticeView.visibility = View.VISIBLE
+        handler.postDelayed(hideNotice, NOTICE_MS)
+    }
+
+    private val hideNotice = Runnable { noticeView.visibility = View.GONE }
 
     private fun reportState() {
         val media = showing
@@ -431,5 +485,10 @@ class TvPlayerActivity : ComponentActivity() {
         var sample = 1
         while (bounds.outWidth / (sample * 2) >= maxW && bounds.outHeight / (sample * 2) >= maxH) sample *= 2
         return BitmapFactory.decodeByteArray(bytes, 0, bytes.size, BitmapFactory.Options().apply { inSampleSize = sample })
+    }
+
+    private companion object {
+        /** How long a notice ("No sound: …") stays on screen. */
+        const val NOTICE_MS = 6000L
     }
 }

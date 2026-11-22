@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- The phone can't convert a file (%1$s: title, %2$s: one of the convert_reason_* texts) -->
+    <string name="convert_cant">This phone can\'t convert \"%1$s\" (%2$s). Play it on CastApp TV or a DLNA TV, or through Plex or Jellyfin.</string>
+    <string name="convert_cant_dlna">This phone can\'t convert \"%1$s\" (%2$s). Play it on CastApp TV or through Plex or Jellyfin.</string>
+    <string name="convert_cant_castapp">This phone can\'t convert \"%1$s\" (%2$s). Play it through Plex or Jellyfin.</string>
+    <!-- %1$s: a file type such as AVI -->
+    <string name="convert_reason_file_type">it can\'t read %1$s files</string>
+    <string name="convert_reason_this_type">it can\'t read this file type</string>
+    <string name="convert_reason_unreadable">couldn\'t read the file</string>
+    <string name="convert_reason_no_video">the file has no picture</string>
+    <!-- %1$s: a video codec such as MPEG-2 -->
+    <string name="convert_reason_decoder">no decoder for %1$s video</string>
+    <!-- %1$s: a sound codec such as DTS -->
+    <string name="convert_no_sound">No sound: this phone can\'t decode %1$s audio</string>
+
+    <!-- A Chromecast would play a DTS / TrueHD sound track (%1$s: TV name, %2$s: codec) -->
+    <string name="cast_sound_pick_other">%1$s can\'t play %2$s sound: pick another sound track</string>
+    <string name="cast_sound_elsewhere">%1$s can\'t play %2$s sound. Play it on CastApp TV or through Plex or Jellyfin.</string>
+
+    <!-- CastApp TV: a sound track without decoder on this box (%1$s: codec) -->
+    <string name="tv_no_sound_codec">No sound: %1$s isn\'t supported here</string>
+</resources>
