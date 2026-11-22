@@ -1,5 +1,6 @@
 package io.github.patschgoo.castapp.tv
 
+import io.github.patschgoo.castapp.ui.focusRing
 import android.content.Intent
 import android.os.Build
 import android.os.Bundle
@@ -86,7 +87,7 @@ internal fun TvHome() {
 
     Surface(Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background) {
         Row(Modifier.fillMaxSize().padding(horizontal = 56.dp, vertical = 40.dp), horizontalArrangement = Arrangement.spacedBy(48.dp)) {
-            Column(Modifier.weight(1f)) {
+            Column(Modifier.weight(1f).verticalScroll(rememberScrollState())) {
                 Icon(Icons.Rounded.CastConnected, contentDescription = null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(64.dp))
                 Spacer(Modifier.height(16.dp))
                 Text(stringResource(R.string.tv_title), style = MaterialTheme.typography.displaySmall)
@@ -112,8 +113,8 @@ internal fun TvHome() {
                 }
                 Spacer(Modifier.height(28.dp))
                 Row(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
-                    Button(onClick = { renaming = true }) { Text(stringResource(R.string.tv_rename)) }
-                    OutlinedButton(onClick = {
+                    Button(onClick = { renaming = true }, modifier = Modifier.focusRing()) { Text(stringResource(R.string.tv_rename)) }
+                    OutlinedButton(modifier = Modifier.focusRing(), onClick = {
                         startOnBoot = !startOnBoot
                         TvReceiver.setStartOnBoot(context, startOnBoot)
                     }) {
@@ -146,7 +147,7 @@ internal fun TvHome() {
                             Spacer(Modifier.height(6.dp))
                             Text(stringResource(R.string.tv_background_text), style = MaterialTheme.typography.bodyMedium)
                             Spacer(Modifier.height(12.dp))
-                            OutlinedButton(onClick = {
+                            OutlinedButton(modifier = Modifier.focusRing(), onClick = {
                                 try {
                                     context.startActivity(
                                         Intent(Settings.ACTION_MANAGE_OVERLAY_PERMISSION, ("package:" + context.packageName).toUri()),
@@ -171,14 +172,14 @@ internal fun TvHome() {
                 OutlinedTextField(value = draft, onValueChange = { draft = it }, singleLine = true, modifier = Modifier.fillMaxWidth())
             },
             confirmButton = {
-                TextButton(onClick = {
+                TextButton(modifier = Modifier.focusRing(), onClick = {
                     TvReceiver.setDeviceName(context, draft)
                     name = TvReceiver.deviceName(context)
                     TvReceiverService.nameChanged(context)
                     renaming = false
                 }) { Text(stringResource(R.string.save)) }
             },
-            dismissButton = { TextButton(onClick = { renaming = false }) { Text(stringResource(R.string.cancel)) } },
+            dismissButton = { TextButton(onClick = { renaming = false }, modifier = Modifier.focusRing()) { Text(stringResource(R.string.cancel)) } },
         )
     }
 }

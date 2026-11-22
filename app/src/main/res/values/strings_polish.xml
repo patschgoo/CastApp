@@ -1,0 +1,57 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- First-run tour -->
+    <string name="tour_1_title">Your phone on the big screen</string>
+    <string name="tour_1_text">CastApp sends your screen, videos, music and photos to your TV over your Wi-Fi. No account, no ads.</string>
+    <string name="tour_2_title">Pick a TV, then mirror or cast</string>
+    <string name="tour_2_text">TVs on your Wi-Fi appear on the main screen. Tap \"Cast\" to mirror your screen, or tap the TV itself for more: a single app, files, or the sound only.</string>
+    <string name="tour_3_title">Files, web, TV channels and network</string>
+    <string name="tour_3_text">Cast files from your phone or a cloud app, videos from websites, TV channels with a programme guide, and media from Plex, Jellyfin, a NAS or a PC.</string>
+    <string name="tour_4_title">A remote for your TV</string>
+    <string name="tour_4_text">The remote steers your TV over Wi-Fi, Bluetooth or infrared. CastApp works with Chromecast, Android TV, Fire TV, DLNA and AirPlay TVs. Install CastApp TV on an Android TV or Fire TV for the lowest delay and more features.</string>
+    <string name="tour_skip">Skip</string>
+    <string name="tour_next">Next</string>
+    <string name="tour_done">Get started</string>
+    <string name="tour_page">Page %1$d of %2$d</string>
+    <string name="tour_show_again">Show the tour</string>
+    <string name="tour_show_again_summary">A short introduction to what CastApp can do</string>
+
+    <!-- Settings search -->
+    <string name="polish_search_settings">Search settings</string>
+    <string name="polish_search_clear">Clear search</string>
+    <string name="polish_search_none">No setting found. Try another word.</string>
+    <plurals name="polish_search_count">
+        <item quantity="one">%1$d setting found</item>
+        <item quantity="other">%1$d settings found</item>
+    </plurals>
+    <string name="polish_search_quality">Resolution of the picture on the TV, from 480p to 4K</string>
+    <string name="polish_search_theme">Light, dark or like the system</string>
+
+    <!-- Confirmations -->
+    <string name="polish_reset_title">Reset settings?</string>
+    <string name="polish_reset_text">Picture, sound and connection settings go back to their defaults. Your theme, TVs, channels and accounts are kept.</string>
+    <string name="polish_info">Info</string>
+    <string name="polish_position">Playback position</string>
+    <string name="polish_position_value">%1$s of %2$s</string>
+    <string name="polish_on">On</string>
+    <string name="polish_off">Off</string>
+    <string name="polish_sound_on">Sound on</string>
+    <string name="polish_forget_title">Forget %1$s?</string>
+    <string name="polish_forget_text">CastApp removes this TV from your saved TVs. It shows up again when it is found on your Wi-Fi.</string>
+    <string name="polish_forget">Forget</string>
+    <string name="polish_remove_title">Remove %1$s?</string>
+    <string name="polish_remove_folder_text">The folder is removed from CastApp. Nothing is deleted on the share or the server.</string>
+    <string name="polish_listening">Listening</string>
+    <string name="polish_play">Play</string>
+    <string name="polish_options">Options</string>
+    <string name="polish_schedule">Show schedule</string>
+    <string name="polish_on_now">On now</string>
+    <string name="polish_now_marker">Now</string>
+    <string name="polish_reminder_set">Reminder set</string>
+    <string name="polish_recording_planned">Recording</string>
+    <string name="polish_change">Change</string>
+    <string name="polish_watched_percent">%1$d%% watched</string>
+    <string name="polish_sign_out_title">Sign out of %1$s?</string>
+    <string name="polish_sign_out_text">CastApp forgets this account on this phone. You can sign in again at any time.</string>
+    <string name="polish_remove_list_text">The channel list is removed from CastApp. You can add it again at any time; your recordings stay.</string>
+</resources>

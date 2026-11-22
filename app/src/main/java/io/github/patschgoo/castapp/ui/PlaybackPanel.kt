@@ -15,6 +15,7 @@ import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
@@ -169,16 +170,16 @@ private enum class Sheet { QUEUE, SUBTITLES, AUDIO, SLEEP }
 private fun SubtitleTiming(tracks: TracksView) {
     Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(bottom = 4.dp)) {
         Text(stringResource(R.string.subs_timing), style = MaterialTheme.typography.bodySmall, modifier = Modifier.weight(1f))
-        FilledTonalIconButton(onClick = { PlaybackHub.session?.shiftSubtitles(-SubtitleTracks.STEP_MS) }, modifier = Modifier.size(36.dp)) {
+        FilledTonalIconButton(onClick = { PlaybackHub.session?.shiftSubtitles(-SubtitleTracks.STEP_MS) }) {
             Icon(Icons.Rounded.Remove, contentDescription = stringResource(R.string.subs_earlier))
         }
         Text(
             SubtitleTracks.formatOffset(tracks.offsetMs),
             style = MaterialTheme.typography.labelLarge,
-            modifier = Modifier.width(64.dp).padding(horizontal = 4.dp),
+            modifier = Modifier.widthIn(min = 64.dp).padding(horizontal = 4.dp),
             textAlign = androidx.compose.ui.text.style.TextAlign.Center,
         )
-        FilledTonalIconButton(onClick = { PlaybackHub.session?.shiftSubtitles(SubtitleTracks.STEP_MS) }, modifier = Modifier.size(36.dp)) {
+        FilledTonalIconButton(onClick = { PlaybackHub.session?.shiftSubtitles(SubtitleTracks.STEP_MS) }) {
             Icon(Icons.Rounded.Add, contentDescription = stringResource(R.string.subs_later))
         }
     }

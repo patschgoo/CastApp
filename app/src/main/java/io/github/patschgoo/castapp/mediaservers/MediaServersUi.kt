@@ -1,5 +1,12 @@
 package io.github.patschgoo.castapp.mediaservers
 
+import androidx.compose.ui.semantics.LiveRegionMode
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.liveRegion
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.stateDescription
+import io.github.patschgoo.castapp.ui.readableWidth
+
 import android.widget.Toast
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.background
@@ -322,7 +329,7 @@ private fun JellyfinStart(servers: MediaServers, onOpen: (ServerAccount) -> Unit
     val signedInIds = mine.map { it.serverId }.toSet()
     val newOnes = found.orEmpty().filter { it.id !in signedInIds }
 
-    LazyColumn(contentPadding = PaddingValues(bottom = 24.dp)) {
+    LazyColumn(Modifier.readableWidth(), contentPadding = PaddingValues(bottom = 24.dp)) {
         items(mine, key = { it.id }) { a -> AccountRow(servers, a, onOpen) }
         item { SectionTitle(stringResource(R.string.ms_found_wifi)) }
         if (found == null) {
@@ -359,6 +366,8 @@ private fun Searching(text: String) {
 @Composable
 private fun AccountRow(servers: MediaServers, a: ServerAccount, onOpen: (ServerAccount) -> Unit) {
     var menu by remember { mutableStateOf(false) }
+    var confirm by remember { mutableStateOf(false) }
+    if (confirm) SignOutDialog(a.name, onConfirm = { confirm = false; servers.remove(a.id) }, onDismiss = { confirm = false })
     ListItem(
         onClick = { onOpen(a) },
         leadingContent = { IconBox(if (a.kind.isPlex) Icons.Rounded.VideoLibrary else Icons.Rounded.Tv) },
@@ -373,7 +382,7 @@ private fun AccountRow(servers: MediaServers, a: ServerAccount, onOpen: (ServerA
             Box {
                 IconButton(onClick = { menu = true }) { Icon(Icons.Rounded.MoreVert, contentDescription = stringResource(R.string.ms_more)) }
                 DropdownMenu(expanded = menu, onDismissRequest = { menu = false }) {
-                    DropdownMenuItem(text = { Text(stringResource(R.string.ms_sign_out)) }, onClick = { menu = false; servers.remove(a.id) })
+                    DropdownMenuItem(text = { Text(stringResource(R.string.ms_sign_out)) }, onClick = { menu = false; confirm = true })
                 }
             }
         }),
@@ -421,7 +430,7 @@ private fun PlexStart(servers: MediaServers, onOpen: (ServerAccount) -> Unit) {
         }
     }
 
-    LazyColumn(contentPadding = PaddingValues(bottom = 24.dp)) {
+    LazyColumn(Modifier.readableWidth(), contentPadding = PaddingValues(bottom = 24.dp)) {
         if (!signedIn) {
             item {
                 Card(
@@ -447,7 +456,7 @@ private fun PlexStart(servers: MediaServers, onOpen: (ServerAccount) -> Unit) {
                     modifier = Modifier.padding(horizontal = 20.dp, vertical = 8.dp),
                 )
             }
-            error?.let { e -> item { Text(e, color = MaterialTheme.colorScheme.error, modifier = Modifier.padding(horizontal = 20.dp, vertical = 8.dp)) } }
+            error?.let { e -> item { Text(e, color = MaterialTheme.colorScheme.error, modifier = Modifier.padding(horizontal = 20.dp, vertical = 8.dp).semantics { liveRegion = LiveRegionMode.Polite }) } }
             item {
                 Row(Modifier.padding(horizontal = 16.dp, vertical = 8.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     OutlinedButton(onClick = { refresh() }, enabled = !busy) {
@@ -458,7 +467,9 @@ private fun PlexStart(servers: MediaServers, onOpen: (ServerAccount) -> Unit) {
                 }
             }
             item {
-                TextButton(onClick = { servers.signOutPlex(); asked = false }, modifier = Modifier.padding(horizontal = 8.dp)) {
+                var confirm by remember { mutableStateOf(false) }
+                if (confirm) SignOutDialog("Plex", onConfirm = { confirm = false; servers.signOutPlex(); asked = false }, onDismiss = { confirm = false })
+                TextButton(onClick = { confirm = true }, modifier = Modifier.padding(horizontal = 8.dp)) {
                     Text(stringResource(R.string.ms_sign_out) + (user?.takeIf { it.isNotEmpty() }?.let { " ($it)" } ?: ""))
                 }
             }
@@ -507,7 +518,7 @@ private fun HomeScreen(
     when {
         failure != null -> ErrorBox(failure) { reload++ }
         d == null -> Loading()
-        else -> LazyColumn(contentPadding = PaddingValues(bottom = 24.dp)) {
+        else -> LazyColumn(Modifier.readableWidth(), contentPadding = PaddingValues(bottom = 24.dp)) {
             if (d.resume.isNotEmpty()) {
                 item { SectionTitle(stringResource(R.string.ms_continue)) }
                 item { CardRow(d.resume) { item -> client?.let { player.play(it, item) } } }
@@ -638,7 +649,7 @@ private fun BrowseScreen(
         ) {
             items(list, key = { it.kind.name + it.id }) { item -> PosterCard(item, Modifier, onClick = { open(item) }) }
         }
-        else -> LazyColumn(contentPadding = PaddingValues(bottom = 24.dp)) {
+        else -> LazyColumn(Modifier.readableWidth(), contentPadding = PaddingValues(bottom = 24.dp)) {
             val playable = list.filter { it.isPlayable }
             if (playable.isNotEmpty()) {
                 item {
@@ -674,8 +685,8 @@ private fun Loading() {
 
 @Composable
 private fun ErrorBox(error: Throwable, onRetry: () -> Unit) {
-    Column(Modifier.padding(24.dp)) {
-        Text(errorText(error), color = MaterialTheme.colorScheme.error)
+    Column(Modifier.readableWidth().padding(24.dp)) {
+        Text(errorText(error), color = MaterialTheme.colorScheme.error, modifier = Modifier.semantics { liveRegion = LiveRegionMode.Polite })
         Spacer(Modifier.height(12.dp))
         OutlinedButton(onClick = onRetry) {
             Icon(Icons.Rounded.Refresh, contentDescription = null, modifier = Modifier.size(18.dp))
@@ -696,7 +707,16 @@ private fun placeholderIcon(item: ServerItem): ImageVector = when (item.kind) {
 /** A poster (or a wide still) with title, a watched check mark and the progress bar. */
 @Composable
 private fun PosterCard(item: ServerItem, modifier: Modifier, onClick: () -> Unit) {
-    Column(modifier.clickable(onClick = onClick)) {
+    val watched = stringResource(R.string.ms_watched)
+    val progress = if (item.progress >= 0) stringResource(R.string.polish_watched_percent, (item.progress * 100).toInt()) else null
+    Column(
+        modifier.clickable(role = Role.Button, onClick = onClick).semantics(mergeDescendants = true) {
+            when {
+                item.played -> stateDescription = watched
+                progress != null -> stateDescription = progress
+            }
+        },
+    ) {
         Box(
             Modifier.fillMaxWidth().aspectRatio(if (item.wide) 16f / 9f else 2f / 3f)
                 .clip(RoundedCornerShape(10.dp)).background(MaterialTheme.colorScheme.surfaceContainerHighest),
@@ -711,7 +731,7 @@ private fun PosterCard(item: ServerItem, modifier: Modifier, onClick: () -> Unit
                     color = MaterialTheme.colorScheme.primary,
                     modifier = Modifier.align(Alignment.TopEnd).padding(6.dp).size(20.dp),
                 ) {
-                    Icon(Icons.Rounded.Check, contentDescription = stringResource(R.string.ms_watched), tint = MaterialTheme.colorScheme.onPrimary, modifier = Modifier.padding(2.dp))
+                    Icon(Icons.Rounded.Check, contentDescription = null, tint = MaterialTheme.colorScheme.onPrimary, modifier = Modifier.padding(2.dp))
                 }
             } else if ((item.unplayedCount ?: 0) > 0 && (item.kind == ItemKind.SERIES || item.kind == ItemKind.SEASON)) {
                 Surface(
@@ -829,4 +849,16 @@ private fun ItemSheet(item: ServerItem, onDismiss: () -> Unit, onPlay: () -> Uni
             }
         }
     }
+}
+
+/** "Sign out of <name>?": signing out forgets the account on this phone. */
+@Composable
+private fun SignOutDialog(name: String, onConfirm: () -> Unit, onDismiss: () -> Unit) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text(stringResource(R.string.polish_sign_out_title, name)) },
+        text = { Text(stringResource(R.string.polish_sign_out_text)) },
+        confirmButton = { TextButton(onClick = onConfirm) { Text(stringResource(R.string.ms_sign_out)) } },
+        dismissButton = { TextButton(onClick = onDismiss) { Text(stringResource(R.string.cancel)) } },
+    )
 }

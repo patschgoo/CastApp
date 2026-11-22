@@ -7,6 +7,7 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -102,11 +103,11 @@ private fun ContinueCard(entry: WatchEntry, onPlay: () -> Unit, onRemove: () -> 
                     modifier = Modifier.size(20.dp),
                 )
                 Spacer(Modifier.weight(1f))
-                IconButton(onClick = onRemove, modifier = Modifier.size(36.dp)) {
+                IconButton(onClick = onRemove) {
                     Icon(Icons.Rounded.Close, contentDescription = stringResource(R.string.continue_remove), modifier = Modifier.size(18.dp))
                 }
             }
-            Box(Modifier.padding(end = 12.dp).height(40.dp)) {
+            Box(Modifier.padding(end = 12.dp).heightIn(min = 40.dp)) {
                 Text(entry.title, style = MaterialTheme.typography.bodyMedium, maxLines = 2, overflow = TextOverflow.Ellipsis)
             }
             Spacer(Modifier.height(8.dp))

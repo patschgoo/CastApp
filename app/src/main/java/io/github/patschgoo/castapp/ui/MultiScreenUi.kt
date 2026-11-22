@@ -10,6 +10,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
+import androidx.compose.ui.semantics.Role
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -266,7 +267,7 @@ private fun AddScreenDialog(state: CastState.Active, onDismiss: () -> Unit, onPi
                 }
                 candidates.forEach { d ->
                     Row(
-                        Modifier.fillMaxWidth().clickable { onPick(d) }.padding(vertical = 10.dp),
+                        Modifier.fillMaxWidth().heightIn(min = 48.dp).clickable(role = Role.Button) { onPick(d) }.padding(vertical = 10.dp),
                         verticalAlignment = Alignment.CenterVertically,
                     ) {
                         Icon(Icons.Rounded.Cast, contentDescription = null, modifier = Modifier.size(20.dp))
@@ -294,7 +295,7 @@ private fun PeerPickerDialog(title: String, text: String, peers: List<PeerInfo>,
                 Spacer(Modifier.height(8.dp))
                 peers.forEach { p ->
                     Row(
-                        Modifier.fillMaxWidth().clickable { onPick(p) }.padding(vertical = 10.dp),
+                        Modifier.fillMaxWidth().heightIn(min = 48.dp).clickable(role = Role.Button) { onPick(p) }.padding(vertical = 10.dp),
                         verticalAlignment = Alignment.CenterVertically,
                     ) {
                         Icon(Icons.Rounded.SwapHoriz, contentDescription = null, modifier = Modifier.size(20.dp))

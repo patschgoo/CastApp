@@ -26,7 +26,7 @@
 
     <!-- YouTube on the TV -->
     <string name="yt_play_on_tv">In YouTube auf dem Fernseher abspielen</string>
-    <string name="yt_browser_button">YouTube auf TV</string>
+    <string name="yt_browser_button">YouTube am Fernseher</string>
     <string name="yt_video">Video %1$s</string>
     <string name="yt_starts_at">beginnt bei %1$s</string>
     <string name="yt_with_playlist">mit Wiedergabeliste</string>

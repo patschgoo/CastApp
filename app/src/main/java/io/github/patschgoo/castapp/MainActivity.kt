@@ -30,6 +30,7 @@ import io.github.patschgoo.castapp.service.CastService
 import io.github.patschgoo.castapp.service.MediaItem
 import io.github.patschgoo.castapp.ui.AppPickerScreen
 import io.github.patschgoo.castapp.ui.DevicesScreen
+import io.github.patschgoo.castapp.ui.FirstRunTour
 import io.github.patschgoo.castapp.ui.SettingsScreen
 import io.github.patschgoo.castapp.ui.theme.CastAppTheme
 import io.github.patschgoo.castapp.ui.theme.isAppInDarkTheme
@@ -45,6 +46,16 @@ class MainActivity : ComponentActivity() {
             return
         }
         val app = CastApp.get(this)
+        // The first-run tour: once, and only when the app was opened from the launcher.
+        val launchedFrom = intent.let { i ->
+            io.github.patschgoo.castapp.ui.TourDecision.sourceOf(
+                action = i?.action,
+                categories = i?.categories.orEmpty(),
+                sourceExtra = i?.getStringExtra(io.github.patschgoo.castapp.ui.TourDecision.EXTRA_LAUNCH_SOURCE),
+            )
+        }
+        val tourAtStart = savedInstanceState == null &&
+            io.github.patschgoo.castapp.ui.TourDecision.shouldShow(app.settings.tourSeen, isTv = false, source = launchedFrom)
         setContent {
             val settings by app.settings.state.collectAsStateWithLifecycle()
             val dark = isAppInDarkTheme(settings.theme)
@@ -54,7 +65,7 @@ class MainActivity : ComponentActivity() {
                 enableEdgeToEdge(statusBarStyle = style, navigationBarStyle = style)
             }
             CastAppTheme(settings.theme) {
-                AppRoot(app, this)
+                AppRoot(app, this, tourAtStart)
             }
         }
     }
@@ -92,9 +103,10 @@ class MainActivity : ComponentActivity() {
 private enum class Route { DEVICES, SETTINGS, APP_PICKER }
 
 @Composable
-private fun AppRoot(app: CastApp, activity: MainActivity) {
+private fun AppRoot(app: CastApp, activity: MainActivity, tourAtStart: Boolean) {
     val context = LocalContext.current
     var route by rememberSaveable { mutableStateOf(Route.DEVICES) }
+    var showTour by rememberSaveable { mutableStateOf(tourAtStart) }
     var pickerDeviceId by rememberSaveable { mutableStateOf<String?>(null) }
     var fileDeviceId by rememberSaveable { mutableStateOf<String?>(null) }
 
@@ -140,6 +152,14 @@ private fun AppRoot(app: CastApp, activity: MainActivity) {
         }
     }
 
+    if (showTour) {
+        FirstRunTour(onDone = {
+            app.settings.tourSeen = true
+            showTour = false
+        })
+        return
+    }
+
     BackHandler(enabled = route != Route.DEVICES) { route = Route.DEVICES }
     io.github.patschgoo.castapp.support.SupportHost()
 
@@ -179,6 +199,10 @@ private fun AppRoot(app: CastApp, activity: MainActivity) {
             onRequestAudioPermission = { audioPermission.launch(Manifest.permission.RECORD_AUDIO) },
             onRequestOverlayPermission = { activity.requestOverlayPermission() },
             onBack = { route = Route.DEVICES },
+            onShowTour = {
+                route = Route.DEVICES
+                showTour = true
+            },
         )
         Route.APP_PICKER -> AppPickerScreen(
             onBack = { route = Route.DEVICES },
