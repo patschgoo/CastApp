@@ -31,6 +31,24 @@ interface RemoteSession : Closeable {
 
     /** Types text into the focused text field on the TV (search boxes); only if [RemoteTarget.supportsText]. */
     suspend fun type(text: String) {}
+
+    /**
+     * Starts a voice search on the TV; only if [RemoteTarget.supportsVoice].
+     * Null when this TV doesn't take voice from the phone.
+     */
+    suspend fun startVoice(): RemoteVoice? = null
+}
+
+/** A voice search in progress: send the user's speech as it's recorded, then [end] it. */
+interface RemoteVoice {
+    /** The audio the TV wants: 16-bit signed little-endian PCM, mono, at this rate (Hz). */
+    val sampleRate: Int
+
+    /** Sends [length] bytes of recorded audio. */
+    suspend fun send(pcm: ByteArray, length: Int = pcm.size)
+
+    /** Ends the voice search; the TV then searches for what it heard. */
+    suspend fun end()
 }
 
 /** Something the phone can steer: a TV or TV box over the network, Bluetooth or infrared. */
@@ -42,6 +60,8 @@ interface RemoteTarget {
     val label: String
     val keys: Set<RemoteKey>
     val supportsText: Boolean get() = false
+    /** Voice search from the phone's microphone ([RemoteSession.startVoice]). */
+    val supportsVoice: Boolean get() = false
 
     /** Connects (pairing if needed). Throws an exception with a user-readable message if it can't. */
     suspend fun connect(context: Context, ui: RemoteUi): RemoteSession

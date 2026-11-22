@@ -22,6 +22,18 @@
     <string name="remote_type_label">Text</string>
     <string name="remote_send">Send</string>
 
+    <!-- Voice search -->
+    <string name="remote_voice">Voice search</string>
+    <string name="remote_voice_starting">Getting the TV ready to listen…</string>
+    <string name="remote_voice_listening">Listening… say what to search for.</string>
+    <string name="remote_voice_hint">Let go of the mic, or tap Done, when you\'ve finished.</string>
+    <string name="remote_voice_done">Done</string>
+    <string name="remote_voice_unsupported">%1$s doesn\'t take voice search from the phone. Try the keyboard button instead.</string>
+    <string name="remote_voice_permission">Voice search needs the microphone. Allow it for CastApp, then try again.</string>
+    <string name="remote_voice_open_settings">Open settings</string>
+    <string name="remote_voice_mic_failed">Can\'t use the microphone right now. Another app may be using it.</string>
+    <string name="remote_voice_lost">Voice search stopped: lost the connection to %1$s.</string>
+
     <!-- Android TV / Google TV -->
     <string name="remote_atv_preparing">Getting ready (only the first time)…</string>
     <string name="remote_atv_pairing">Pairing with %1$s…</string>

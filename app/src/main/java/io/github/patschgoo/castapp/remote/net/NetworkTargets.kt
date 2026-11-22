@@ -8,6 +8,7 @@ import io.github.patschgoo.castapp.remote.RemoteKey
 import io.github.patschgoo.castapp.remote.RemoteSession
 import io.github.patschgoo.castapp.remote.RemoteTarget
 import io.github.patschgoo.castapp.remote.RemoteUi
+import io.github.patschgoo.castapp.remote.RemoteVoice
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -68,6 +69,7 @@ internal class AndroidTvTarget(host: String, name: String, private val port: Int
     override val label = "Google TV"
     override val keys: Set<RemoteKey> = AtvMessages.keyCodes.keys
     override val supportsText = true
+    override val supportsVoice = true
 
     override fun toJson(): JSONObject = super.toJson().put("port", port)
 
@@ -117,6 +119,16 @@ internal class AndroidTvTarget(host: String, name: String, private val port: Int
         }
 
         override suspend fun type(text: String) = withContext(Dispatchers.IO) { conn.sendText(text) }
+
+        override suspend fun startVoice(): RemoteVoice? = withContext(Dispatchers.IO) {
+            val id = conn.startVoice() ?: return@withContext null
+            val voice = AndroidTvVoice(conn, id)
+            object : RemoteVoice {
+                override val sampleRate = AtvMessages.VOICE_SAMPLE_RATE
+                override suspend fun send(pcm: ByteArray, length: Int) = withContext(Dispatchers.IO) { voice.send(pcm, length) }
+                override suspend fun end() = withContext(Dispatchers.IO) { voice.end() }
+            }
+        }
 
         override fun close() = conn.close()
     }
