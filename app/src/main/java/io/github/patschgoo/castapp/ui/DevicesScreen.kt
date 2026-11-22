@@ -3,6 +3,11 @@ package io.github.patschgoo.castapp.ui
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.widthIn
+import androidx.compose.foundation.lazy.LazyListScope
+import androidx.compose.ui.unit.Dp
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
@@ -280,88 +285,57 @@ fun DevicesContent(
         },
         snackbarHost = { SnackbarHost(snackbar) },
     ) { padding ->
-        LazyColumn(
-            contentPadding = PaddingValues(
+        val onDeviceCast: (DeviceEntry, Boolean) -> Unit = { entry, castingHere ->
+            when {
+                castingHere -> actions.onStop()
+                audioMode || !entry.device.video -> actions.onCastSound(entry.device)
+                else -> actions.onMirror(entry.device)
+            }
+        }
+        BoxWithConstraints(Modifier.fillMaxSize()) {
+            val twoPane = maxWidth >= TwoPaneMinWidth
+            val contentPadding = PaddingValues(
                 start = 16.dp, end = 16.dp,
                 top = padding.calculateTopPadding() + 4.dp,
                 bottom = padding.calculateBottomPadding() + 24.dp,
-            ),
-            verticalArrangement = Arrangement.spacedBy(10.dp),
-        ) {
-            if (active != null) {
-                item(key = "casting") {
-                    CastingCard(state = active, actions = actions)
+            )
+            if (twoPane) {
+                val paneMax = if (maxWidth >= WideMinWidth) 560.dp else Dp.Unspecified
+                Row(
+                    Modifier.fillMaxSize(),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.CenterHorizontally),
+                ) {
+                    LazyColumn(
+                        modifier = Modifier.weight(1f).widthIn(max = paneMax),
+                        contentPadding = contentPadding,
+                        verticalArrangement = Arrangement.spacedBy(10.dp),
+                    ) {
+                        castingItems(active, actions)
+                        receivingItem(actions)
+                        continueItem()
+                        sourcesItem(actions)
+                        modeItem(audioMode, actions)
+                    }
+                    LazyColumn(
+                        modifier = Modifier.weight(1f).widthIn(max = paneMax),
+                        contentPadding = contentPadding,
+                        verticalArrangement = Arrangement.spacedBy(10.dp),
+                    ) {
+                        deviceItems(devices, scanning, active, audioMode, onDeviceCast, { sheetFor = it }, actions, { showAddDialog = true })
+                    }
                 }
-            }
-
-            item(key = "mode") {
-                SingleChoiceSegmentedButtonRow(Modifier.fillMaxWidth().padding(top = 4.dp)) {
-                    SegmentedButton(
-                        selected = !audioMode,
-                        onClick = { actions.onAudioMode(false) },
-                        shape = SegmentedButtonDefaults.itemShape(0, 2),
-                        icon = { Icon(Icons.Rounded.Tv, contentDescription = null, modifier = Modifier.size(18.dp)) },
-                    ) { Text(stringResource(R.string.mode_video)) }
-                    SegmentedButton(
-                        selected = audioMode,
-                        onClick = { actions.onAudioMode(true) },
-                        shape = SegmentedButtonDefaults.itemShape(1, 2),
-                        icon = { Icon(Icons.Rounded.Speaker, contentDescription = null, modifier = Modifier.size(18.dp)) },
-                    ) { Text(stringResource(R.string.mode_audio)) }
+            } else {
+                LazyColumn(
+                    contentPadding = contentPadding,
+                    verticalArrangement = Arrangement.spacedBy(10.dp),
+                ) {
+                    castingItems(active, actions)
+                    modeItem(audioMode, actions)
+                    sourcesItem(actions)
+                    receivingItem(actions)
+                    continueItem()
+                    deviceItems(devices, scanning, active, audioMode, onDeviceCast, { sheetFor = it }, actions, { showAddDialog = true })
                 }
-            }
-
-            item(key = "sources") {
-                SourcesRow(actions)
-            }
-
-            item(key = "receiving") {
-                ReceivingCard(actions)
-            }
-
-            item(key = "continue") {
-                ContinueWatchingRow()
-            }
-
-            item(key = "header") {
-                Text(
-                    stringResource(if (audioMode) R.string.devices_header_audio else R.string.devices_header),
-                    style = MaterialTheme.typography.titleSmall,
-                    color = MaterialTheme.colorScheme.primary,
-                    modifier = Modifier.padding(start = 4.dp, top = 8.dp),
-                )
-            }
-
-            if (devices.isEmpty()) {
-                item(key = "empty") { EmptyCard(scanning) }
-            }
-
-            items(devices, key = { it.device.id }) { entry ->
-                // Same device: same id, or same address and port (speaker groups share an IP with a speaker).
-                val castingHere = active != null && (
-                    active.device.id == entry.device.id ||
-                        (active.device.host == entry.device.host && active.device.port == entry.device.port)
-                    )
-                DeviceCard(
-                    entry = entry,
-                    casting = castingHere,
-                    onClick = { sheetFor = entry },
-                    onCast = {
-                        when {
-                            castingHere -> actions.onStop()
-                            audioMode || !entry.device.video -> actions.onCastSound(entry.device)
-                            else -> actions.onMirror(entry.device)
-                        }
-                    },
-                )
-            }
-
-            item(key = "help") {
-                HelpCard(
-                    scanning = scanning,
-                    onScan = actions.onScan,
-                    onAdd = { showAddDialog = true },
-                )
             }
         }
     }
@@ -386,6 +360,82 @@ fun DevicesContent(
             onDismiss = { showAddDialog = false },
             onAdd = actions.onAddManual,
         )
+    }
+}
+
+private fun LazyListScope.castingItems(active: CastState.Active?, actions: DevicesActions) {
+    if (active != null) {
+        item(key = "casting") { CastingCard(state = active, actions = actions) }
+    }
+}
+
+private fun LazyListScope.modeItem(audioMode: Boolean, actions: DevicesActions) {
+    item(key = "mode") {
+        SingleChoiceSegmentedButtonRow(Modifier.fillMaxWidth().padding(top = 4.dp)) {
+            SegmentedButton(
+                selected = !audioMode,
+                onClick = { actions.onAudioMode(false) },
+                shape = SegmentedButtonDefaults.itemShape(0, 2),
+                icon = { Icon(Icons.Rounded.Tv, contentDescription = null, modifier = Modifier.size(18.dp)) },
+            ) { Text(stringResource(R.string.mode_video)) }
+            SegmentedButton(
+                selected = audioMode,
+                onClick = { actions.onAudioMode(true) },
+                shape = SegmentedButtonDefaults.itemShape(1, 2),
+                icon = { Icon(Icons.Rounded.Speaker, contentDescription = null, modifier = Modifier.size(18.dp)) },
+            ) { Text(stringResource(R.string.mode_audio)) }
+        }
+    }
+}
+
+private fun LazyListScope.sourcesItem(actions: DevicesActions) {
+    item(key = "sources") { SourcesRow(actions) }
+}
+
+private fun LazyListScope.receivingItem(actions: DevicesActions) {
+    item(key = "receiving") { ReceivingCard(actions) }
+}
+
+private fun LazyListScope.continueItem() {
+    item(key = "continue") { ContinueWatchingRow() }
+}
+
+private fun LazyListScope.deviceItems(
+    devices: List<DeviceEntry>,
+    scanning: Boolean,
+    active: CastState.Active?,
+    audioMode: Boolean,
+    onCast: (DeviceEntry, Boolean) -> Unit,
+    onOpenSheet: (DeviceEntry) -> Unit,
+    actions: DevicesActions,
+    onAdd: () -> Unit,
+) {
+    item(key = "header") {
+        Text(
+            stringResource(if (audioMode) R.string.devices_header_audio else R.string.devices_header),
+            style = MaterialTheme.typography.titleSmall,
+            color = MaterialTheme.colorScheme.primary,
+            modifier = Modifier.padding(start = 4.dp, top = 8.dp),
+        )
+    }
+    if (devices.isEmpty()) {
+        item(key = "empty") { EmptyCard(scanning) }
+    }
+    items(devices, key = { it.device.id }) { entry ->
+        // Same device: same id, or same address and port (speaker groups share an IP with a speaker).
+        val castingHere = active != null && (
+            active.device.id == entry.device.id ||
+                (active.device.host == entry.device.host && active.device.port == entry.device.port)
+            )
+        DeviceCard(
+            entry = entry,
+            casting = castingHere,
+            onClick = { onOpenSheet(entry) },
+            onCast = { onCast(entry, castingHere) },
+        )
+    }
+    item(key = "help") {
+        HelpCard(scanning = scanning, onScan = actions.onScan, onAdd = onAdd)
     }
 }
 
@@ -415,7 +465,7 @@ private fun CastingCard(state: CastState.Active, actions: DevicesActions) {
                 Column(Modifier.weight(1f)) {
                     Text(
                         when {
-                            file -> state.title ?: "Video"
+                            file -> state.title ?: stringResource(R.string.main_video)
                             state.audioOnly -> stringResource(R.string.casting_sound_to, state.device.name)
                             else -> stringResource(R.string.casting_to, state.device.name)
                         },
@@ -427,25 +477,25 @@ private fun CastingCard(state: CastState.Active, actions: DevicesActions) {
                             add(
                                 when {
                                     state.phase != CastPhase.LIVE -> state.phase.label
-                                    state.paused && state.isPhoto -> "Slideshow paused"
-                                    state.paused -> "Paused on ${state.device.name}"
-                                    else -> "On ${state.device.name} · screen can be off"
+                                    state.paused && state.isPhoto -> stringResource(R.string.main_slideshow_paused)
+                                    state.paused -> stringResource(R.string.main_paused_on, state.device.name)
+                                    else -> stringResource(R.string.main_on_device_screen_off, state.device.name)
                                 },
                             )
-                            if (state.queueSize > 1) add("${state.queueIndex + 1} of ${state.queueSize}")
-                            if (state.converting) add("converted on the phone")
+                            if (state.queueSize > 1) add(stringResource(R.string.main_queue_position, state.queueIndex + 1, state.queueSize))
+                            if (state.converting) add(stringResource(R.string.main_converted_on_phone))
                         }.joinToString(" · ")
                     } else {
                         buildList {
                             add(state.phase.label)
-                            if (state.audioOnly) add("phone sound")
+                            if (state.audioOnly) add(stringResource(R.string.main_phone_sound))
                             if (state.resolution.isNotEmpty()) add(state.resolution)
-                            if (state.bitrateKbps > 0 && !state.audioOnly) add("%.1f Mbit/s".format(state.bitrateKbps / 1000f))
+                            if (state.bitrateKbps > 0 && !state.audioOnly) add(stringResource(R.string.main_bitrate, state.bitrateKbps / 1000f))
                             if (state.videoCodec.isNotEmpty() && !state.audioOnly) add(state.videoCodec)
                             if (state.microphone) add(stringResource(R.string.mic_on_short))
-                            if (!state.audioOnly && state.phase != CastPhase.CONNECTING) add(if (state.audio) "Audio on" else "No audio")
-                            if (state.lowLatencyPlayer) add("Low-latency player")
-                            if (state.compatibilityMode) add("Compatible mode")
+                            if (!state.audioOnly && state.phase != CastPhase.CONNECTING) add(stringResource(if (state.audio) R.string.main_audio_on else R.string.main_audio_off))
+                            if (state.lowLatencyPlayer) add(stringResource(R.string.main_low_latency))
+                            if (state.compatibilityMode) add(stringResource(R.string.main_compatible_mode))
                         }.joinToString(" · ")
                     }
                     Text(details, style = MaterialTheme.typography.bodySmall, maxLines = 2)
@@ -569,7 +619,7 @@ private fun LiveControls(state: CastState.Active, actions: DevicesActions) {
     Row(Modifier.fillMaxWidth().padding(top = 8.dp), horizontalArrangement = Arrangement.Center, verticalAlignment = Alignment.CenterVertically) {
         if (state.queueSize > 1) {
             IconButton(onClick = actions.onPrevious, enabled = state.queueIndex > 0) {
-                Icon(Icons.Rounded.SkipPrevious, contentDescription = "Previous channel")
+                Icon(Icons.Rounded.SkipPrevious, contentDescription = stringResource(R.string.main_previous_channel))
             }
             Spacer(Modifier.width(12.dp))
         }
@@ -584,7 +634,7 @@ private fun LiveControls(state: CastState.Active, actions: DevicesActions) {
         if (state.queueSize > 1) {
             Spacer(Modifier.width(12.dp))
             IconButton(onClick = actions.onNext, enabled = state.queueIndex + 1 < state.queueSize) {
-                Icon(Icons.Rounded.SkipNext, contentDescription = "Next channel")
+                Icon(Icons.Rounded.SkipNext, contentDescription = stringResource(R.string.main_next_channel))
             }
         }
     }
@@ -608,7 +658,7 @@ private fun ExtrasRow(state: CastState.Active, actions: DevicesActions) {
                 Box {
                     AssistChip(
                         onClick = { open = true },
-                        label = { Text("Quality: ${state.qualityLabel.ifEmpty { "–" }}") },
+                        label = { Text(stringResource(R.string.main_quality, state.qualityLabel.ifEmpty { "–" })) },
                         leadingIcon = { Icon(Icons.Rounded.HighQuality, contentDescription = null, modifier = Modifier.size(18.dp)) },
                         trailingIcon = { Icon(Icons.Rounded.ArrowDropDown, contentDescription = null, modifier = Modifier.size(18.dp)) },
                     )
@@ -631,7 +681,7 @@ private fun ExtrasRow(state: CastState.Active, actions: DevicesActions) {
             if (state.canCreateSubtitles && !writing) {
                 AssistChip(
                     onClick = actions.onCreateSubtitles,
-                    label = { Text("Write subtitles") },
+                    label = { Text(stringResource(R.string.main_write_subtitles)) },
                     leadingIcon = { Icon(Icons.Rounded.Subtitles, contentDescription = null, modifier = Modifier.size(18.dp)) },
                 )
             }
@@ -652,14 +702,14 @@ private fun ExtrasRow(state: CastState.Active, actions: DevicesActions) {
             if (mirroring) {
                 AssistChip(
                     onClick = actions.onLiveCaption,
-                    label = { Text("Live Caption") },
+                    label = { Text(stringResource(R.string.main_live_caption)) },
                     leadingIcon = { Icon(Icons.Rounded.ClosedCaption, contentDescription = null, modifier = Modifier.size(18.dp)) },
                 )
             }
         }
         if (writing) {
             Spacer(Modifier.height(8.dp))
-            Text("Writing subtitles from the speech… ${state.subtitleProgress}%", style = MaterialTheme.typography.bodySmall)
+            Text(stringResource(R.string.main_writing_subtitles, state.subtitleProgress), style = MaterialTheme.typography.bodySmall)
             Spacer(Modifier.height(4.dp))
             LinearProgressIndicator(
                 progress = { state.subtitleProgress / 100f },
@@ -670,11 +720,12 @@ private fun ExtrasRow(state: CastState.Active, actions: DevicesActions) {
     }
 }
 
+@Composable
 private fun qualityText(option: String, mirroring: Boolean): String = when {
-    option == "Original" -> "Original (no conversion)"
-    option == "Auto" -> "Auto (the TV adapts)"
-    mirroring && option == "4K" -> "4K (2160p)"
-    !mirroring && option.endsWith("p") -> "$option (converted on the phone)"
+    option == "Original" -> stringResource(R.string.main_quality_original)
+    option == "Auto" -> stringResource(R.string.main_quality_auto)
+    mirroring && option == "4K" -> stringResource(R.string.main_quality_4k)
+    !mirroring && option.endsWith("p") -> stringResource(R.string.main_quality_converted, option)
     else -> option
 }
 
@@ -707,7 +758,7 @@ private fun SourcesRow(actions: DevicesActions) {
     Row(Modifier.fillMaxWidth().padding(top = 2.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
         SourceTile(Icons.Rounded.LiveTv, stringResource(R.string.tv_channels), actions.onOpenTvChannels, Modifier.weight(1f))
         SourceTile(Icons.Rounded.Lan, stringResource(R.string.network_cloud), actions.onOpenNetwork, Modifier.weight(1f))
-        SourceTile(Icons.Rounded.Public, "Web videos", actions.onOpenBrowser, Modifier.weight(1f))
+        SourceTile(Icons.Rounded.Public, stringResource(R.string.main_web_videos), actions.onOpenBrowser, Modifier.weight(1f))
     }
 }
 
@@ -757,7 +808,7 @@ private fun VolumeControls(state: CastState.Active, actions: DevicesActions) {
     }
     Text(
         when {
-            state.muted -> "Muted"
+            state.muted -> stringResource(R.string.main_muted)
             state.volume != null -> "${(state.volume * 100).toInt()}%"
             else -> "–"
         },
@@ -810,11 +861,11 @@ private fun DeviceCard(entry: DeviceEntry, casting: Boolean, onClick: () -> Unit
             },
             supportingContent = {
                 val parts = buildList {
-                    if (casting) add("Casting now")
-                    else if (!entry.online) add("Not found right now")
+                    if (casting) add(stringResource(R.string.main_casting_now))
+                    else if (!entry.online) add(stringResource(R.string.main_not_found))
                     else d.status?.let { add(it) }
                     d.kindLabel?.let { add(it) }
-                    if (d.group) add("Speaker group")
+                    if (d.group) add(stringResource(R.string.main_speaker_group))
                     d.model?.let { add(it) }
                     add(d.host)
                 }
