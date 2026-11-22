@@ -11,6 +11,7 @@ import android.os.Looper
 import android.provider.Settings
 import androidx.core.app.NotificationCompat
 import androidx.core.content.edit
+import androidx.core.net.toUri
 import io.github.patschgoo.castapp.R
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -188,6 +189,51 @@ object TvReceiver : RendererBackend, CastAppCommands {
     override fun stopMirror() {
         io.github.patschgoo.castapp.service.CastService.stop(appContext)
     }
+
+    // ---- CastAppCommands: what this TV can do, and YouTube links ------------------------------------
+
+    /** Phones read this before mirroring: HEVC only goes to TVs that decode it. */
+    override fun capabilities(): Map<String, Any> = mapOf(
+        "hevc" to io.github.patschgoo.castapp.capture.VideoCodecs.hasHevcDecoder(),
+        "youtube" to true,
+    )
+
+    /** Opens a (checked, canonical) YouTube link in the TV's YouTube app, or whatever handles such links. */
+    override fun openYouTube(url: String): String? {
+        val uri = url.toUri()
+        val pm = appContext.packageManager
+        val base = Intent(Intent.ACTION_VIEW, uri).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+        // YouTube for Android TV / Google TV, YouTube for Fire TV, then the phone app (on a phone receiver).
+        val intent = YOUTUBE_PACKAGES.asSequence()
+            .map { pkg -> Intent(base).setPackage(pkg) }
+            .firstOrNull { it.resolveActivity(pm) != null }
+            ?: base.takeIf { it.resolveActivity(pm) != null }
+            ?: return appContext.getString(R.string.yt_tv_no_app)
+        // What plays here now would keep playing underneath; close it first.
+        stop()
+        main.post {
+            try {
+                appContext.startActivity(intent)
+            } catch (_: Exception) {
+            }
+            // Android 10+ may block that from the background; the notification lets the viewer open it.
+            if (Build.VERSION.SDK_INT >= 29 && !Settings.canDrawOverlays(appContext)) {
+                showStartNotification(
+                    intent,
+                    appContext.getString(R.string.yt_tv_notification_title),
+                    appContext.getString(R.string.yt_tv_notification_text),
+                )
+            }
+        }
+        return null
+    }
+
+    private val YOUTUBE_PACKAGES = listOf(
+        "com.google.android.youtube.tv",
+        "com.google.android.youtube.googletv",
+        "com.amazon.firetv.youtube",
+        "com.google.android.youtube",
+    )
 
     private fun showStartNotification(
         intent: Intent,

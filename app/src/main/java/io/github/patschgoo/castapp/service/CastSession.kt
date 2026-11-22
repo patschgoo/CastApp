@@ -7,12 +7,17 @@ import android.os.Handler
 import android.os.Looper
 import android.util.Log
 import io.github.patschgoo.castapp.CastApp
+import io.github.patschgoo.castapp.R
 import io.github.patschgoo.castapp.capture.AudioEncoder
+import io.github.patschgoo.castapp.capture.CodecChooser
+import io.github.patschgoo.castapp.capture.HevcMemory
 import io.github.patschgoo.castapp.capture.ScreenEncoder
+import io.github.patschgoo.castapp.capture.VideoCodecs
 import io.github.patschgoo.castapp.cast.CastClient
 import io.github.patschgoo.castapp.cast.CastException
 import io.github.patschgoo.castapp.cast.RunningApp
 import io.github.patschgoo.castapp.discovery.CastDevice
+import io.github.patschgoo.castapp.discovery.DeviceKind
 import io.github.patschgoo.castapp.discovery.NetworkScanner
 import io.github.patschgoo.castapp.render.DlnaRenderer
 import io.github.patschgoo.castapp.render.MediaRenderer
@@ -20,13 +25,14 @@ import io.github.patschgoo.castapp.render.PlayState
 import io.github.patschgoo.castapp.render.RendererMedia
 import io.github.patschgoo.castapp.render.RendererStatus
 import io.github.patschgoo.castapp.settings.CastSettings
+import io.github.patschgoo.castapp.settings.CodecPreference
 import io.github.patschgoo.castapp.settings.PictureMode
 import io.github.patschgoo.castapp.settings.Resolution
 import io.github.patschgoo.castapp.settings.StreamMode
 import io.github.patschgoo.castapp.stream.AdaptiveBitrate
-import io.github.patschgoo.castapp.stream.AvcUtils
 import io.github.patschgoo.castapp.stream.StreamHub
 import io.github.patschgoo.castapp.stream.StreamServer
+import io.github.patschgoo.castapp.stream.VideoCodec
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -55,6 +61,9 @@ import java.util.concurrent.atomic.AtomicBoolean
  *  - Reconnects by itself for up to two minutes if the Wi-Fi drops or the TV
  *    restarts (and finds the TV again if it got a new IP address).
  *  - Lowers the bitrate automatically when the Wi-Fi can't keep up.
+ *  - Uses HEVC (a third less bitrate) on TVs known to decode it, and switches to
+ *    H.264 by itself if the TV doesn't start playing.
+ *  - Can mix the phone's microphone into the sound.
  */
 class CastSession(
     private val context: Context,
@@ -98,6 +107,13 @@ class CastSession(
     private var reloads = 0
     private var watchdog: Job? = null
 
+    /** Video codec of the stream; HEVC falls back to H.264 when the TV can't play it. */
+    @Volatile private var codec = VideoCodec.H264
+    /** The TV has played our HEVC stream at least once (so later errors aren't the codec's fault). */
+    @Volatile private var hevcPlayed = false
+    @Volatile private var micOn = false
+    private var echoWarned = false
+
     fun start() {
         CastController.begin(
             this,
@@ -124,6 +140,7 @@ class CastSession(
             val s = StreamServer(h, settings.port)
             s.start()
             server = s
+            codec = chooseCodec()
             startCapture(h)
             // Sound sync can be changed in Settings while casting.
             scope.launch { settingsFlow.collect { h.audioOffsetUs = it.audioDelayMs * 1000L } }
@@ -144,39 +161,46 @@ class CastSession(
     }
 
     private suspend fun startCapture(h: StreamHub) {
-        val wantAudio = Build.VERSION.SDK_INT >= 29 && (settings.audio || audioOnly)
+        val captureApps = Build.VERSION.SDK_INT >= 29 && (settings.audio || audioOnly)
+        // The microphone also works on phones older than Android 10 (then it is the only sound).
+        val wantMic = settings.microphone &&
+            context.checkSelfPermission(android.Manifest.permission.RECORD_AUDIO) == android.content.pm.PackageManager.PERMISSION_GRANTED
+        val wantAudio = captureApps || wantMic
         h.expectAudio(wantAudio)
         if (!audioOnly) {
             withContext(Dispatchers.Main) {
                 val dpi = context.resources.displayMetrics.densityDpi
                 val res = settings.resolution
                 val v = ScreenEncoder(
-                    context, projection, h, res.width, res.height, settings.fps, settings.effectiveBitrate, dpi,
+                    context, projection, h, res.width, res.height, settings.fps, currentBitrate(), dpi,
                     fill = settings.picture == PictureMode.FILL,
+                    codec = codec,
                 ) { e ->
                     Log.w(TAG, "Video encoder error", e)
                     finish("Screen capture stopped")
                 }
                 v.start(mainHandler)
                 video = v
+                codec = v.videoCodec // H.264 if the phone's HEVC encoder didn't work out
             }
-            update { it.copy(bitrateKbps = settings.effectiveBitrate / 1000) }
-            if (settings.adaptiveQuality) {
-                h.congestionListener = AdaptiveBitrate(settings.effectiveBitrate) { bps ->
-                    video?.setBitrate(bps)
-                    update { it.copy(bitrateKbps = bps / 1000) }
-                }
-            }
+            if (codec == VideoCodec.HEVC) Log.i(TAG, "Mirroring in HEVC to ${device.name}")
+            update { it.copy(bitrateKbps = currentBitrate() / 1000, videoCodec = codec.label) }
+            installAdaptiveBitrate(h, currentBitrate())
         }
         var audioOn = false
         if (wantAudio) {
-            val a = AudioEncoder(context, projection, h) { e ->
+            val a = AudioEncoder(
+                context, projection, h, captureApps = captureApps,
+                micGain = if (wantMic) ({ settingsFlow.value.micLevel / 100f }) else null,
+            ) { e ->
                 Log.w(TAG, "Audio encoder error", e)
                 finish("Audio capture stopped")
             }
             if (a.start()) {
                 audio = a
                 audioOn = true
+                micOn = a.micActive
+                if (wantMic && !a.micActive) CastController.message(context.getString(R.string.mic_unavailable))
             } else {
                 h.expectAudio(false)
             }
@@ -186,7 +210,94 @@ class CastSession(
                 "Couldn't capture the phone's sound. Allow CastApp to record audio, and note that some apps block it.",
             )
         }
-        update { it.copy(audio = audioOn) }
+        update { it.copy(audio = audioOn, microphone = micOn) }
+    }
+
+    // ---- video codec ------------------------------------------------------------------
+
+    private fun currentBitrate(): Int = settings.bitrateFor(codec == VideoCodec.HEVC)
+
+    private fun installAdaptiveBitrate(h: StreamHub, bitrate: Int) {
+        server?.bandwidthHint = bitrate
+        if (!settings.adaptiveQuality) return
+        h.congestionListener = AdaptiveBitrate.forCodec(codec, bitrate) { bps ->
+            video?.setBitrate(bps)
+            update { it.copy(bitrateKbps = bps / 1000) }
+        }
+    }
+
+    /** H.264, or HEVC where the setting, the phone and the TV allow it. */
+    private suspend fun chooseCodec(): VideoCodec {
+        if (audioOnly || settings.videoCodec == CodecPreference.H264) return VideoCodec.H264
+        val res = settings.resolution
+        if (!VideoCodecs.canEncodeHevc(res.width, res.height) && !VideoCodecs.canEncodeHevc()) return VideoCodec.H264
+        val target = when {
+            device.isCastAppTv -> CodecChooser.Target.CASTAPP_TV
+            device.isDlna -> CodecChooser.Target.DLNA
+            device.kind == DeviceKind.CAST -> CodecChooser.Target.CAST
+            else -> CodecChooser.Target.HLS_PLAYER
+        }
+        // A CastApp TV tells whether its decoder plays HEVC (older versions don't answer: H.264).
+        val tvHevc = if (target == CodecChooser.Target.CASTAPP_TV) {
+            withContext(Dispatchers.IO) {
+                CastAppTvClient.capabilities(device)?.let { caps -> if (caps.has("hevc")) caps.optBoolean("hevc") else null }
+            }
+        } else {
+            null
+        }
+        return CodecChooser.choose(
+            preference = settings.videoCodec,
+            target = target,
+            phoneEncodesHevc = true,
+            tvDecodesHevc = tvHevc,
+            castModel = device.model,
+            failedBefore = HevcMemory.failedBefore(context, device.id),
+            compatibleMode = settings.streamMode == StreamMode.COMPATIBLE,
+        )
+    }
+
+    /**
+     * HEVC didn't play on this TV: rebuild the encoder for H.264 (the capture and
+     * the user's permission stay). Returns false if there is nothing to switch or it failed.
+     */
+    private suspend fun switchToH264(reason: String): Boolean {
+        if (codec != VideoCodec.HEVC || audioOnly || ended.get()) return false
+        val v = video ?: return false
+        val h = hub ?: return false
+        val s = server ?: return false
+        Log.i(TAG, "HEVC didn't work on ${device.name} ($reason), switching to H.264")
+        if (settings.videoCodec == CodecPreference.AUTO) HevcMemory.markFailed(context, device.id)
+        codec = VideoCodec.H264
+        val bitrate = currentBitrate()
+        update { it.copy(phase = CastPhase.BUFFERING, videoCodec = codec.label, bitrateKbps = bitrate / 1000) }
+        loadMutex.withLock {
+            withContext(Dispatchers.Main) {
+                val res = settings.resolution
+                v.reconfigure(res.width, res.height, bitrate, VideoCodec.H264) {
+                    h.resetVideo()
+                    s.restartStreams()
+                }
+            }
+            installAdaptiveBitrate(h, bitrate)
+        }
+        CastController.message(context.getString(R.string.hevc_fallback_message, device.name))
+        return h.awaitInitSegment(8_000) != null
+    }
+
+    /** The low-latency web player answers whether its browser plays these codecs (older versions don't answer). */
+    private suspend fun customPlayerSupports(c: CastClient, a: RunningApp, codecs: String): Boolean = try {
+        val reply = c.requestCustom(a, NS_PLAYER, JSONObject().put("type", "CAPS").put("codecs", codecs), timeoutMs = 2500)
+        reply.optBoolean("supported", false)
+    } catch (e: Exception) {
+        false
+    }
+
+    /** Mixing the microphone in while the TV is loud makes the TV's sound come back as an echo. */
+    private fun checkEcho() {
+        val level = volume ?: return
+        if (!micOn || echoWarned || muted || level < ECHO_VOLUME) return
+        echoWarned = true
+        CastController.message(context.getString(R.string.mic_echo_warning))
     }
 
     // ---- connecting and loading ------------------------------------------------------
@@ -237,9 +348,17 @@ class CastSession(
             override fun onStatus(status: RendererStatus) {
                 if (r !== urlRenderer) return
                 when (status.state) {
-                    PlayState.PLAYING -> { playing = true; update { it.copy(phase = CastPhase.LIVE) } }
+                    PlayState.PLAYING -> {
+                        playing = true
+                        if (codec == VideoCodec.HEVC) hevcPlayed = true
+                        update { it.copy(phase = CastPhase.LIVE) }
+                    }
                     PlayState.BUFFERING -> if (!playing) update { it.copy(phase = CastPhase.BUFFERING) }
-                    PlayState.STOPPED, PlayState.FINISHED, PlayState.ERROR -> if (playing && !reconnecting) finish("Casting was stopped on the TV")
+                    PlayState.ERROR -> when {
+                        !playing && codec == VideoCodec.HEVC && !hevcPlayed -> scope.launch { urlRendererToH264(r, "player error") }
+                        playing && !reconnecting -> finish("Casting was stopped on the TV")
+                    }
+                    PlayState.STOPPED, PlayState.FINISHED -> if (playing && !reconnecting) finish("Casting was stopped on the TV")
                     else -> Unit
                 }
             }
@@ -248,6 +367,7 @@ class CastSession(
                 level?.let { volume = it }
                 this@CastSession.muted = muted
                 update { it.copy(volume = volume?.toFloat(), muted = muted) }
+                checkEcho()
             }
             override fun onLost(error: Throwable?) {
                 if (r === urlRenderer && !ended.get()) scope.launch { reconnect() }
@@ -271,6 +391,29 @@ class CastSession(
         val local = localAddress!!
         r.load(mirrorMedia(s, local))
         update { it.copy(phase = CastPhase.BUFFERING) }
+        if (codec == VideoCodec.HEVC && !hevcPlayed) {
+            // No picture after a while: the TV probably can't decode HEVC after all.
+            watchdog?.cancel()
+            watchdog = scope.launch {
+                delay(MP4_START_TIMEOUT_MS)
+                if (!playing && !ended.get() && !reconnecting && r === urlRenderer) urlRendererToH264(r, "no playback")
+            }
+        }
+    }
+
+    /** A URL-playing TV didn't play our HEVC stream: switch to H.264 and load it again. */
+    private suspend fun urlRendererToH264(r: MediaRenderer, reason: String) {
+        if (codec != VideoCodec.HEVC || ended.get()) return
+        if (!switchToH264(reason)) return
+        val s = server ?: return
+        val local = localAddress ?: return
+        try {
+            playing = false
+            if (r === urlRenderer) r.load(mirrorMedia(s, local))
+        } catch (e: Exception) {
+            Log.w(TAG, "Reload in H.264 failed", e)
+            finish("${device.name} couldn't play the stream")
+        }
     }
 
     /** What a URL-playing TV gets for the screen (or the phone's sound). */
@@ -283,7 +426,9 @@ class CastSession(
             val segmenter = s.enableHls()
             usingHls = true
             withTimeoutOrNull(12_000) { while (segmenter.completedSegments < 3) delay(100) }
-            RendererMedia(s.urlFor(local, s.hlsPath), "application/x-mpegurl", TITLE, device.name, live = true)
+            // HEVC needs the master playlist, which names the codec ("hvc1...").
+            val path = if (codec == VideoCodec.HEVC) s.hlsMasterPath else s.hlsPath
+            RendererMedia(s.urlFor(local, path), "application/x-mpegurl", TITLE, device.name, live = true)
         }
     }
 
@@ -296,16 +441,27 @@ class CastSession(
             val a = c.launch(appId, timeoutMs = 20_000)
             app = a
             try { readVolume(c.getReceiverStatus()) } catch (_: Exception) {}
-            val codecs = buildString {
-                append(h.videoConfig?.sps?.let { AvcUtils.codecString(it) } ?: "avc1.42E01F")
+            var codecs = buildString {
+                append(h.videoConfig?.codecString ?: "avc1.42E01F")
                 if (h.publishedAudioRate != null) append(",mp4a.40.2")
+            }
+            if (codec == VideoCodec.HEVC && !customPlayerSupports(c, a, codecs)) {
+                // That TV's browser can't play HEVC (or it is an older player that can't tell): H.264.
+                if (!switchToH264("low-latency player")) throw CastException("player can't play HEVC")
+                codecs = buildString {
+                    append(h.videoConfig?.codecString ?: "avc1.42E01F")
+                    if (h.publishedAudioRate != null) append(",mp4a.40.2")
+                }
             }
             val reply = c.requestCustom(
                 a, NS_PLAYER,
                 JSONObject().put("type", "PLAY").put("url", s.urlFor(local, s.mp4Path)).put("codecs", codecs),
                 timeoutMs = 15_000,
             )
-            if (reply.optString("state") == "error") throw CastException(reply.optString("message", "player error"))
+            if (reply.optString("state") == "error") {
+                if (codec == VideoCodec.HEVC && switchToH264("low-latency player error")) return tryCustomPlayer(c, appId)
+                throw CastException(reply.optString("message", "player error"))
+            }
             usingCustomPlayer = true
             playing = true
             update { it.copy(phase = CastPhase.LIVE, lowLatencyPlayer = true, compatibilityMode = false) }
@@ -351,8 +507,16 @@ class CastSession(
         update { it.copy(phase = CastPhase.BUFFERING, compatibilityMode = true) }
         val segmenter = s.enableHls()
         withTimeoutOrNull(12_000) { while (segmenter.completedSegments < 3) delay(100) }
-        val media = CastClient.liveMedia(s.urlFor(local, s.hlsPath), hls = true, title = TITLE, subtitle = device.name)
-        if (!loadMedia(c, a, media)) finish("${device.name} couldn't play the stream")
+        // HEVC needs the master playlist, which names the codec ("hvc1...").
+        val path = if (codec == VideoCodec.HEVC) s.hlsMasterPath else s.hlsPath
+        val media = CastClient.liveMedia(s.urlFor(local, path), hls = true, title = TITLE, subtitle = device.name)
+        if (!loadMedia(c, a, media)) {
+            if (codec == VideoCodec.HEVC) {
+                scope.launch { if (switchToH264("HLS load failed")) loadHls() else finish("${device.name} couldn't play the stream") }
+            } else {
+                finish("${device.name} couldn't play the stream")
+            }
+        }
     }
 
     private suspend fun loadAudio(): Unit = loadMutex.withLock {
@@ -383,6 +547,14 @@ class CastSession(
 
     private suspend fun fallbackToHls(reason: String) {
         if (usingHls || audioOnly || ended.get()) return
+        if (codec == VideoCodec.HEVC && !hevcPlayed) {
+            // Most likely the TV can't decode HEVC: try H.264 the same way first.
+            if (switchToH264(reason)) {
+                reloads = 0
+                loadMp4()
+                return
+            }
+        }
         Log.i(TAG, "Switching to HLS: $reason")
         loadHls()
     }
@@ -475,6 +647,7 @@ class CastSession(
         when (status.optString("playerState")) {
             "PLAYING" -> {
                 playing = true
+                if (codec == VideoCodec.HEVC) hevcPlayed = true
                 reloads = 0
                 update { it.copy(phase = CastPhase.LIVE) }
             }
@@ -507,7 +680,8 @@ class CastSession(
         reloads++
         when {
             reloads > 3 -> finish("${device.name} keeps stopping the stream")
-            !usingHls && !audioOnly && reloads > 1 -> fallbackToHls("playback error")
+            // An HEVC stream that never played: don't retry, it's most likely the codec.
+            !usingHls && !audioOnly && (reloads > 1 || (codec == VideoCodec.HEVC && !hevcPlayed)) -> fallbackToHls("playback error")
             else -> {
                 delay(500)
                 reload()
@@ -520,6 +694,7 @@ class CastSession(
         if (v.has("level")) volume = v.optDouble("level")
         muted = v.optBoolean("muted", muted)
         update { it.copy(volume = volume?.toFloat(), muted = muted) }
+        checkEcho()
     }
 
     // ---- user controls ----------------------------------------------------------
@@ -534,7 +709,7 @@ class CastSession(
             val s = server ?: return@launch
             settings = settings.copy(resolution = res)
             CastApp.get(context).settings.update { it.copy(resolution = res) } // remembered for next time
-            val bitrate = settings.effectiveBitrate
+            val bitrate = currentBitrate()
             update { it.copy(phase = CastPhase.BUFFERING, qualityLabel = res.short, resolution = res.label, bitrateKbps = bitrate / 1000) }
             loadMutex.withLock {
                 withContext(Dispatchers.Main) {
@@ -543,12 +718,12 @@ class CastSession(
                         s.restartStreams()
                     }
                 }
-                if (settings.adaptiveQuality) {
-                    h.congestionListener = AdaptiveBitrate(bitrate) { bps ->
-                        video?.setBitrate(bps)
-                        update { it.copy(bitrateKbps = bps / 1000) }
-                    }
+                if (v.videoCodec != codec) {
+                    // No HEVC encoder for that size: it went back to H.264.
+                    codec = v.videoCodec
+                    update { it.copy(videoCodec = codec.label) }
                 }
+                installAdaptiveBitrate(h, bitrate)
             }
             if (h.awaitInitSegment(8_000) == null) {
                 finish("The phone can't encode ${res.short}")
@@ -647,6 +822,8 @@ class CastSession(
         private const val TITLE = "Phone screen"
         private const val MP4_START_TIMEOUT_MS = 15_000L
         private const val RECONNECT_FOR_MS = 120_000L
+        /** TV volume (0..1) from which the microphone probably picks up the TV: warn about echo. */
+        private const val ECHO_VOLUME = 0.6
 
         /** Namespace of our own low-latency TV player (receiver/index.html). */
         const val NS_PLAYER = "urn:x-cast:io.github.patschgoo.castapp"

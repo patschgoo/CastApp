@@ -111,7 +111,22 @@ class CastService : Service() {
         }
 
         // Must be in the foreground (with the mediaProjection type) before touching the projection.
-        if (!goForeground(device, if (Build.VERSION.SDK_INT >= 29) ServiceInfo.FOREGROUND_SERVICE_TYPE_MEDIA_PROJECTION else 0)) return
+        // With "Phone microphone" on, also the microphone type: Android 11+ silences the
+        // microphone of a background app without it. If Android refuses that, mirror without.
+        val projectionType = if (Build.VERSION.SDK_INT >= 29) ServiceInfo.FOREGROUND_SERVICE_TYPE_MEDIA_PROJECTION else 0
+        val withMic = Build.VERSION.SDK_INT >= 30 && CastApp.get(this).settings.current.microphone &&
+            checkSelfPermission(android.Manifest.permission.RECORD_AUDIO) == android.content.pm.PackageManager.PERMISSION_GRANTED &&
+            try {
+                ServiceCompat.startForeground(
+                    this, NOTIFICATION_ID,
+                    buildNotification(CastState.Active(device ?: CastDevice("?", "TV", "0.0.0.0"), CastPhase.CONNECTING)),
+                    projectionType or ServiceInfo.FOREGROUND_SERVICE_TYPE_MICROPHONE,
+                )
+                true
+            } catch (e: Exception) {
+                false
+            }
+        if (!withMic && !goForeground(device, projectionType)) return
         if (device == null || data == null || resultCode != Activity.RESULT_OK) {
             stopIfIdle()
             return

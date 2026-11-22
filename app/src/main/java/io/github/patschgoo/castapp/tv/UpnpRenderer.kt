@@ -58,6 +58,12 @@ interface CastAppCommands {
 
     /** Stop mirroring this device's screen. */
     fun stopMirror()
+
+    /** What this TV can do, served at GET /castapp/capabilities (e.g. "hevc" to true). */
+    fun capabilities(): Map<String, Any> = emptyMap()
+
+    /** Open [url], an already checked YouTube video link, in the TV's YouTube app; returns null, or what went wrong. */
+    fun openYouTube(url: String): String? = "Not supported"
 }
 
 /** The TV side of the renderer: called from network threads, must not block. */
@@ -219,6 +225,7 @@ class UpnpRenderer(
                 "/AVTransport.xml" -> xml(Scpd.AV_TRANSPORT)
                 "/RenderingControl.xml" -> xml(Scpd.RENDERING_CONTROL)
                 "/ConnectionManager.xml" -> xml(Scpd.CONNECTION_MANAGER)
+                "/castapp/capabilities" -> capabilitiesResponse(remote)
                 else -> Response(404, "Not Found", "text/plain", ByteArray(0))
             }
             request.method == "POST" && path.startsWith("/control/") -> soap(path.removePrefix("/control/"), request, remote)
@@ -240,7 +247,7 @@ class UpnpRenderer(
         if (command == "pair") return pair(request, remote)
         val c = commands ?: return plain(404, "Not Found", "Not supported here")
         if (!isLocal(remote)) return plain(403, "Forbidden", "Only devices on the local network may ask that")
-        val denied = guard?.authorize(senderOf(request, remote), if (command == "mirror") Access.START else Access.CONTROL)
+        val denied = guard?.authorize(senderOf(request, remote), if (command == "mirror" || command == "youtube") Access.START else Access.CONTROL)
         if (denied is Verdict.Denied) {
             val pairing = denied.message == ReceiverGuard.PAIRING_REQUIRED
             return plain(if (pairing) 401 else 403, if (pairing) "Unauthorized" else "Forbidden", denied.message)
@@ -259,6 +266,18 @@ class UpnpRenderer(
             "stop-mirror" -> {
                 c.stopMirror()
                 plain(200, "OK", "OK")
+            }
+            "youtube" -> {
+                val requested = try {
+                    org.json.JSONObject(request.body).optString("url")
+                } catch (_: Exception) {
+                    ""
+                }
+                // Only YouTube video links, and only in their clean form: never an arbitrary intent.
+                val link = io.github.patschgoo.castapp.youtube.YouTubeLink.parse(requested)
+                    ?: return plain(400, "Bad Request", "Not a YouTube video link")
+                val error = c.openYouTube(link.canonicalUrl)
+                if (error == null) plain(200, "OK", "OK") else plain(409, "Conflict", error)
             }
             else -> plain(404, "Not Found", "Unknown command")
         }
@@ -295,6 +314,15 @@ class UpnpRenderer(
         token = request.headers[ReceiverGuard.TOKEN_HEADER.lowercase()],
         local = isLocal(remote),
     )
+
+    /** GET /castapp/capabilities: {"version": 1, "hevc": true, "youtube": true, ...} for phones on this network. */
+    private fun capabilitiesResponse(remote: InetAddress?): Response {
+        val c = commands ?: return Response(404, "Not Found", "text/plain", ByteArray(0))
+        if (!isLocal(remote)) return plain(403, "Forbidden", "Only devices on the local network may ask that")
+        val json = org.json.JSONObject().put("version", CAPABILITIES_VERSION)
+        for ((k, v) in c.capabilities()) json.put(k, v)
+        return Response(200, "OK", "application/json; charset=utf-8", json.toString().toByteArray(Charsets.UTF_8))
+    }
 
     private fun plain(code: Int, reason: String, text: String) =
         Response(code, reason, "text/plain; charset=utf-8", text.toByteArray(Charsets.UTF_8))
@@ -610,6 +638,8 @@ class UpnpRenderer(
 
     companion object {
         const val MODEL_NAME = "CastApp TV"
+        /** Version of the /castapp/capabilities answer. */
+        const val CAPABILITIES_VERSION = 1
 
         /** Requests from this home network only (private, link-local or loopback addresses). */
         fun isLocal(remote: InetAddress?): Boolean =

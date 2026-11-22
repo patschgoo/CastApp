@@ -62,6 +62,10 @@ import io.github.patschgoo.castapp.discovery.CastDevice
 import io.github.patschgoo.castapp.service.CastService
 import io.github.patschgoo.castapp.service.MediaItem
 import io.github.patschgoo.castapp.ui.theme.CastAppTheme
+import io.github.patschgoo.castapp.youtube.YouTubeCast
+import io.github.patschgoo.castapp.youtube.YouTubeLink
+import io.github.patschgoo.castapp.youtube.YouTubeTvSheet
+import androidx.compose.material.icons.rounded.SmartDisplay
 import org.json.JSONObject
 import java.net.URI
 import java.net.URLEncoder
@@ -101,6 +105,7 @@ class BrowserActivity : ComponentActivity() {
         var editing by remember { mutableStateOf(false) }
         var showVideos by remember { mutableStateOf(false) }
         var chosen by remember { mutableStateOf<FoundVideo?>(null) }
+        var youTubeChosen by remember { mutableStateOf<YouTubeLink?>(null) }
         val currentUrl by pageUrlState
         val loading by loadProgress
 
@@ -140,6 +145,17 @@ class BrowserActivity : ComponentActivity() {
                 )
             },
             floatingActionButton = {
+              Column(horizontalAlignment = androidx.compose.ui.Alignment.End) {
+                // A YouTube video page: offer the TV's own YouTube app (the page's video can't be cast directly).
+                val youTube = YouTubeLink.parse(currentUrl)
+                if (youTube != null) {
+                    ExtendedFloatingActionButton(
+                        onClick = { withPlaybackPosition(youTube) { youTubeChosen = it } },
+                        icon = { Icon(Icons.Rounded.SmartDisplay, contentDescription = null) },
+                        text = { Text(stringResource(R.string.yt_browser_button)) },
+                        modifier = Modifier.padding(bottom = 12.dp),
+                    )
+                }
                 if (videos.isNotEmpty()) {
                     ExtendedFloatingActionButton(
                         onClick = { if (videos.size == 1) chosen = videos[0] else showVideos = true },
@@ -152,6 +168,7 @@ class BrowserActivity : ComponentActivity() {
                         },
                     )
                 }
+              }
             },
         ) { padding ->
             Column(Modifier.padding(padding).fillMaxSize().imePadding()) {
@@ -186,6 +203,21 @@ class BrowserActivity : ComponentActivity() {
                     }
                 }
             }
+        }
+
+        youTubeChosen?.let { link ->
+            YouTubeTvSheet(
+                link = link,
+                devices = devices,
+                scanning = scanning,
+                onPick = { device ->
+                    youTubeChosen = null
+                    YouTubeCast.play(this, device, link)
+                    webView?.evaluateJavascript(VideoDetector.PAUSE_SCRIPT, null)
+                },
+                onScan = { app.devices.scanNetwork() },
+                onDismiss = { youTubeChosen = null },
+            )
         }
 
         chosen?.let { video ->
@@ -229,6 +261,11 @@ class BrowserActivity : ComponentActivity() {
             override fun onPageStarted(view: WebView, pageUrl: String, favicon: Bitmap?) {
                 detector.newPage(pageUrl)
                 pageUrlState.value = pageUrl
+            }
+
+            override fun doUpdateVisitedHistory(view: WebView, url: String, isReload: Boolean) {
+                // Sites like YouTube change the address without loading a new page.
+                pageUrlState.value = url
             }
 
             override fun onPageFinished(view: WebView, pageUrl: String) {
@@ -289,6 +326,16 @@ class BrowserActivity : ComponentActivity() {
         // Don't play it twice: pause the page's own player.
         webView?.evaluateJavascript(VideoDetector.PAUSE_SCRIPT, null)
         Toast.makeText(this, getString(R.string.browser_casting, device.name), Toast.LENGTH_LONG).show()
+    }
+
+    /** Continues where the page's player is now (when the link has no start time of its own). */
+    private fun withPlaybackPosition(link: YouTubeLink, then: (YouTubeLink) -> Unit) {
+        val w = webView
+        if (w == null || link.startSeconds > 0) return then(link)
+        w.evaluateJavascript("(function(){var v=document.querySelector('video');return v?Math.floor(v.currentTime):0})()") { result ->
+            val seconds = result?.trim('"')?.toDoubleOrNull()?.toInt() ?: 0
+            then(if (seconds > 5) link.copy(startSeconds = seconds) else link)
+        }
     }
 
     private fun toUrl(text: String): String {
