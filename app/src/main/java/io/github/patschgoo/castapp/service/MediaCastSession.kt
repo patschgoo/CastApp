@@ -331,12 +331,14 @@ class MediaCastSession(
 
     private fun registerRoutes() {
         // Paths use the queue entry id, which stays the same when the play list is edited:
-        // file/<id>/<name>, photo/<id>.jpg, st/<id>/<choice>/<streamStartMs>/<offsetMs>.vtt|srt (subtitles),
+        // file/<id>/<name> (file/<id>/m/<name>: told video/x-matroska), photo/<id>.jpg,
+        // st/<id>/<choice>/<streamStartMs>/<offsetMs>.vtt|srt (subtitles),
         // tx/<id>/<startMs>/<height>/<audio>.mp4 (converted), hx/<id>/<startMs>/<height>/<audio>/… (converted, HLS).
         server.addPrefixRoute("file/") { request, socket, out ->
             val item = itemAt(request.path, "file/")?.takeIf { !it.isWeb } ?: return@addPrefixRoute notFound(out)
             val source = try { sourceFor(item) } catch (_: IOException) { return@addPrefixRoute notFound(out) }
-            server.ranged(source, CastService.normalizeMime(item.mimeType)).handle(request, socket, out)
+            // The type this TV was told: a Chromecast and a DLNA TV may fetch the same MKV at once.
+            server.ranged(source, PlaybackChecks.servedMime(request.path, item.mimeType)).handle(request, socket, out)
         }
         server.addPrefixRoute("photo/") { request, socket, out ->
             val item = itemAt(request.path, "photo/") ?: return@addPrefixRoute notFound(out)
@@ -789,7 +791,10 @@ class MediaCastSession(
 
     /** The ways to try for [item] on [target] ([PlaybackChecks.plan]). */
     private fun plan(item: MediaItem, target: CastDevice = device): List<Delivery> =
-        PlaybackChecks.plan(item, target, settings.convert, picked = convertHeight > 0 || (audioChoice[item.uri] ?: 0) > 0)
+        PlaybackChecks.plan(item, target, settings.convert, picked = convertPicked(item))
+
+    /** A quality or sound track was picked by hand, which means converting [item]. */
+    private fun convertPicked(item: MediaItem): Boolean = convertHeight > 0 || (audioChoice[item.uri] ?: 0) > 0
 
     /** Apple TV and Roku can't play an endless MP4: they get converted videos as HLS. */
     private val convertsToHls: Boolean get() = device.kind == DeviceKind.AIRPLAY || device.kind == DeviceKind.ROKU
@@ -807,20 +812,6 @@ class MediaCastSession(
         val convertsToHls = target.kind == DeviceKind.AIRPLAY || target.kind == DeviceKind.ROKU
         val t = server.token
         val audio = audioChoice[item.uri] ?: 0
-        val url = when (d) {
-            Delivery.ORIGINAL -> item.original ?: item.uri
-            Delivery.DIRECT -> item.uri
-            Delivery.PROXY -> server.urlFor(local, proxy.pathFor(item.uri))
-            Delivery.SERVE -> server.urlFor(
-                local,
-                if (item.type == MediaType.PHOTO) "/$t/photo/$id.jpg" else "/$t/file/$id/" + MediaServer.safeName(item.title),
-            )
-            Delivery.CONVERT -> if (convertsToHls) {
-                server.urlFor(local, "/$t/hx/$id/$startMs/${convertHeightNow()}/$audio/index.m3u8")
-            } else {
-                server.urlFor(local, "/$t/tx/$id/$startMs/${convertHeightNow()}/$audio.mp4")
-            }
-        }
         val mime = when {
             d == Delivery.CONVERT -> if (convertsToHls) "application/x-mpegurl" else "video/mp4"
             d == Delivery.ORIGINAL && item.original != null -> item.originalMime ?: MediaItem.mimeForUrl(item.original)
@@ -828,6 +819,21 @@ class MediaCastSession(
             item.isHls -> "application/x-mpegurl"
             // MKV: "video/webm" for Chromecasts only; DLNA TVs know (and some insist on) video/x-matroska.
             else -> PlaybackChecks.mimeFor(item.mimeType, target.kind)
+        }
+        val url = when (d) {
+            Delivery.ORIGINAL -> item.original ?: item.uri
+            Delivery.DIRECT -> item.uri
+            Delivery.PROXY -> server.urlFor(local, proxy.pathFor(item.uri))
+            Delivery.SERVE -> server.urlFor(
+                local,
+                // The file route answers with the type this TV is told (in the address: per TV, not per file).
+                if (item.type == MediaType.PHOTO) "/$t/photo/$id.jpg" else PlaybackChecks.filePath(t, id, item.title, mime),
+            )
+            Delivery.CONVERT -> if (convertsToHls) {
+                server.urlFor(local, "/$t/hx/$id/$startMs/${convertHeightNow()}/$audio/index.m3u8")
+            } else {
+                server.urlFor(local, "/$t/tx/$id/$startMs/${convertHeightNow()}/$audio.mp4")
+            }
         }
         // A converted video starts its clock at 0: move the subtitles along (and by the timing correction).
         val streamStart = if (d == Delivery.CONVERT) startMs else 0
@@ -900,8 +906,8 @@ class MediaCastSession(
 
         var options = plan(item)
         if (onlyFrom != null) options = options.dropWhile { it != onlyFrom }.ifEmpty { plan(item) }
-        // The user was told why it can't play (the phone can't convert it): no second, vaguer message.
-        var explained = false
+        // Why the phone can't convert it, said once the other ways were tried too (one of them may play it).
+        var refused: ConvertProblem? = null
         for (d in options) {
             if (ended.get()) return
             val r = renderer ?: return
@@ -910,9 +916,9 @@ class MediaCastSession(
                 val problem = if (d == Delivery.CONVERT && !item.live) convertCheck(item).problem else null
                 if (problem != null) {
                     Log.i(TAG, "${item.title}: the phone can't convert it (${problem.describe()})")
-                    CastController.message(cantConvertMessage(item, problem))
-                    explained = true
-                    continue
+                    refused = problem
+                    // A read error may be passing: the converter tries anyway (it answers the TV at once if it can't).
+                    if (problem != ConvertProblem.ReadFailed) continue
                 }
                 delivery = d
                 convertStartMs = if (d == Delivery.CONVERT) start else 0
@@ -947,10 +953,14 @@ class MediaCastSession(
                     reportStarted(item)
                     // The other screens get the same item, from where the first one is now.
                     extras.reloadAll()
-                    if (d == Delivery.CONVERT && convertHeight == 0 && (audioChoice[item.uri] ?: 0) == 0) {
+                    if (d == Delivery.CONVERT && !convertPicked(item)) {
                         CastController.message(Txt.s(R.string.msg_converting, item.title))
                     }
                     if (d == Delivery.CONVERT) convertChecks[convertKey(item)]?.droppedAudioMime?.let { warnNoSound(item, it) }
+                    // Converting was asked for by hand, but it plays as it is: say why.
+                    PlaybackChecks.playedAsIsNote(refused, d, convertPicked(item))?.let { problem ->
+                        CastController.message(Txt.s(R.string.convert_cant_played_original, item.title, problem.describe()))
+                    }
                     if (settings.autoSubtitles && canCreateSubtitles(item, auto = true)) createSubtitles(auto = true) else writeAhead()
                     probeTracks(item)
                     return
@@ -964,8 +974,8 @@ class MediaCastSession(
                 outcome = null
             }
         }
-        // Nothing worked for this item: skip it (the way the user was going).
-        if (!explained) CastController.message(Txt.s(R.string.err_cant_play_item, device.name, item.title))
+        // Nothing worked for this item: skip it (the way the user was going), saying why where it's known.
+        CastController.message(refused?.let { cantConvertMessage(item, it) } ?: Txt.s(R.string.err_cant_play_item, device.name, item.title))
         val nextIndex = i + direction
         if (nextIndex in items.indices && skipped < MAX_SKIPS) {
             skipped++
@@ -975,18 +985,21 @@ class MediaCastSession(
         }
     }
 
-    private fun convertKey(item: MediaItem) = "${item.uri}|${audioChoice[item.uri] ?: 0}"
+    private fun convertKey(item: MediaItem, audio: Int = audioChoice[item.uri] ?: 0) = "${item.uri}|$audio"
 
     /** Whether the phone can convert [item] with the chosen sound track (read once per file; also its length). */
-    private suspend fun convertCheck(item: MediaItem): ConvertCheck {
-        val key = convertKey(item)
+    private suspend fun convertCheck(item: MediaItem): ConvertCheck = runInterruptible { probeConvert(item, audioChoice[item.uri] ?: 0) }
+
+    /** [convertCheck] for sound track [audio], on this thread (it reads the file's header the first time). */
+    private fun probeConvert(item: MediaItem, audio: Int): ConvertCheck {
+        val key = convertKey(item, audio)
         convertChecks[key]?.let { return it }
-        val audio = audioChoice[item.uri] ?: 0
         val fileType = ConvertChecks.fileType(item.uri) ?: ConvertChecks.fileType(item.title)
-        val check = runInterruptible { Transcoder.probe(context, inputFor(item), audio, fileType) }
+        val check = Transcoder.probe(context, inputFor(item), audio, fileType)
         // A read error may be a passing network problem: ask again next time.
         if (check.problem != ConvertProblem.ReadFailed) convertChecks[key] = check
-        durationCache.putIfAbsent(item.uri, check.durationMs)
+        // Unknown (0) leaves the TV's own length or a later reading.
+        if (check.durationMs > 0) durationCache.putIfAbsent(item.uri, check.durationMs)
         return check
     }
 
@@ -1004,13 +1017,22 @@ class MediaCastSession(
         if (noSoundWarned.add(item.uri)) CastController.message(Txt.s(R.string.convert_no_sound, ConvertChecks.codecName(mime)))
     }
 
-    /** A Chromecast playing the file as it is plays its DTS / TrueHD sound track: no sound. Say so once per file. */
+    /**
+     * A Chromecast playing the file as it is plays its DTS / TrueHD sound track: no sound. Say so once per
+     * file. Not on the playing thread: it may read the file (can the phone convert another track?).
+     */
     private fun warnCastSound(item: MediaItem, tracks: TrackList) {
-        if (ended.get() || !started || current.uri != item.uri) return
-        val warning = PlaybackChecks.castSoundWarning(device.kind, delivery, tracks.audio) ?: return
-        if (!castSoundWarned.add(item.uri)) return
+        fun stillPlaying() = !ended.get() && started && current.uri == item.uri
+        if (!stillPlaying() || item.uri in castSoundWarned) return
+        val tv = device
+        val warning = PlaybackChecks.castSoundWarning(tv.kind, delivery, tracks.audio) { track ->
+            // Picking that track converts on the phone: only worth it if the phone decodes it (picture and sound).
+            val check = try { probeConvert(item, track.ordinal) } catch (_: Exception) { null }
+            check != null && check.problem == null && check.droppedAudioMime == null
+        } ?: return
+        if (!stillPlaying() || !castSoundWarned.add(item.uri)) return
         val text = if (warning.otherTrack) R.string.cast_sound_pick_other else R.string.cast_sound_elsewhere
-        CastController.message(Txt.s(text, device.name, warning.codec))
+        CastController.message(Txt.s(text, tv.name, warning.codec))
     }
 
     private fun scheduleSlideshow() {
@@ -1259,7 +1281,7 @@ class MediaCastSession(
     private fun probeTracks(item: MediaItem) {
         if (item.type != MediaType.VIDEO || item.live || item.isHls || probingFor == item.uri) return
         trackCache[item.uri]?.let { known ->
-            warnCastSound(item, known)
+            if (item.uri !in castSoundWarned) scope.launch { warnCastSound(item, known) }
             return
         }
         probingFor = item.uri

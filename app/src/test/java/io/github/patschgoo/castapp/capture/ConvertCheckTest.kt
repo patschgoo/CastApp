@@ -3,7 +3,10 @@ package io.github.patschgoo.castapp.capture
 import io.github.patschgoo.castapp.capture.ConvertChecks.TrackFacts
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
+import org.junit.Assert.assertThrows
 import org.junit.Test
+import java.io.IOException
+import java.io.InterruptedIOException
 
 /** Whether the phone can convert a file, decided from what MediaExtractor and the codec list say. */
 class ConvertCheckTest {
@@ -28,6 +31,47 @@ class ConvertCheckTest {
         assertEquals("it can't read this file type", ConvertProblem.UnreadableFileType(null).describe())
         // Not even the bytes: a network problem, not the file type.
         assertEquals(ConvertProblem.ReadFailed, ConvertChecks.decide(null, 0, readable = false, fileType = "AVI", videoDecoder = yes, audioDecoder = yes).problem)
+    }
+
+    @Test
+    fun aFileTypeEveryPhoneReadsIsAReadingProblem() {
+        // An MKV or MP4 MediaExtractor couldn't open: the share or server was gone for a moment, whatever
+        // the first byte said, and it's asked again next time (ReadFailed isn't kept).
+        var asked = 0
+        val readable = { asked++; true }
+        for (type in listOf("MKV", "mkv", "MK3D", "WEBM", "MP4", "M4V", "MOV", "3GP", "TS", "MPG", "MPEG")) {
+            assertEquals(type, ConvertProblem.ReadFailed, ConvertChecks.openFailed(type, readable))
+        }
+        assertEquals(0, asked) // no request needed to tell
+        // Types a phone may have no reader for: their type, but only when the bytes are there.
+        assertEquals(ConvertProblem.UnreadableFileType("AVI"), ConvertChecks.openFailed("AVI") { true })
+        assertEquals(ConvertProblem.UnreadableFileType("DIVX"), ConvertChecks.openFailed("DIVX") { true })
+        assertEquals(ConvertProblem.UnreadableFileType("WMV"), ConvertChecks.openFailed("WMV") { true })
+        assertEquals(ConvertProblem.UnreadableFileType("M2TS"), ConvertChecks.openFailed("M2TS") { true })
+        assertEquals(ConvertProblem.UnreadableFileType(null), ConvertChecks.openFailed(null) { true })
+        assertEquals(ConvertProblem.ReadFailed, ConvertChecks.openFailed("FLV") { false })
+        assertEquals(ConvertProblem.ReadFailed, ConvertChecks.openFailed(null) { false })
+        // decide() says the same for a container that couldn't be opened.
+        assertEquals(ConvertProblem.ReadFailed, ConvertChecks.decide(null, 0, readable = true, fileType = "MKV", videoDecoder = yes, audioDecoder = yes).problem)
+    }
+
+    @Test
+    fun openingIsTriedTwice() {
+        var calls = 0
+        // A stale connection fails once; the second try gets a fresh one.
+        assertEquals("extractor", ConvertChecks.openTwice { if (++calls == 1) throw IOException("stale") else "extractor" })
+        assertEquals(2, calls)
+        calls = 0
+        assertEquals("extractor", ConvertChecks.openTwice { calls++; "extractor" })
+        assertEquals(1, calls)
+        // Gone for good: the second error comes out.
+        calls = 0
+        val e = assertThrows(IOException::class.java) { ConvertChecks.openTwice<String> { throw IOException("try ${++calls}") } }
+        assertEquals("try 2", e.message)
+        // Stopped (the user moved on): not tried again.
+        calls = 0
+        assertThrows(InterruptedIOException::class.java) { ConvertChecks.openTwice<String> { calls++; throw InterruptedIOException() } }
+        assertEquals(1, calls)
     }
 
     @Test
