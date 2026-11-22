@@ -7,7 +7,9 @@
     <string name="convert_reason_this_type">es kann diesen Dateityp nicht lesen</string>
     <string name="convert_reason_unreadable">die Datei konnte nicht gelesen werden</string>
     <string name="convert_reason_no_video">die Datei hat kein Bild</string>
-    <string name="convert_reason_decoder">kein Decoder für %1$s-Video</string>
+    <string name="convert_reason_decoder">kein Decoder für Videos im Format %1$s</string>
+    <string name="convert_codec_10bit">10-Bit</string>
+    <string name="convert_cant_played_original">„%1$s“ läuft unverändert: Dieses Handy kann es nicht umwandeln (%2$s)</string>
     <string name="convert_no_sound">Kein Ton: Dieses Handy kann %1$s-Ton nicht dekodieren</string>
 
     <string name="cast_sound_pick_other">%1$s kann keinen %2$s-Ton abspielen: Wähle eine andere Tonspur</string>

@@ -82,9 +82,7 @@ object ConvertChecks {
         audioDecoder: (Int) -> Boolean,
         videoCodec: (Int) -> String = { i -> codecName(tracks?.getOrNull(i)?.mime) },
     ): ConvertCheck {
-        if (tracks == null) {
-            return ConvertCheck(if (readable) ConvertProblem.UnreadableFileType(fileType) else ConvertProblem.ReadFailed)
-        }
+        if (tracks == null) return ConvertCheck(openFailed(fileType) { readable })
         val durationMs = (tracks.maxOfOrNull { it.durationUs } ?: 0L) / 1000
         val (video, audio) = pickTracks(tracks, audioOrdinal)
         if (video < 0) return ConvertCheck(ConvertProblem.NoVideoTrack, durationMs)
@@ -93,6 +91,31 @@ object ConvertChecks {
         }
         val dropped = if (audio >= 0 && !audioDecoder(audio)) tracks[audio].mime else null
         return ConvertCheck(null, durationMs, dropped)
+    }
+
+    /**
+     * File types Android's MediaExtractor opens on every phone. When one of them can't be opened, the
+     * file couldn't be read (a share or server gone for a moment), whatever its first bytes were.
+     */
+    private val ALWAYS_OPENED = setOf("MKV", "MK3D", "WEBM", "MP4", "M4V", "MOV", "3GP", "3G2", "TS", "MPG", "MPEG")
+
+    /**
+     * Why a file MediaExtractor couldn't open can't be converted: its type ([fileType], "AVI") only where
+     * the phone may lack a reader for it and [readable] (which reads its first byte) shows the bytes are
+     * there; a reading problem otherwise, which is asked again next time.
+     */
+    fun openFailed(fileType: String?, readable: () -> Boolean): ConvertProblem =
+        if (fileType?.uppercase() !in ALWAYS_OPENED && readable()) ConvertProblem.UnreadableFileType(fileType) else ConvertProblem.ReadFailed
+
+    /**
+     * [open], and once more if that fails: a share or server connection that had gone stale is replaced
+     * by then. An interrupted thread isn't asked twice.
+     */
+    fun <T> openTwice(open: () -> T): T = try {
+        open()
+    } catch (e: Exception) {
+        if (e is InterruptedException || e is java.io.InterruptedIOException || Thread.currentThread().isInterrupted) throw e
+        open()
     }
 
     fun codecName(mime: String?): String = mime?.let { TrackNames.codec(it) } ?: mime.orEmpty()
@@ -108,19 +131,22 @@ object ConvertChecks {
      */
     fun deepProfile(mime: String, profile: Int): String? = when (mime.lowercase()) {
         "video/avc" -> when (profile) {
-            0x10 -> "10-bit" // AVCProfileHigh10
+            0x10 -> tenBit() // AVCProfileHigh10
             0x20 -> "4:2:2" // AVCProfileHigh422
             0x40 -> "4:4:4" // AVCProfileHigh444
             else -> null
         }
         // HEVCProfileMain10, Main10HDR10, Main10HDR10Plus
-        "video/hevc" -> if (profile == 0x2 || profile == 0x1000 || profile == 0x2000) "10-bit" else null
+        "video/hevc" -> if (profile == 0x2 || profile == 0x1000 || profile == 0x2000) tenBit() else null
         // VP9Profile2/3 and their HDR variants
-        "video/x-vnd.on2.vp9" -> if (profile in setOf(0x4, 0x8, 0x1000, 0x2000, 0x4000, 0x8000)) "10-bit" else null
+        "video/x-vnd.on2.vp9" -> if (profile in setOf(0x4, 0x8, 0x1000, 0x2000, 0x4000, 0x8000)) tenBit() else null
         // AV1ProfileMain10, Main10HDR10, Main10HDR10Plus
-        "video/av01" -> if (profile == 0x2 || profile == 0x1000 || profile == 0x2000) "10-bit" else null
+        "video/av01" -> if (profile == 0x2 || profile == 0x1000 || profile == 0x2000) tenBit() else null
         else -> null
     }
+
+    /** "10-bit" in the phone's language ("10-Bit"); English under unit test. */
+    private fun tenBit(): String = Txt.sOr(R.string.convert_codec_10bit, "10-bit")
 
     /**
      * The profile to ask the phone's codec list about, or null to ask about the codec alone. HDR variants
