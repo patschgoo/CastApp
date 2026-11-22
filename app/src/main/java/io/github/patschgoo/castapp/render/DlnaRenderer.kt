@@ -85,7 +85,11 @@ class DlnaRenderer(
         lastDuration = 0
         loadedAt = System.currentTimeMillis()
         try { soapCall(avt, Dlna.AV_TRANSPORT, "Stop", listOf("InstanceID" to "0")) } catch (_: Exception) {}
-        val meta = Dlna.didl(media.title, media.url, media.mimeType, media.live, media.subtitleSrtUrl ?: media.subtitleUrl, media.lowLatency)
+        val meta = Dlna.didl(
+            media.title, media.url, media.mimeType, media.live, media.subtitleSrtUrl ?: media.subtitleUrl, media.lowLatency,
+            // Only CastApp's own receiver understands the subtitle look; other TVs keep theirs.
+            subtitleStyle = media.subtitleStyle?.takeIf { device.isCastAppTv }?.encode(),
+        )
         val setUri = {
             soapCall(
                 avt, Dlna.AV_TRANSPORT, "SetAVTransportURI",

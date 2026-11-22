@@ -1,0 +1,88 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="close">Close</string>
+
+    <!-- Continue watching -->
+    <string name="continue_watching">Continue watching</string>
+    <string name="continue_clear">Clear</string>
+    <string name="continue_clear_title">Clear \"Continue watching\"?</string>
+    <string name="continue_clear_text">CastApp forgets where you stopped in every video. The files themselves are not touched.</string>
+    <string name="continue_remove">Remove from Continue watching</string>
+    <string name="continue_left">%1$s left</string>
+    <string name="continue_at">Stopped at %1$s</string>
+    <string name="resumed_at">Resumed at %1$s</string>
+    <string name="start_over">Start over</string>
+
+    <!-- Queue -->
+    <string name="queue_chip">Queue %1$d/%2$d</string>
+    <string name="queue_title">Queue</string>
+    <string name="queue_title_channels">Channels</string>
+    <string name="queue_shuffle">Shuffle</string>
+    <string name="queue_repeat_off">Repeat off</string>
+    <string name="queue_repeat_all">Repeat all</string>
+    <string name="queue_repeat_one">Repeat one</string>
+    <string name="queue_add">Add files</string>
+    <string name="queue_up">Move up</string>
+    <string name="queue_down">Move down</string>
+    <string name="queue_remove">Remove from the queue</string>
+    <string name="queue_playing">Playing now</string>
+    <string name="queue_empty">The queue is empty</string>
+
+    <!-- Sleep timer -->
+    <string name="sleep_chip">Sleep timer</string>
+    <string name="sleep_chip_left">Stops in %1$s</string>
+    <string name="sleep_chip_item_end">Stops after this one</string>
+    <string name="sleep_title">Stop casting</string>
+    <plurals name="sleep_minutes">
+        <item quantity="one">In %1$d minute</item>
+        <item quantity="other">In %1$d minutes</item>
+    </plurals>
+    <string name="sleep_item_end">At the end of this video</string>
+    <string name="sleep_cancel">Turn timer off</string>
+    <string name="sleep_stopped">Sleep timer: casting stopped</string>
+
+    <!-- Subtitles and sound tracks -->
+    <string name="subs_chip">Subtitles: %1$s</string>
+    <string name="subs_title">Subtitles</string>
+    <string name="subs_off">Off</string>
+    <string name="subs_file">Subtitle file</string>
+    <string name="subs_in_file">Inside the video file</string>
+    <string name="subs_online">Found online</string>
+    <string name="subs_written">Written from the speech</string>
+    <string name="subs_writing">Writing… %1$d%%</string>
+    <string name="subs_partly_written">Partly written</string>
+    <string name="subs_write_hint">Not written yet: choose to start (works offline)</string>
+    <string name="subs_probing">Looking for subtitle tracks inside the file…</string>
+    <plurals name="subs_picture_note">
+        <item quantity="one">%1$d subtitle track is made of pictures (PGS/VobSub) and can\'t be shown</item>
+        <item quantity="other">%1$d subtitle tracks are made of pictures (PGS/VobSub) and can\'t be shown</item>
+    </plurals>
+    <string name="subs_reading">Reading the subtitles out of the file… %1$d%%</string>
+    <string name="subs_track_empty">This subtitle track has no text</string>
+    <string name="subs_track_failed">Couldn\'t read this subtitle track</string>
+    <string name="subtitles_busy">Still writing subtitles for another file</string>
+    <string name="subs_timing">Subtitle timing</string>
+    <string name="subs_earlier">Subtitles earlier</string>
+    <string name="subs_later">Subtitles later</string>
+    <string name="audio_chip">Sound: %1$s</string>
+    <string name="audio_title">Sound track</string>
+    <string name="audio_hint">Any track but the first is converted on the phone, so the TV can play it.</string>
+
+    <!-- Subtitle look (Settings) -->
+    <string name="style_title">Subtitle look on the TV</string>
+    <string name="style_hint">Chromecast and CastApp TV; most other TVs use their own look</string>
+    <string name="style_size">Size</string>
+    <string name="style_size_small">Small</string>
+    <string name="style_size_normal">Normal</string>
+    <string name="style_size_large">Large</string>
+    <string name="style_size_huge">Huge</string>
+    <string name="style_color">Colour</string>
+    <string name="style_color_white">White</string>
+    <string name="style_color_yellow">Yellow</string>
+    <string name="style_color_cyan">Cyan</string>
+    <string name="style_color_green">Green</string>
+    <string name="style_background">Background</string>
+    <string name="style_bg_none">No background</string>
+    <string name="style_bg_shadow">Shadow</string>
+    <string name="style_bg_box">Dark box</string>
+</resources>

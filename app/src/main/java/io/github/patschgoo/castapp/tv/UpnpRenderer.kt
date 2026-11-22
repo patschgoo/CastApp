@@ -30,6 +30,8 @@ data class TvMedia(
     val live: Boolean,
     /** Screen mirroring from CastApp: play with as little buffer as possible. */
     val lowLatency: Boolean,
+    /** How CastApp on the phone wants the subtitles to look ([io.github.patschgoo.castapp.subtitles.SubtitleStyle.encode]). */
+    val subtitleStyle: String? = null,
 )
 
 enum class TransportState(val upnp: String) {
@@ -690,6 +692,7 @@ class UpnpRenderer(
                 subtitleUri = subtitle?.let(Dlna::unescape)?.trim()?.takeIf { it.startsWith("http") },
                 live = protocolInfo.contains("DLNA.ORG_OP=00"),
                 lowLatency = metadata.contains(LOW_LATENCY_MARKER),
+                subtitleStyle = Dlna.subtitleStyleIn(metadata),
             )
         }
     }
