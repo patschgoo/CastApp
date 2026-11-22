@@ -1,5 +1,7 @@
 package io.github.patschgoo.castapp.network
 
+import io.github.patschgoo.castapp.Txt
+import io.github.patschgoo.castapp.R
 import java.io.IOException
 import java.net.URI
 import java.net.URLDecoder
@@ -35,9 +37,9 @@ object WebDav {
         val r = RawHttp.request("PROPFIND", url, headers, PROPFIND_BODY.toByteArray(), trustAll)
         when (r.status) {
             207, 200 -> return parse(r.text, url)
-            401, 403 -> throw IOException("Wrong user name or password")
-            404 -> throw IOException("Folder not found")
-            else -> throw IOException("The server answered ${r.status}")
+            401, 403 -> throw IOException(Txt.s(R.string.err_wrong_login))
+            404 -> throw IOException(Txt.s(R.string.err_folder_not_found))
+            else -> throw IOException(Txt.sOr(R.string.err_server_answered, "The server answered %d", r.status))
         }
     }
 

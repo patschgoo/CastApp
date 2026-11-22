@@ -1,5 +1,7 @@
 package io.github.patschgoo.castapp.subtitles
 
+import io.github.patschgoo.castapp.Txt
+import io.github.patschgoo.castapp.R
 import android.content.Context
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -72,7 +74,7 @@ object VoskModels {
                 download(app, lang)
                 onReady()
             } catch (e: Exception) {
-                _error.value = "Couldn't download ${lang.label}: ${e.message ?: "no connection"}"
+                _error.value = Txt.s(R.string.err_lang_download, lang.label, e.message ?: Txt.s(R.string.err_no_connection))
             }
         }
     }
@@ -85,7 +87,7 @@ object VoskModels {
             val conn = URL(lang.url).openConnection() as HttpURLConnection
             conn.connectTimeout = 20_000
             conn.readTimeout = 60_000
-            if (conn.responseCode != 200) throw IOException("Download failed (${conn.responseCode})")
+            if (conn.responseCode != 200) throw IOException(Txt.s(R.string.err_download_failed_code, conn.responseCode))
             val total = conn.contentLengthLong.takeIf { it > 0 } ?: (lang.sizeMb * 1_048_576L)
             conn.inputStream.use { input ->
                 zip.outputStream().use { out ->
@@ -121,7 +123,7 @@ object VoskModels {
             while (true) {
                 val e = zin.nextEntry ?: break
                 val out = File(target, e.name)
-                if (!out.canonicalPath.startsWith(base)) throw IOException("Bad file in the language download")
+                if (!out.canonicalPath.startsWith(base)) throw IOException(Txt.s(R.string.err_bad_language_file))
                 if (e.isDirectory) out.mkdirs() else {
                     out.parentFile?.mkdirs()
                     out.outputStream().use { zin.copyTo(it) }

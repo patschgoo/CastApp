@@ -218,7 +218,7 @@ fun PickTvSheet(
                     },
                     supportingContent = {
                         Text(
-                            listOfNotNull(if (entry.online) null else "Not found right now", d.kindLabel, d.model, d.host)
+                            listOfNotNull(if (entry.online) null else stringResource(R.string.dev_not_found_now), d.kindLabel, d.model, d.host)
                                 .joinToString(" · "),
                             maxLines = 1,
                             overflow = TextOverflow.Ellipsis,

@@ -84,38 +84,39 @@ fun SettingsScreen(
         },
     ) { padding ->
         LazyColumn(contentPadding = PaddingValues(top = padding.calculateTopPadding(), bottom = padding.calculateBottomPadding() + 24.dp)) {
-            item { SectionTitle("Picture") }
+            item { SectionTitle(stringResource(R.string.set_sec_picture)) }
             item {
-                SettingItem("Quality", s.resolution.label) { dialog = SettingDialog.RESOLUTION }
+                SettingItem(stringResource(R.string.set_quality), s.resolution.label) { dialog = SettingDialog.RESOLUTION }
             }
             item {
-                SettingItem("Frame rate", "${s.fps} fps" + if (s.fps > 30) " (smoother, needs good Wi-Fi)" else "") { dialog = SettingDialog.FPS }
+                SettingItem(stringResource(R.string.set_fps), "${s.fps} fps" + if (s.fps > 30) stringResource(R.string.set_fps_smoother) else "") { dialog = SettingDialog.FPS }
             }
             item {
-                val auto = "Automatic (${s.effectiveBitrate / 1_000_000.0} Mbit/s)".replace(".0 ", " ")
-                SettingItem("Bitrate", if (s.bitrateMbps == 0) auto else "${s.bitrateMbps} Mbit/s") { dialog = SettingDialog.BITRATE }
+                val mbit = s.effectiveBitrate / 1_000_000.0
+                val auto = stringResource(R.string.set_bitrate_auto_value, if (mbit % 1.0 == 0.0) mbit.toInt().toString() else String.format(androidx.compose.ui.platform.LocalConfiguration.current.locales[0], "%.1f", mbit))
+                SettingItem(stringResource(R.string.set_bitrate), if (s.bitrateMbps == 0) auto else "${s.bitrateMbps} Mbit/s") { dialog = SettingDialog.BITRATE }
             }
             item { VideoCodecSettingItem(s, settings) }
             item {
                 ListItem(
                     onClick = { settings.update { it.copy(adaptiveQuality = !it.adaptiveQuality) } },
-                    supportingContent = { Text("Lowers the bitrate when the Wi-Fi can't keep up, raises it again when it can") },
+                    supportingContent = { Text(stringResource(R.string.set_adaptive_summary)) },
                     trailingContent = {
                         Switch(checked = s.adaptiveQuality, onCheckedChange = { c -> settings.update { it.copy(adaptiveQuality = c) } })
                     },
-                ) { Text("Automatic quality") }
+                ) { Text(stringResource(R.string.set_adaptive_title)) }
             }
             item {
-                SettingItem("Picture shape", s.picture.label + " — " + s.picture.description) { dialog = SettingDialog.PICTURE }
+                SettingItem(stringResource(R.string.set_picture_shape), s.picture.label + " — " + s.picture.description) { dialog = SettingDialog.PICTURE }
             }
 
-            item { SectionTitle("Sound") }
+            item { SectionTitle(stringResource(R.string.set_sec_sound)) }
             item {
                 val summary = when {
-                    !audioSupported -> "Needs Android 10 or newer"
-                    s.audio && !audioPermissionGranted -> "Tap to allow audio capture"
-                    s.audio -> "Sound plays on the TV. Some apps (e.g. many streaming apps) block this."
-                    else -> "Only the picture is cast"
+                    !audioSupported -> stringResource(R.string.set_audio_needs_10)
+                    s.audio && !audioPermissionGranted -> stringResource(R.string.set_audio_tap_allow)
+                    s.audio -> stringResource(R.string.set_audio_on)
+                    else -> stringResource(R.string.set_audio_off)
                 }
                 ListItem(
                     onClick = {
@@ -134,25 +135,25 @@ fun SettingsScreen(
                             },
                         )
                     },
-                ) { Text("Cast audio") }
+                ) { Text(stringResource(R.string.set_audio_title)) }
             }
             item { MicrophoneSettingItems(s, settings) }
             item { AudioDelayItem(s.audioDelayMs) { d -> settings.update { it.copy(audioDelayMs = d) } } }
 
-            item { SectionTitle("Videos, music and photos") }
-            item { SettingItem("Convert videos the TV can't play", s.convert.label + " — " + s.convert.description) { dialog = SettingDialog.CONVERT } }
-            item { SettingItem("Slideshow", "Next photo after ${s.slideshowSeconds} seconds") { dialog = SettingDialog.SLIDESHOW } }
+            item { SectionTitle(stringResource(R.string.set_sec_media)) }
+            item { SettingItem(stringResource(R.string.set_convert), s.convert.label + " — " + s.convert.description) { dialog = SettingDialog.CONVERT } }
+            item { SettingItem(stringResource(R.string.set_slideshow), stringResource(R.string.set_slideshow_value, s.slideshowSeconds)) { dialog = SettingDialog.SLIDESHOW } }
 
-            item { SectionTitle("Subtitles") }
+            item { SectionTitle(stringResource(R.string.set_sec_subtitles)) }
             item {
                 val lang = VoskModels.byCode(s.subtitleLanguage)
                 val installed by VoskModels.installed.collectAsStateWithLifecycle()
                 SettingItem(
-                    "Spoken language",
+                    stringResource(R.string.set_spoken_language),
                     when {
-                        lang == null -> "Choose the language spoken in your videos to write subtitles on the phone (works offline)"
-                        lang.code in installed -> "${lang.label} — ready, works offline"
-                        else -> "${lang.label} — needs to be downloaded"
+                        lang == null -> stringResource(R.string.set_spoken_none)
+                        lang.code in installed -> stringResource(R.string.set_spoken_ready, lang.label)
+                        else -> stringResource(R.string.set_spoken_missing, lang.label)
                     },
                 ) { dialog = SettingDialog.LANGUAGE }
             }
@@ -160,19 +161,19 @@ fun SettingsScreen(
                 ListItem(
                     onClick = { settings.update { it.copy(autoSubtitles = !it.autoSubtitles) } },
                     supportingContent = {
-                        Text("For videos and music without subtitles, start writing them as soon as they play, and for the next files in the queue ahead of time. Otherwise use \"Write subtitles\" while casting.")
+                        Text(stringResource(R.string.set_auto_subs_summary))
                     },
                     trailingContent = {
                         Switch(checked = s.autoSubtitles, onCheckedChange = { c -> settings.update { it.copy(autoSubtitles = c) } })
                     },
-                ) { Text("Write subtitles automatically") }
+                ) { Text(stringResource(R.string.set_auto_subs_title)) }
             }
             item { SubtitleStyleItems() }
             item {
                 val context = LocalContext.current
                 SettingItem(
-                    "Live Caption (screen casting)",
-                    "Android can caption anything playing on the phone. When you cast the screen, the captions show on the TV too.",
+                    stringResource(R.string.set_live_caption),
+                    stringResource(R.string.set_live_caption_text),
                 ) {
                     try {
                         context.startActivity(android.content.Intent(android.provider.Settings.ACTION_CAPTIONING_SETTINGS))
@@ -183,74 +184,74 @@ fun SettingsScreen(
 
             item { SubtitleSourcesSection() }
 
-            item { SectionTitle("Connection") }
+            item { SectionTitle(stringResource(R.string.set_sec_connection)) }
             item { ReceiveOnPhoneItem() }
             item { io.github.patschgoo.castapp.tv.ReceiverProtectionItem() }
-            item { SettingItem("Stream mode", s.streamMode.label + " — " + s.streamMode.description) { dialog = SettingDialog.MODE } }
-            item { SettingItem("Stream port", "${s.port} (only change if something else uses it)") { dialog = SettingDialog.PORT } }
+            item { SettingItem(stringResource(R.string.set_stream_mode), s.streamMode.label + " — " + s.streamMode.description) { dialog = SettingDialog.MODE } }
+            item { SettingItem(stringResource(R.string.set_stream_port), stringResource(R.string.set_stream_port_value, s.port)) { dialog = SettingDialog.PORT } }
             item {
                 SettingItem(
-                    "Low-latency TV player (advanced)",
-                    if (s.receiverAppId.isBlank()) "Off — uses Google's standard player. Needs a one-time setup, see the README."
-                    else "App ID ${s.receiverAppId} — about 0.2 s delay on Chromecast / Google TV / Shield",
+                    stringResource(R.string.set_receiver_title),
+                    if (s.receiverAppId.isBlank()) stringResource(R.string.set_receiver_off)
+                    else stringResource(R.string.set_receiver_on, s.receiverAppId),
                 ) { dialog = SettingDialog.RECEIVER }
             }
 
             item { SectionTitle(stringResource(R.string.automation_section)) }
             item { io.github.patschgoo.castapp.automation.AutomationSettingsItem() }
 
-            item { SectionTitle("Appearance") }
+            item { SectionTitle(stringResource(R.string.set_sec_appearance)) }
             item {
                 val summary = when (s.theme) {
-                    ThemeMode.SYSTEM -> "Follows your phone's light/dark setting"
+                    ThemeMode.SYSTEM -> stringResource(R.string.set_theme_system)
                     else -> s.theme.label
-                } + if (Build.VERSION.SDK_INT >= 31) " · colors from your wallpaper" else ""
-                SettingItem("Theme", summary) { dialog = SettingDialog.THEME }
+                } + if (Build.VERSION.SDK_INT >= 31) stringResource(R.string.set_theme_wallpaper) else ""
+                SettingItem(stringResource(R.string.set_theme), summary) { dialog = SettingDialog.THEME }
             }
 
             supportSettingsSection()
 
-            item { SectionTitle("About") }
+            item { SectionTitle(stringResource(R.string.set_sec_about)) }
             item {
                 ListItem(
                     supportingContent = {
-                        Text("No ads, no tracking, no account. Talks to your TV directly over your Wi-Fi — Google Play Services are not needed.")
+                        Text(stringResource(R.string.set_about_text))
                     },
-                ) { Text("CastApp ${BuildConfig.VERSION_NAME}") }
+                ) { Text(stringResource(R.string.set_about_version, BuildConfig.VERSION_NAME)) }
             }
             item {
                 ListItem(
                     onClick = { settings.reset() },
-                    supportingContent = { Text("Back to 720p, 30 fps, automatic bitrate") },
-                ) { Text("Reset settings") }
+                    supportingContent = { Text(stringResource(R.string.set_reset_summary)) },
+                ) { Text(stringResource(R.string.set_reset)) }
             }
         }
     }
 
     when (dialog) {
         SettingDialog.RESOLUTION -> ChoiceDialog(
-            title = "Quality",
+            title = stringResource(R.string.set_quality),
             options = Resolution.entries.map { it to it.label },
             selected = s.resolution,
             onSelect = { r -> settings.update { it.copy(resolution = r) } },
             onDismiss = { dialog = null },
         )
         SettingDialog.FPS -> ChoiceDialog(
-            title = "Frame rate",
-            options = listOf(30 to "30 fps (recommended)", 60 to "60 fps"),
+            title = stringResource(R.string.set_fps),
+            options = listOf(30 to stringResource(R.string.set_fps_30), 60 to "60 fps"),
             selected = s.fps,
             onSelect = { f -> settings.update { it.copy(fps = f) } },
             onDismiss = { dialog = null },
         )
         SettingDialog.BITRATE -> ChoiceDialog(
-            title = "Bitrate",
-            options = listOf(0 to "Automatic") + listOf(2, 4, 6, 8, 12, 16).map { it to "$it Mbit/s" },
+            title = stringResource(R.string.set_bitrate),
+            options = listOf(0 to stringResource(R.string.set_bitrate_auto)) + listOf(2, 4, 6, 8, 12, 16).map { it to "$it Mbit/s" },
             selected = s.bitrateMbps,
             onSelect = { b -> settings.update { it.copy(bitrateMbps = b) } },
             onDismiss = { dialog = null },
         )
         SettingDialog.MODE -> ChoiceDialog(
-            title = "Stream mode",
+            title = stringResource(R.string.set_stream_mode),
             options = StreamMode.entries.map { it to it.label },
             descriptions = StreamMode.entries.associateWith { it.description },
             selected = s.streamMode,
@@ -258,14 +259,14 @@ fun SettingsScreen(
             onDismiss = { dialog = null },
         )
         SettingDialog.THEME -> ChoiceDialog(
-            title = "Theme",
+            title = stringResource(R.string.set_theme),
             options = ThemeMode.entries.map { it to it.label },
             selected = s.theme,
             onSelect = { t -> settings.update { it.copy(theme = t) } },
             onDismiss = { dialog = null },
         )
         SettingDialog.PICTURE -> ChoiceDialog(
-            title = "Picture shape",
+            title = stringResource(R.string.set_picture_shape),
             options = PictureMode.entries.map { it to it.label },
             descriptions = PictureMode.entries.associateWith { it.description },
             selected = s.picture,
@@ -276,7 +277,7 @@ fun SettingsScreen(
             onDismiss = { dialog = null },
         )
         SettingDialog.CONVERT -> ChoiceDialog(
-            title = "Convert videos the TV can't play",
+            title = stringResource(R.string.set_convert),
             options = ConvertMode.entries.map { it to it.label },
             descriptions = ConvertMode.entries.associateWith { it.description },
             selected = s.convert,
@@ -284,8 +285,8 @@ fun SettingsScreen(
             onDismiss = { dialog = null },
         )
         SettingDialog.SLIDESHOW -> ChoiceDialog(
-            title = "Slideshow",
-            options = listOf(3, 6, 10, 20, 60).map { it to "$it seconds per photo" },
+            title = stringResource(R.string.set_slideshow),
+            options = listOf(3, 6, 10, 20, 60).map { it to stringResource(R.string.set_slideshow_option, it) },
             selected = s.slideshowSeconds,
             onSelect = { v -> settings.update { it.copy(slideshowSeconds = v) } },
             onDismiss = { dialog = null },
@@ -374,10 +375,10 @@ private fun PortDialog(port: Int, onSave: (Int) -> Unit, onDismiss: () -> Unit) 
     val valid = value != null && value in 1024..65535
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text("Stream port") },
+        title = { Text(stringResource(R.string.set_stream_port)) },
         text = {
             Column {
-                Text("The TV fetches the stream from your phone on this port.", style = MaterialTheme.typography.bodyMedium)
+                Text(stringResource(R.string.set_port_text), style = MaterialTheme.typography.bodyMedium)
                 Spacer(Modifier.height(12.dp))
                 OutlinedTextField(
                     value = text,
@@ -399,12 +400,12 @@ private fun PortDialog(port: Int, onSave: (Int) -> Unit, onDismiss: () -> Unit) 
 @Composable
 private fun AudioDelayItem(delayMs: Int, onChange: (Int) -> Unit) {
     Column(Modifier.padding(horizontal = 16.dp, vertical = 8.dp)) {
-        Text("Sound sync", style = MaterialTheme.typography.bodyLarge)
+        Text(stringResource(R.string.set_sync_title), style = MaterialTheme.typography.bodyLarge)
         Text(
             when {
-                delayMs == 0 -> "In sync (0 ms). If lips and sound don't match on your TV, adjust here while casting."
-                delayMs > 0 -> "Sound $delayMs ms later"
-                else -> "Sound ${-delayMs} ms earlier"
+                delayMs == 0 -> stringResource(R.string.set_sync_ok)
+                delayMs > 0 -> stringResource(R.string.set_sync_later, delayMs)
+                else -> stringResource(R.string.set_sync_earlier, -delayMs)
             },
             style = MaterialTheme.typography.bodyMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
@@ -412,7 +413,7 @@ private fun AudioDelayItem(delayMs: Int, onChange: (Int) -> Unit) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             TextButton(onClick = { onChange((delayMs - 50).coerceAtLeast(-500)) }) { Text("− 50 ms") }
             Spacer(Modifier.weight(1f))
-            TextButton(onClick = { onChange(0) }, enabled = delayMs != 0) { Text("Reset") }
+            TextButton(onClick = { onChange(0) }, enabled = delayMs != 0) { Text(stringResource(R.string.set_reset_short)) }
             Spacer(Modifier.weight(1f))
             TextButton(onClick = { onChange((delayMs + 50).coerceAtMost(500)) }) { Text("+ 50 ms") }
         }
@@ -425,14 +426,11 @@ private fun ReceiverDialog(appId: String, onSave: (String) -> Unit, onDismiss: (
     val valid = text.isBlank() || Regex("[0-9A-Fa-f]{8}").matches(text.trim())
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text("Low-latency TV player") },
+        title = { Text(stringResource(R.string.set_receiver_dialog_title)) },
         text = {
             Column {
                 Text(
-                    "Google's standard player buffers about a second. CastApp's own TV player (in the receiver folder of the " +
-                        "project) plays with about 0.2 s delay, but Google requires it to be registered once: host it (e.g. GitHub " +
-                        "Pages), register it at the Google Cast SDK Developer Console (one-time US\$5) and enter its App ID here. " +
-                        "Leave empty to use the standard player.",
+                    stringResource(R.string.set_receiver_dialog_text),
                     style = MaterialTheme.typography.bodyMedium,
                 )
                 Spacer(Modifier.height(12.dp))
@@ -441,8 +439,8 @@ private fun ReceiverDialog(appId: String, onSave: (String) -> Unit, onDismiss: (
                     onValueChange = { text = it.filter(Char::isLetterOrDigit).take(8).uppercase() },
                     singleLine = true,
                     isError = !valid,
-                    label = { Text("App ID (8 characters)") },
-                    supportingText = { Text("Falls back to the standard player if it doesn't start") },
+                    label = { Text(stringResource(R.string.set_receiver_id_label)) },
+                    supportingText = { Text(stringResource(R.string.set_receiver_fallback)) },
                 )
             }
         },
@@ -462,13 +460,12 @@ private fun LanguageDialog(selected: String, onSelect: (String) -> Unit, onDismi
     val error by VoskModels.error.collectAsStateWithLifecycle()
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text("Spoken language") },
+        title = { Text(stringResource(R.string.set_spoken_language)) },
         text = {
             LazyColumn {
                 item {
                     Text(
-                        "Subtitles are written on the phone by speech recognition, without internet once the language is downloaded. " +
-                            "Clear speech works best; music and noise make mistakes more likely.",
+                        stringResource(R.string.set_lang_text),
                         style = MaterialTheme.typography.bodySmall,
                         modifier = Modifier.padding(bottom = 8.dp),
                     )
@@ -487,9 +484,9 @@ private fun LanguageDialog(selected: String, onSelect: (String) -> Unit, onDismi
                         supportingContent = {
                             Text(
                                 when {
-                                    progress != null -> "Downloading… ${(progress * 100).toInt()}%"
-                                    ready -> "Downloaded"
-                                    else -> "${lang.sizeMb} MB download"
+                                    progress != null -> stringResource(R.string.set_lang_downloading, (progress * 100).toInt())
+                                    ready -> stringResource(R.string.set_lang_downloaded)
+                                    else -> stringResource(R.string.set_lang_size, lang.sizeMb)
                                 },
                             )
                         },
@@ -498,7 +495,7 @@ private fun LanguageDialog(selected: String, onSelect: (String) -> Unit, onDismi
                                 progress != null -> CircularProgressIndicator(progress = { progress }, modifier = Modifier.size(22.dp), strokeWidth = 2.5.dp)
                                 ready -> IconButton(onClick = {
                                     VoskModels.delete(context, lang)
-                                }) { Icon(Icons.Rounded.Delete, contentDescription = "Delete ${lang.label}") }
+                                }) { Icon(Icons.Rounded.Delete, contentDescription = stringResource(R.string.set_lang_delete, lang.label)) }
                                 else -> Icon(Icons.Rounded.Download, contentDescription = null)
                             }
                         },
@@ -506,7 +503,7 @@ private fun LanguageDialog(selected: String, onSelect: (String) -> Unit, onDismi
                 }
             }
         },
-        confirmButton = { TextButton(onClick = onDismiss) { Text("Done") } },
+        confirmButton = { TextButton(onClick = onDismiss) { Text(stringResource(R.string.set_done)) } },
     )
 }
 

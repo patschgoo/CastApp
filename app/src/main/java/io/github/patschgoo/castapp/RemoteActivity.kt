@@ -294,8 +294,8 @@ private fun SectionHeader(provider: RemoteProvider, empty: Boolean) {
 @Composable
 private fun TargetRow(target: RemoteTarget, current: Boolean, onClick: () -> Unit) {
     val icon = when (target.label) {
-        "Bluetooth" -> Icons.Rounded.Bluetooth
-        "Infrared" -> Icons.Rounded.SettingsRemote
+        stringResource(R.string.bt_remote_label) -> Icons.Rounded.Bluetooth
+        stringResource(R.string.ir_remote_label) -> Icons.Rounded.SettingsRemote
         else -> Icons.Rounded.Tv
     }
     ListItem(

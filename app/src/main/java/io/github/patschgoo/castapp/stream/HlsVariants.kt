@@ -1,5 +1,7 @@
 package io.github.patschgoo.castapp.stream
 
+import io.github.patschgoo.castapp.Txt
+import io.github.patschgoo.castapp.R
 import java.net.URI
 
 /** One quality level of an HLS stream (from its master playlist). */
@@ -8,7 +10,7 @@ data class HlsVariant(val url: String, val bandwidth: Long, val width: Int, val 
         get() = when {
             height > 0 -> "${height}p"
             bandwidth > 0 -> "%.1f Mbit/s".format(java.util.Locale.ROOT, bandwidth / 1_000_000.0)
-            else -> "Stream"
+            else -> Txt.s(R.string.hls_stream)
         }
 }
 

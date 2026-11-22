@@ -1,5 +1,7 @@
 package io.github.patschgoo.castapp.opensubtitles
 
+import io.github.patschgoo.castapp.Txt
+import io.github.patschgoo.castapp.R
 import android.content.Context
 import android.util.Log
 import io.github.patschgoo.castapp.BuildConfig
@@ -64,7 +66,7 @@ class SubtitleFinder(context: Context) {
         }
         val bytes = client.fetch(link.url)
         val text = Subtitles.decode(bytes)
-        if (!text.contains("-->")) throw OpenSubtitlesClient.Failure(OpenSubtitlesClient.Problem.SERVER, "The downloaded file has no subtitles in it")
+        if (!text.contains("-->")) throw OpenSubtitlesClient.Failure(OpenSubtitlesClient.Problem.SERVER, Txt.sOr(R.string.os_err_no_subs_in_file, "The downloaded file has no subtitles in it"))
         Downloaded(text, link.remaining)
     }
 
@@ -113,7 +115,7 @@ class RangeOnlyHttpSource(
         val code = conn.responseCode
         if (code != 206 && !(code == 200 && offset == 0L)) {
             conn.disconnect()
-            throw IOException("The server can't send parts of the file ($code)")
+            throw IOException(Txt.sOr(R.string.os_err_no_ranges, "The server can't send parts of the file (%d)", code))
         }
         return object : java.io.FilterInputStream(conn.inputStream) {
             override fun close() {
