@@ -7,7 +7,11 @@ Android app that casts to a **Chromecast**, **NVIDIA Shield**, **Google TV**, **
 - play videos, music and photos from the phone, a NAS, a PC's shared folder, a media server (Plex, Jellyfin…) or a cloud folder
 - play TV channels and radio from IPTV / M3U channel lists
 - play videos it finds on websites
-- write subtitles for videos that have none, on the phone and offline
+- write subtitles for videos that have none, on the phone and offline, or find them online
+- work as a **TV remote** (network, Bluetooth or infrared) and **receive** a cast on the phone itself
+- show a **programme guide** for IPTV channels, with catch-up where the provider offers it
+- resume videos where you stopped, edit the queue, set a sleep timer, pick audio and subtitle tracks
+- send **YouTube links** to the YouTube app on the TV
 
 No ads, no tracking, no account. It doesn't need Google Play Services or the phone's built-in Cast menu; it talks to your devices directly over your Wi-Fi.
 
@@ -32,9 +36,12 @@ No ads, no tracking, no account. It doesn't need Google Play Services or the pho
 | Samsung, LG, Sony, Panasonic, Philips smart TVs | DLNA | ⚠️ experimental, a few seconds of delay | ✅ mostly (depends on the TV's formats) |
 | Kodi (on any box or PC) | DLNA (turn on UPnP in Kodi) | ⚠️ experimental | ✅ |
 | **Apple TV**, Macs and TVs with AirPlay | AirPlay (code on the TV the first time) | ⚠️ experimental, a few seconds of delay | ✅ videos, music, web videos, HLS channels; no subtitles or photos |
-| **Roku** players and Roku TVs | Roku's "Play on Roku" (experimental) | ⚠️ experimental | ✅ but no seeking |
+| **Roku** players and Roku TVs | Roku's "Play on Roku" (experimental) | ⚠️ experimental | ✅ but no seeking; converted files play as HLS |
+| **Another phone or tablet** with CastApp | CastApp receiver ("Receive on this phone") | ✅ | ✅ |
 
 Many TVs answer in several ways (for example a Sony TV with Chromecast, DLNA and AirPlay). CastApp lists each TV once, the best way first: Google Cast, then DLNA, Roku, AirPlay. A CastApp TV receiver is always listed, even on a Shield or Google TV, because its mirroring is faster.
+
+The **TV remote** works with a different list of devices, see [TV remote](#tv-remote).
 
 Not supported: the newest Fire TV sticks with Vega OS (they can't install Android apps), and AirPlay speakers such as HomePods (they need a different audio protocol).
 
@@ -68,7 +75,23 @@ Any device you've cast to once is **remembered**. If its IP address changes, Cas
 - **Subtitles written by the phone** for videos and music that have none (see below).
 - **Videos from websites**: the built-in browser (🌐 at the top) spots the videos a page plays and sends them to the TV. The TV then plays them by itself, so you can leave the app or lock the phone. A link shared from Firefox, Chrome and so on (**Share → Cast to TV**) opens in this browser.
 - **Converts videos the TV can't play** (e.g. HEVC or MKV on an older Chromecast). The phone re-encodes them to H.264/AAC on the fly. This happens automatically; you can choose Automatic, Always or Never in Settings.
+- **HEVC** (optional): in Settings choose Automatic, H.264 or HEVC. HEVC gives a sharper picture at the same bitrate. *Automatic* only uses it where it is known to work: CastApp TVs that report it, Chromecast Ultra and HD, Google TV Streamer and NVIDIA Shield. If a device can't play it, CastApp falls back to H.264 by itself.
+- **Phone microphone** (optional): mix your voice into the sound, for presentations or karaoke. Beware of echo: use headphones, or the TV's sound comes back through the microphone.
+- **YouTube links**: share a YouTube link to CastApp, or use **YouTube on TV** in the browser. On a Chromecast or Google TV the video plays in the YouTube app (CastApp uses YouTube's unofficial "lounge" protocol). On a CastApp TV it opens the TV's YouTube app.
+- **Do Not Disturb** can be switched on automatically while you mirror, so no notification shows up on the TV.
 - **Dark screen** (Android 14+, single-app casting): the phone goes black at minimum brightness while the app keeps playing on the TV. Tap once for controls, double-tap to wake.
+
+**Playback** (files, network, channels):
+
+- **Continue watching**: videos resume where you stopped. A history row on the main screen lists them.
+- **Queue editing**: reorder, remove, add, shuffle and repeat.
+- **Sleep timer**, also "end of video".
+- **Audio track choice**. Tracks the TV can't play are converted on the phone.
+- **Built-in subtitle tracks** of a file (text ones; picture subtitles such as PGS and VobSub are not supported).
+- **One subtitle picker**: Off, the file's own, built-in, written by the phone, or found online.
+- **Subtitle style** (size, colour, background) on Google Cast and CastApp TV, and **timing** in steps of 0.5 s.
+- **Subtitles written ahead** for the next files in the queue.
+- Apple TV and Roku get converted files as HLS.
 
 **Audio mode** (switch at the top):
 
@@ -92,16 +115,18 @@ Any device you've cast to once is **remembered**. If its IP address changes, Cas
 
 - TV volume and mute from the app, the notification and, when casting a file, the phone's volume buttons.
 - Media controls on the lock screen when casting files.
-- **Quick Settings tile "Cast screen"**: tap to mirror to the last TV, tap again to stop. Long-press opens the app.
+- **Quick Settings tiles**: "Cast screen" (tap to mirror to the last TV, tap again to stop; long-press opens the app), "Receive on this phone" and "TV remote".
+- **Home-screen widget** for quick casting and stopping.
+- **TV remote** from the top bar, see below.
 - **Launcher shortcuts**: long-press the app icon for "Mirror screen to *your TV*".
 
-**Looks:** light and dark mode that follow the system, with wallpaper colors (Material You) on Android 12+. You can force Light or Dark in Settings.
+**Looks:** light and dark mode that follow the system, with wallpaper colors (Material You) on Android 12+. You can force Light or Dark in Settings. On **tablets and in landscape** (600 dp and wider) the screens use two panes. The app is in **English and German** and follows the phone's language.
 
 ## Install
 
-**Download a ready-made APK:** open the repository's **Actions** tab, select the latest **Build APK** run and download the **CastApp** artifact. It's a zip containing `CastApp.apk`. If you push a tag such as `v3.1.0`, the APK is also attached to a GitHub Release.
+**Download a ready-made APK:** open the repository's **Actions** tab, select the latest **Build APK** run and download the **CastApp** artifact. It's a zip containing `CastApp.apk`. If you push a tag such as `v4.0.0`, the APK is also attached to a GitHub Release.
 
-The APK is about 11 MB, most of it the offline speech recognition. The same APK runs on phones (Android 7.1 and newer) and on TVs. To install, open the APK on your phone and allow "Install unknown apps" for your browser or file manager when Android asks.
+The APK is about 13 MB, most of it the offline speech recognition. The same APK runs on phones (Android 7.1 and newer) and on TVs. To install, open the APK on your phone and allow "Install unknown apps" for your browser or file manager when Android asks.
 
 **Build it yourself:**
 
@@ -110,7 +135,7 @@ The APK is about 11 MB, most of it the offline speech recognition. The same APK 
 # -> app/build/outputs/apk/release/app-release.apk
 ```
 
-You need JDK 17+ and the Android SDK with platform `android-37.1`. Opening the project in Android Studio sets that up for you.
+You need JDK 17+, the Android SDK with platform `android-37.1`, the Android **NDK 29.0.14206865** and **CMake 3.22.1** (both for the Whisper speech engine). Installing them from Android Studio's SDK Manager sets that up. The CI workflow installs them by itself.
 
 ## How to use
 
@@ -139,6 +164,40 @@ To add the tile, pull down Quick Settings, tap the pencil (edit) icon and drag *
 
 **Can I cast from Firefox and leave it playing?** Not by mirroring Firefox: as soon as you leave it or lock the phone, the video pauses. Instead, share the page from Firefox to **Cast to TV** (or open it in CastApp's browser) and cast the video it finds. The TV then plays it on its own, like YouTube's Cast button.
 
+## TV remote
+
+Open the remote from the remote icon in the top bar, from a TV's menu or from the casting card. Three kinds are built in:
+
+| Kind | Works with | Notes |
+|---|---|---|
+| **Network** | Google TV, NVIDIA Shield, Android TV | Type the pairing code the TV shows (same protocol as Google's TV remote app). A mic button does **voice search**. |
+| | Roku | Nothing to set up. |
+| | Samsung Tizen TVs (2016 and newer) | Tap **Allow** on the TV the first time. |
+| | LG webOS | Accept the request on the TV. |
+| **Bluetooth** | Fire TV, Shield, Android TV boxes | The phone pairs like a remote or keyboard. Needs Android 9+, and not every phone supports it. |
+| **Infrared** | Samsung, LG, Sony, Philips (RC6 and older RC5), Panasonic, Toshiba (basic) | Only on phones with an IR blaster (Xiaomi, Redmi, POCO, some Honor and Huawei). |
+
+Pairing the Bluetooth remote:
+
+- **Fire TV:** Settings → Controllers & Bluetooth Devices → Other Bluetooth Devices.
+- **Shield / Android TV:** Settings → Remotes & Accessories → Add accessory.
+
+Not covered: the Apple TV remote, Samsung TVs from 2014–15, and infrared for TCL, Hisense, Sharp and Vizio.
+
+## Receive on this phone and swap direction
+
+A phone can be a receiver too. Turn on **Settings → Connection → Receive on this phone**, or use the quick tile. Other phones then see it as a CastApp device.
+
+While you mirror your phone to a CastApp TV, tap **Swap: TV → phone**. The TV then mirrors to your phone instead (confirm on the TV with the remote). **Swap back** returns to the first direction. This only works with Android TVs that run CastApp. Protected apps, HDMI inputs and antenna TV stay black.
+
+**Receiver protection** (for a CastApp TV and for a phone receiver):
+
+| Setting | Meaning | Default |
+|---|---|---|
+| Anyone on the network | Every device on the Wi-Fi can cast | TVs |
+| Ask first | You confirm each new sender | Phones |
+| Only paired phones | A phone enters a 4-digit code once | |
+
 ## CastApp TV: the receiver for Fire TV and Android TV
 
 The same APK installed on a Fire TV (Fire OS 6 or newer), an Android TV / Google TV box or an Android projector turns it into a receiver. On a TV it opens **CastApp TV** instead of the phone screens:
@@ -153,7 +212,7 @@ The same APK installed on a Fire TV (Fire OS 6 or newer), an Android TV / Google
 
 1. On the Fire TV: **Settings → My Fire TV → Developer options** (on newer models: **About**, then press the select button 7 times on the device name to show Developer options) → **Install unknown apps** (on older models **Apps from Unknown Sources**) → allow the app you'll install with.
 2. Get the APK onto the TV, for example:
-   - With the free **Downloader** app: enter the address of `CastApp.apk`. Push a tag such as `v3.1.0` so the GitHub release holds the APK; on a public repository the address is `https://github.com/<user>/<repo>/releases/latest/download/CastApp.apk`. Downloader can't fetch from a private repository; use one of the other ways then.
+   - With the free **Downloader** app: enter the address of `CastApp.apk`. Push a tag such as `v4.0.0` so the GitHub release holds the APK; on a public repository the address is `https://github.com/<user>/<repo>/releases/latest/download/CastApp.apk`. Downloader can't fetch from a private repository; use one of the other ways then.
    - With an app like **Send Files to TV** from the phone.
    - From a computer: turn on **ADB debugging** on the TV and run `adb connect <TV IP>` and `adb install CastApp.apk`.
 3. Open **CastApp** on the TV once. It stays ready in the background.
@@ -196,6 +255,8 @@ An **M3U** (or M3U8) file is a channel list: a name, an optional logo and group,
 2. Add the list as a **link**, a **file** on the phone, or a provider **log-in** (server, user name and password of an "Xtream Codes" provider).
 3. Pick a channel. The list you see (the group or search you're in) becomes the play list, so **Previous / Next** on the phone, in the notification or on the lock screen switch channels.
 
+**Programme guide.** CastApp shows what is on now and next, the day's schedule and a guide view. It reads the guide from the playlist's `url-tvg`, from an Xtream `xmltv.php` or from an address you enter, and refreshes it every 12 hours. Xtream log-ins also get **Movies** and **Series** tabs. Channels whose provider keeps a recording offer **catch-up**; guide times and the provider's time zone can differ, so a catch-up may start a bit off.
+
 Groups, search and ★ favourites help with long lists. Channels play on the TV by themselves, so the phone can be locked. Radio stations work on speakers too. Channels that need a particular User-Agent or Referer (`#EXTVLCOPT` lines or Kodi-style `|User-Agent=…`) get it. Channels whose address doesn't say what they are are checked first; plain MPEG-TS channels, which Chromecasts can't play directly, are converted on the phone if possible (Convert setting). Only use channel lists you are allowed to watch.
 
 ## Network shares, NAS, media servers and cloud
@@ -235,6 +296,10 @@ The TV shows the first subtitles once a few minutes ahead of you are done, and t
 
 For **live TV, streams and screen mirroring** there's no file to read ahead, so use Android's **Live Caption** (Android 10+, on Pixel, Samsung and many other phones): it captions anything playing on the phone, and when you mirror the screen the captions show on the TV as well. The **Live Caption** button on the casting card and in Settings opens the caption settings.
 
+**Whisper (optional, more accurate).** In **Settings → Subtitles → Speech engine** choose *Fast (Vosk)* or *Accurate (Whisper)*. Whisper models: tiny, base and small (31, 57 and 181 MB, downloaded once). **Translate to English** turns speech in other languages into English subtitles. Whisper is built into the app from whisper.cpp v1.9.5. It is slower and uses more battery than Vosk.
+
+**Find subtitles online.** CastApp can search [OpenSubtitles.com](https://www.opensubtitles.com). This is off until you turn it on and enter your own free API key in Settings. A log-in is optional and gives more downloads. The search uses the file's hash and name. Nothing is sent unless you have set a key and tap **Find**.
+
 ## DLNA TVs (Samsung, LG, Sony, …)
 
 TVs without Chromecast appear with a **DLNA** label.
@@ -260,6 +325,16 @@ Google's standard player buffers about a second. CastApp includes its own TV pla
 3. **Use it.** In CastApp, go to **Settings → Low-latency TV player** and enter the 8-character **App ID**.
 
 If the player doesn't start, CastApp falls back to Google's standard player automatically. You can also try the player in a desktop browser: `receiver/index.html?test=<stream URL>&codecs=avc1.64001F,mp4a.40.2`.
+
+## Help and reliability tools
+
+In **Settings → Help & support**:
+
+- **Send debug log** opens the share sheet. Nothing is sent automatically.
+- **Why can't I find my TV?** checks your network and explains what is wrong.
+- **Battery optimization**: CastApp asks to be left alone and shows tips for your phone's brand.
+- **Check for updates** looks at the GitHub releases. For a private repository it only shows a message.
+- **Do Not Disturb while mirroring** and **Wake-on-LAN** for remembered TVs (the Samsung MAC address is filled in automatically).
 
 ## How it works
 
@@ -296,16 +371,25 @@ If the player doesn't start, CastApp falls back to Google's standard player auto
 - **Subtitles.** The sound track is decoded with `MediaCodec`, mixed to mono and resampled to 16 kHz for Vosk; the recognised words with their times are grouped into subtitles of up to two lines of 42 characters, split at pauses. A converted video starts its clock at 0, so subtitles are shifted to match.
 - **CastApp TV.** On a TV the app runs a UPnP MediaRenderer (SSDP answers and announcements, device and service descriptions, AVTransport/RenderingControl/ConnectionManager actions) and plays with Media3 ExoPlayer. For CastApp's own screen stream it keeps almost no buffer and plays slightly faster whenever frames pile up.
 - **AirPlay.** HomeKit-style pairing: SRP-6a (3072-bit, SHA-512) with the code on the TV or the transient code, Ed25519 identities, X25519 key exchange, HKDF-SHA512 keys and ChaCha20-Poly1305 encrypted frames (BouncyCastle). For AirPlay 2 receivers an RTSP session is set up, with a timing responder and an event channel, then `/play` with a binary plist and `/playback-info` polling.
+- **Remote.** `remote/` holds the remotes: Android TV remote v2 (TLS, pairing with a code, voice), Roku ECP, Samsung Tizen and LG webOS WebSockets, a Bluetooth HID device and infrared codes sent through the phone's IR blaster.
+- **Swap.** `service/SwapDirection.kt` stops the phone's mirroring, asks the TV to start mirroring to the phone and can switch back.
+- **Playback state.** `PlayQueue`, `WatchHistory`, `SleepTimer` and `SubtitleTracks` in `service/` keep the queue, resume points, timer and chosen tracks.
+- **Subtitle sources.** `subtitles/` runs Vosk or Whisper (whisper.cpp through the NDK and CMake); `opensubtitles/` talks to the OpenSubtitles API.
+- **YouTube.** `youtube/` uses YouTube's unofficial lounge protocol to start a video in the TV's YouTube app.
 - **Privacy.** Every URL contains a random token, so other devices on your network can't watch. The servers only run while you're casting.
 
 ## Limitations
 
 - **Protected video shows black.** Netflix, Disney+, Prime Video and banking apps block screen capture (an Android rule). Their websites use DRM, so the browser can't cast them either. Use their own Cast button.
-- **YouTube** uses streams that only its own apps can play. Use YouTube's Cast button, or the YouTube app on the Shield.
+- **YouTube** streams can't be mirrored or played by CastApp itself. Share the link instead (see above) or use YouTube's Cast button.
 - **Some apps block audio capture** (often streaming or music apps). For music, Spotify Connect and similar built-in features work better.
 - **Converting** uses battery and only works while the phone is on Wi-Fi. Seeking in a converted video takes a moment. The same goes for choosing a smaller quality for a file.
 - **Writing subtitles** uses the processor and battery while it runs. It needs a file (not live TV or an HLS stream).
-- **IPTV**: no programme guide (EPG) yet, and DRM-protected channels can't be played.
+- **IPTV**: DRM-protected channels can't be played. Catch-up depends on the provider and may be off by the time-zone difference.
+- **YouTube links** use an unofficial protocol that YouTube can change at any time.
+- **Remote**: no Apple TV remote, no Samsung 2014–15, no infrared for TCL, Hisense, Sharp and Vizio. The Bluetooth remote needs Android 9+ and a phone that supports it; infrared needs an IR blaster.
+- **Swap** only works with Android TVs running CastApp.
+- **Whisper** is slower and uses more battery than Vosk. Picture subtitles (PGS, VobSub) are not supported.
 - **Network folders**: Kerberos-only Windows domains aren't supported (user name and password log-in is).
 - **AirPlay**: no subtitles, photos or formats the Apple TV can't play; mirroring has a few seconds of delay. **Roku**: no seeking.
 - **Untested on real hardware.** Everything is built and unit-tested. The streams were also checked in a real browser player:
@@ -327,6 +411,13 @@ If the player doesn't start, CastApp falls back to Google's standard player auto
   - speech recognition on a phone, real IPTV providers, and Plex/Jellyfin servers;
   - the TV app's player on a real Fire TV, a real Apple TV, and a real Roku.
 
+  Everything new in 4.0.0 is tested with unit tests and with fakes or reference implementations ([pyatv](https://pyatv.dev), androidtvremote2, samsungtvws, aiowebostv, casttube), but **not yet on real devices**:
+  - the network, Bluetooth and infrared remotes, and voice search;
+  - Receive on this phone, Swap direction and receiver protection;
+  - HEVC mirroring, the phone microphone and YouTube links;
+  - Whisper on a phone, OpenSubtitles downloads and the programme guide with real providers;
+  - Wake-on-LAN, the widget and the quick tiles.
+
 ## Troubleshooting
 
 | Problem | Try this |
@@ -347,7 +438,15 @@ If the player doesn't start, CastApp falls back to Google's standard player auto
 | Plex / Jellyfin not under "Media servers" | Turn on DLNA in Plex (Settings → DLNA) or install Jellyfin's DLNA plugin. Phone and server must be on the same network. Or add the server's shared folder as a **network folder**. |
 | A network folder says "Wrong user name or password" / "Access denied" | Use the account of the NAS or PC (for a Microsoft account on Windows, the e-mail address and its password). Check the share name in the NAS's settings. |
 | A TV channel doesn't play | Many free lists contain dead channels; CastApp skips to the next one. For MPEG-TS channels on a Chromecast keep **Convert videos** on Automatic. |
-| Subtitles have many mistakes | Check that the spoken language is right in Settings. Recognition works best with clear speech. |
+| Subtitles have many mistakes | Check that the spoken language is right in Settings. Recognition works best with clear speech. Or try the **Accurate (Whisper)** engine. |
+| TV not found and you don't know why | Settings → Help & support → **Why can't I find my TV?** |
+| Remote doesn't connect | Same Wi-Fi as the TV. Google TV: type the code shown on the TV. Samsung: tap **Allow** on the TV. LG: accept on the TV. Bluetooth: pair the phone from the TV's Bluetooth settings first. |
+| Infrared remote does nothing | Your phone needs an IR blaster. Point it at the TV and pick the right brand. |
+| Picture is broken with HEVC | Set the video codec in Settings to **H.264**. |
+| Casting stops when the screen is off | Settings → Help & support: allow CastApp to run in the background (battery optimization). |
+| "Swap" is missing | It needs an Android TV running CastApp. |
+| Find subtitles online asks for a key | Enter your own free OpenSubtitles.com API key in Settings. |
+| Update check says "private repository" | Normal for private repositories. Download the APK from Actions instead. |
 
 ## Project layout
 
@@ -361,12 +460,18 @@ app/src/main/java/io/github/patschgoo/castapp/
 ├── render/        "play this URL" for Cast, DLNA, AirPlay and Roku devices
 ├── stream/        MP4/TS/ADTS muxers, stream & media servers, HLS, web proxy, subtitles
 ├── capture/       screen and audio encoders, OpenGL scaler, video converter
-├── service/       foreground service, screen/sound and media sessions, overlays
+├── service/       foreground service, screen/sound and media sessions, overlays, queue, swap direction
 ├── browser/       video detection for the built-in browser
 ├── iptv/          M3U channel lists, favourites
 ├── network/       SMB shares, WebDAV, saved network folders, encrypted passwords
-├── subtitles/     speech recognition (Vosk), language downloads, subtitle timing
-├── tile/          Quick Settings tile
+├── subtitles/     speech recognition (Vosk, Whisper), language downloads, subtitle timing
+├── opensubtitles/ find and download subtitles from OpenSubtitles.com
+├── remote/        TV remotes: network, Bluetooth, infrared, voice (screen: RemoteActivity)
+├── youtube/       YouTube links (lounge protocol)
+├── support/       debug log, network check, battery tips, update check, Wake-on-LAN
+├── settings/      settings storage
+├── widget/        home-screen widget
+├── tile/          Quick Settings tiles
 ├── ui/            Jetpack Compose screens
 receiver/          optional low-latency TV player (web app for Cast devices)
 ```
