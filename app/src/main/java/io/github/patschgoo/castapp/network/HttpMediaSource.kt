@@ -1,5 +1,7 @@
 package io.github.patschgoo.castapp.network
 
+import io.github.patschgoo.castapp.Txt
+import io.github.patschgoo.castapp.R
 import io.github.patschgoo.castapp.stream.MediaSource
 import java.io.FilterInputStream
 import java.io.IOException
@@ -27,7 +29,7 @@ class HttpMediaSource(
         val code = conn.responseCode
         if (code !in 200..299) {
             conn.disconnect()
-            throw IOException("The server answered $code")
+            throw IOException(Txt.sOr(R.string.err_server_answered, "The server answered %d", code))
         }
         val input = object : FilterInputStream(conn.inputStream) {
             override fun close() {

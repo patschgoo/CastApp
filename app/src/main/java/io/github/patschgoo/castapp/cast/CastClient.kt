@@ -1,5 +1,7 @@
 package io.github.patschgoo.castapp.cast
 
+import io.github.patschgoo.castapp.R
+import io.github.patschgoo.castapp.Txt
 import android.annotation.SuppressLint
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.TimeoutCancellationException
@@ -113,7 +115,7 @@ class CastClient(
     private fun heartbeatTick() {
         if (closed) return
         if (System.currentTimeMillis() - lastMessageAt > HEARTBEAT_MS * 4) {
-            fail(CastException("The TV stopped responding"))
+            fail(CastException(Txt.s(R.string.err_cast_tv_stopped_responding)))
             return
         }
         try {
@@ -145,7 +147,7 @@ class CastClient(
     }
 
     fun send(namespace: String, destination: String, payload: JSONObject) {
-        val out = output ?: throw CastException("Not connected")
+        val out = output ?: throw CastException(Txt.s(R.string.err_not_connected))
         val msg = CastMessage(SENDER_ID, destination, namespace, payload.toString())
         synchronized(writeLock) {
             CastMessage.writeFramed(out, msg)
@@ -173,7 +175,7 @@ class CastClient(
             }
             NS_CONNECTION -> if (msg.type == "CLOSE") {
                 if (msg.sourceId == RECEIVER_ID) {
-                    fail(CastException("The TV closed the connection"))
+                    fail(CastException(Txt.s(R.string.err_tv_closed)))
                 } else if (msg.sourceId == watchedTransport) {
                     listener?.onAppClosed()
                 }
@@ -206,7 +208,7 @@ class CastClient(
             sendAction()
             return withTimeout(timeoutMs) { waiter.result.await() }
         } catch (e: TimeoutCancellationException) {
-            throw CastException("The TV did not answer in time")
+            throw CastException(Txt.s(R.string.err_tv_timeout))
         } finally {
             waiters.remove(waiter)
         }
@@ -236,10 +238,10 @@ class CastClient(
                 )
         }) { send(NS_RECEIVER, RECEIVER_ID, payload) }
         if (reply.type != "RECEIVER_STATUS") {
-            throw CastException("The TV could not start the player (${reply.json.optString("reason", reply.type)})")
+            throw CastException(Txt.s(R.string.err_tv_cant_start_player, reply.json.optString("reason", reply.type)))
         }
         val app = appFrom(reply.json.optJSONObject("status"), appId)
-            ?: throw CastException("The TV did not start the player")
+            ?: throw CastException(Txt.s(R.string.err_tv_no_player))
         connectChannel(app.transportId)
         watchedTransport = app.transportId
         return app
@@ -261,7 +263,7 @@ class CastClient(
         val reply = request(NS_MEDIA, app.transportId, payload, timeoutMs)
         if (reply.type != "MEDIA_STATUS") {
             val detail = reply.json.optString("detailedErrorCode", "").ifEmpty { reply.json.optString("reason", "") }
-            throw CastException("The TV could not play this (${reply.type}${if (detail.isNotEmpty()) ", $detail" else ""})")
+            throw CastException(Txt.s(R.string.err_tv_cant_play, "${reply.type}${if (detail.isNotEmpty()) ", $detail" else ""}"))
         }
         val list = reply.json.optJSONArray("status")
         return list?.optJSONObject(0) ?: JSONObject()
@@ -319,7 +321,7 @@ class CastClient(
         if (closed) return
         closed = true
         cleanup()
-        for (w in waiters) w.result.completeExceptionally(error ?: CastException("Disconnected"))
+        for (w in waiters) w.result.completeExceptionally(error ?: CastException(Txt.s(R.string.err_disconnected)))
         listener?.onDisconnected(error)
     }
 
@@ -337,7 +339,7 @@ class CastClient(
         }
         closed = true
         cleanup()
-        for (w in waiters) w.result.completeExceptionally(CastException("Closed"))
+        for (w in waiters) w.result.completeExceptionally(CastException(Txt.s(R.string.err_closed)))
     }
 
     // Cast receivers present self-signed certificates and the connection never leaves the

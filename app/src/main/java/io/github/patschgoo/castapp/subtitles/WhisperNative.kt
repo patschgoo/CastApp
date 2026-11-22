@@ -1,5 +1,7 @@
 package io.github.patschgoo.castapp.subtitles
 
+import io.github.patschgoo.castapp.Txt
+import io.github.patschgoo.castapp.R
 import java.io.IOException
 
 /** The JNI bridge to whisper.cpp (app/src/main/cpp/whisper_jni.cpp, built into libcastwhisper.so). */
@@ -20,7 +22,7 @@ object WhisperNative {
             loaded = true
         } catch (e: UnsatisfiedLinkError) {
             loaded = false
-            throw IOException("The accurate speech engine doesn't run on this phone", e)
+            throw IOException(Txt.s(R.string.err_whisper_unsupported), e)
         }
     }
 
