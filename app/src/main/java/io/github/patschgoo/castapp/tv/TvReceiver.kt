@@ -44,6 +44,17 @@ object TvReceiver : RendererBackend, CastAppCommands {
         if (!::appContext.isInitialized) appContext = context.applicationContext
     }
 
+    /**
+     * Who may cast here. TVs default to "anyone on the network" (as before), phones that
+     * "receive on this phone" to "ask first". Call [init] before.
+     */
+    val guard: ReceiverGuard by lazy {
+        ReceiverGuard(
+            PrefsGuardStore(appContext.getSharedPreferences(PREFS, Context.MODE_PRIVATE)),
+            if (isTv(appContext)) ProtectionMode.ANYONE else ProtectionMode.ASK,
+        ).also { g -> g.onAttention = { ReceiverPrompt.attention(appContext, g) } }
+    }
+
     /** True on Fire TV, Android TV and Google TV devices. */
     fun isTv(context: Context): Boolean {
         val pm = context.packageManager

@@ -266,6 +266,7 @@ class CastService : Service() {
         lockLandscape(false)
         session?.finish(null)
         session = null
+        requestTileUpdate()
         scope.cancel()
         super.onDestroy()
     }
@@ -275,6 +276,8 @@ class CastService : Service() {
             TileService.requestListeningState(this, ComponentName(this, CastTileService::class.java))
         } catch (_: Exception) {
         }
+        // The home-screen widget shows the same state (a no-op unless what it shows changed).
+        io.github.patschgoo.castapp.widget.CastWidget.refresh(this)
     }
 
     // ---- notifications -------------------------------------------------------------------

@@ -56,6 +56,7 @@ class TvReceiverService : Service() {
         }
         val r = UpnpRenderer(TvReceiver.deviceName(this), TvReceiver.uuid(this), TvReceiver, BuildConfig.VERSION_NAME)
         r.commands = TvReceiver
+        r.guard = TvReceiver.guard
         r.start(PORT, ssdp = true, interfaces = interfaces())
         renderer = r
         _port.value = r.port

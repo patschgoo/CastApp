@@ -3,6 +3,9 @@ package io.github.patschgoo.castapp.render
 import io.github.patschgoo.castapp.cast.CastException
 import io.github.patschgoo.castapp.discovery.CastDevice
 import io.github.patschgoo.castapp.dlna.Dlna
+import io.github.patschgoo.castapp.service.SwapDirection
+import io.github.patschgoo.castapp.tv.AppPairing
+import io.github.patschgoo.castapp.tv.PairingClient
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -20,7 +23,11 @@ import java.net.URI
  * Plays media on a DLNA TV (Samsung, LG, Sony, ...) through UPnP AVTransport.
  * DLNA has no push events we can rely on, so the state is polled every second.
  */
-class DlnaRenderer(override val device: CastDevice) : MediaRenderer {
+class DlnaRenderer(
+    override val device: CastDevice,
+    /** Pairs with CastApp TVs that only accept paired phones; null = no pairing (tests). */
+    private val pairing: PairingClient? = AppPairing.client,
+) : MediaRenderer {
     override var listener: MediaRenderer.Listener? = null
 
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
@@ -34,6 +41,24 @@ class DlnaRenderer(override val device: CastDevice) : MediaRenderer {
     @Volatile private var failures = 0
     @Volatile private var closed = false
     @Volatile private var loadedAt = 0L
+    /** CastApp TVs: who we are and the pairing token (for receivers that only accept paired phones). */
+    @Volatile private var authHeaders: Map<String, String> = emptyMap()
+
+    private fun soapCall(url: String, service: String, action: String, args: List<Pair<String, String>>, timeoutMs: Int = 5000): String =
+        Dlna.call(url, service, action, args, timeoutMs, authHeaders)
+
+    /** Pairs with a CastApp TV that wants a code (asks the user once) and prepares the headers for it. */
+    private suspend fun pairIfNeeded() {
+        val p = pairing ?: return
+        if (!device.isCastAppTv) return
+        val base = SwapDirection.baseUrl(device) ?: return
+        try {
+            p.ensure(device, base)
+        } catch (e: PairingClient.PairingException) {
+            throw CastException(e.message ?: "Pairing failed")
+        }
+        authHeaders = p.headersFor(device)
+    }
 
     override val localAddress: InetAddress? get() = local
 
@@ -45,10 +70,11 @@ class DlnaRenderer(override val device: CastDevice) : MediaRenderer {
                 s.connect(InetSocketAddress(uri.host, if (uri.port > 0) uri.port else 80), 4000)
                 local = s.localAddress
             }
-            Dlna.call(avt, Dlna.AV_TRANSPORT, "GetTransportInfo", listOf("InstanceID" to "0"))
+            soapCall(avt, Dlna.AV_TRANSPORT, "GetTransportInfo", listOf("InstanceID" to "0"))
         } catch (e: Exception) {
             throw CastException("Can't reach ${device.name} at ${device.host}. Is it on the same Wi-Fi?")
         }
+        pairIfNeeded()
         readVolume()
         startPolling()
     }
@@ -58,14 +84,25 @@ class DlnaRenderer(override val device: CastDevice) : MediaRenderer {
         lastPosition = 0
         lastDuration = 0
         loadedAt = System.currentTimeMillis()
-        try { Dlna.call(avt, Dlna.AV_TRANSPORT, "Stop", listOf("InstanceID" to "0")) } catch (_: Exception) {}
+        try { soapCall(avt, Dlna.AV_TRANSPORT, "Stop", listOf("InstanceID" to "0")) } catch (_: Exception) {}
         val meta = Dlna.didl(media.title, media.url, media.mimeType, media.live, media.subtitleSrtUrl ?: media.subtitleUrl, media.lowLatency)
-        Dlna.call(
-            avt, Dlna.AV_TRANSPORT, "SetAVTransportURI",
-            listOf("InstanceID" to "0", "CurrentURI" to media.url, "CurrentURIMetaData" to meta),
-            timeoutMs = 10_000,
-        )
-        Dlna.call(avt, Dlna.AV_TRANSPORT, "Play", listOf("InstanceID" to "0", "Speed" to "1"))
+        val setUri = {
+            soapCall(
+                avt, Dlna.AV_TRANSPORT, "SetAVTransportURI",
+                listOf("InstanceID" to "0", "CurrentURI" to media.url, "CurrentURIMetaData" to meta),
+                timeoutMs = 10_000,
+            )
+        }
+        try {
+            setUri()
+        } catch (e: Dlna.SoapException) {
+            // The TV forgot this phone: pair again (asks for the code) and retry once.
+            if (pairing == null || !device.isCastAppTv || e.message?.contains(PairingClient.PAIRING_REQUIRED_MARKER) != true) throw e
+            pairing.forget(device)
+            pairIfNeeded()
+            setUri()
+        }
+        soapCall(avt, Dlna.AV_TRANSPORT, "Play", listOf("InstanceID" to "0", "Speed" to "1"))
         if (media.startMs > 0) {
             // Most TVs only accept a seek once playback has started.
             for (i in 0 until 20) {
@@ -83,7 +120,7 @@ class DlnaRenderer(override val device: CastDevice) : MediaRenderer {
     override suspend fun seek(positionMs: Long) = withContext(Dispatchers.IO) { seekNow(positionMs) }
 
     private fun seekNow(positionMs: Long) {
-        Dlna.call(avt, Dlna.AV_TRANSPORT, "Seek", listOf("InstanceID" to "0", "Unit" to "REL_TIME", "Target" to Dlna.formatTime(positionMs)))
+        soapCall(avt, Dlna.AV_TRANSPORT, "Seek", listOf("InstanceID" to "0", "Unit" to "REL_TIME", "Target" to Dlna.formatTime(positionMs)))
     }
 
     override suspend fun refresh(): RendererStatus? = withContext(Dispatchers.IO) { poll() }
@@ -94,19 +131,19 @@ class DlnaRenderer(override val device: CastDevice) : MediaRenderer {
 
     override suspend fun setVolume(level: Double) = withContext(Dispatchers.IO) {
         val url = rc ?: return@withContext
-        Dlna.call(url, Dlna.RENDERING_CONTROL, "SetVolume", listOf("InstanceID" to "0", "Channel" to "Master", "DesiredVolume" to (level * 100).toInt().coerceIn(0, 100).toString()))
+        soapCall(url, Dlna.RENDERING_CONTROL, "SetVolume", listOf("InstanceID" to "0", "Channel" to "Master", "DesiredVolume" to (level * 100).toInt().coerceIn(0, 100).toString()))
         listener?.onVolume(level, false)
     }
 
     override suspend fun setMuted(muted: Boolean) = withContext(Dispatchers.IO) {
         val url = rc ?: return@withContext
-        Dlna.call(url, Dlna.RENDERING_CONTROL, "SetMute", listOf("InstanceID" to "0", "Channel" to "Master", "DesiredMute" to if (muted) "1" else "0"))
+        soapCall(url, Dlna.RENDERING_CONTROL, "SetMute", listOf("InstanceID" to "0", "Channel" to "Master", "DesiredMute" to if (muted) "1" else "0"))
         readVolume()
     }
 
     override suspend fun stop() = withContext(Dispatchers.IO) {
         poller?.cancel()
-        try { Dlna.call(avt, Dlna.AV_TRANSPORT, "Stop", listOf("InstanceID" to "0")) } catch (_: Exception) {}
+        try { soapCall(avt, Dlna.AV_TRANSPORT, "Stop", listOf("InstanceID" to "0")) } catch (_: Exception) {}
         Unit
     }
 
@@ -116,7 +153,7 @@ class DlnaRenderer(override val device: CastDevice) : MediaRenderer {
     }
 
     private suspend fun call(action: String, args: List<Pair<String, String>>) = withContext(Dispatchers.IO) {
-        Dlna.call(avt, Dlna.AV_TRANSPORT, action, args)
+        soapCall(avt, Dlna.AV_TRANSPORT, action, args)
         poll()
         Unit
     }
@@ -124,8 +161,8 @@ class DlnaRenderer(override val device: CastDevice) : MediaRenderer {
     private fun readVolume() {
         val url = rc ?: return
         try {
-            val vol = Dlna.tag(Dlna.call(url, Dlna.RENDERING_CONTROL, "GetVolume", listOf("InstanceID" to "0", "Channel" to "Master")), "CurrentVolume")?.toIntOrNull()
-            val mute = Dlna.tag(Dlna.call(url, Dlna.RENDERING_CONTROL, "GetMute", listOf("InstanceID" to "0", "Channel" to "Master")), "CurrentMute")
+            val vol = Dlna.tag(soapCall(url, Dlna.RENDERING_CONTROL, "GetVolume", listOf("InstanceID" to "0", "Channel" to "Master")), "CurrentVolume")?.toIntOrNull()
+            val mute = Dlna.tag(soapCall(url, Dlna.RENDERING_CONTROL, "GetMute", listOf("InstanceID" to "0", "Channel" to "Master")), "CurrentMute")
             listener?.onVolume(vol?.let { it / 100.0 }, mute == "1" || mute.equals("true", true))
         } catch (_: Exception) {
         }
@@ -146,8 +183,8 @@ class DlnaRenderer(override val device: CastDevice) : MediaRenderer {
     /** Reads transport state and position; reports them, or a lost connection after repeated failures. */
     private fun poll(): RendererStatus? {
         return try {
-            val info = Dlna.call(avt, Dlna.AV_TRANSPORT, "GetTransportInfo", listOf("InstanceID" to "0"), timeoutMs = 3000)
-            val pos = Dlna.call(avt, Dlna.AV_TRANSPORT, "GetPositionInfo", listOf("InstanceID" to "0"), timeoutMs = 3000)
+            val info = soapCall(avt, Dlna.AV_TRANSPORT, "GetTransportInfo", listOf("InstanceID" to "0"), timeoutMs = 3000)
+            val pos = soapCall(avt, Dlna.AV_TRANSPORT, "GetPositionInfo", listOf("InstanceID" to "0"), timeoutMs = 3000)
             failures = 0
             val position = Dlna.parseTime(Dlna.tag(pos, "RelTime"))
             val duration = Dlna.parseTime(Dlna.tag(pos, "TrackDuration"))?.takeIf { it > 0 }

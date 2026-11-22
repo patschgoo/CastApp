@@ -179,6 +179,7 @@ fun SettingsScreen(
 
             item { SectionTitle("Connection") }
             item { ReceiveOnPhoneItem() }
+            item { io.github.patschgoo.castapp.tv.ReceiverProtectionItem() }
             item { SettingItem("Stream mode", s.streamMode.label + " — " + s.streamMode.description) { dialog = SettingDialog.MODE } }
             item { SettingItem("Stream port", "${s.port} (only change if something else uses it)") { dialog = SettingDialog.PORT } }
             item {
