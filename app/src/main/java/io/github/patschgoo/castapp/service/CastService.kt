@@ -144,6 +144,7 @@ class CastService : Service() {
         app.devices.markUsed(device)
         Shortcuts.update(this, device)
         newSession.start()
+        io.github.patschgoo.castapp.support.DoNotDisturb.onMirroringStarted(this)
         if (!audioOnly && app.settings.current.picture == PictureMode.LANDSCAPE) lockLandscape(true)
     }
 
@@ -246,6 +247,7 @@ class CastService : Service() {
             overlay?.hide()
             overlay = null
             lockLandscape(false)
+            io.github.patschgoo.castapp.support.DoNotDisturb.onMirroringEnded(this)
             stopSelfCompletely()
         }
     }
@@ -266,6 +268,7 @@ class CastService : Service() {
         lockLandscape(false)
         session?.finish(null)
         session = null
+        io.github.patschgoo.castapp.support.DoNotDisturb.onMirroringEnded(this)
         scope.cancel()
         super.onDestroy()
     }

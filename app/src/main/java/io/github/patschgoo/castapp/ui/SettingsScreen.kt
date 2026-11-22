@@ -49,6 +49,7 @@ import io.github.patschgoo.castapp.settings.PictureMode
 import io.github.patschgoo.castapp.settings.StreamMode
 import io.github.patschgoo.castapp.settings.ThemeMode
 import io.github.patschgoo.castapp.subtitles.VoskModels
+import io.github.patschgoo.castapp.support.supportSettingsSection
 import androidx.compose.foundation.layout.size
 import androidx.compose.material.icons.rounded.Delete
 import androidx.compose.material.icons.rounded.Download
@@ -197,6 +198,8 @@ fun SettingsScreen(
                 } + if (Build.VERSION.SDK_INT >= 31) " · colors from your wallpaper" else ""
                 SettingItem("Theme", summary) { dialog = SettingDialog.THEME }
             }
+
+            supportSettingsSection()
 
             item { SectionTitle("About") }
             item {

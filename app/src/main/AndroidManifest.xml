@@ -27,6 +27,9 @@
     <uses-permission android:name="android.permission.WAKE_LOCK" />
     <!-- Only used to capture the sound of other apps (Android 10+), never the microphone -->
     <uses-permission android:name="android.permission.RECORD_AUDIO" />
+    <!-- Support tools: keep playing with the screen off, update from GitHub -->
+    <uses-permission android:name="android.permission.REQUEST_IGNORE_BATTERY_OPTIMIZATIONS" />
+    <uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES" />
 
     <!-- Needed to list apps for "Cast a single app" on Android 13 and older -->
     <queries>
@@ -169,6 +172,17 @@
             android:name=".service.CastService"
             android:exported="false"
             android:foregroundServiceType="mediaProjection|mediaPlayback" />
+
+        <!-- Shares the debug log and the downloaded update (cache/support only) -->
+        <provider
+            android:name="androidx.core.content.FileProvider"
+            android:authorities="${applicationId}.support.files"
+            android:exported="false"
+            android:grantUriPermissions="true">
+            <meta-data
+                android:name="android.support.FILE_PROVIDER_PATHS"
+                android:resource="@xml/support_file_paths" />
+        </provider>
 
         <service
             android:name=".tile.CastTileService"
