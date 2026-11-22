@@ -1,5 +1,7 @@
 package io.github.patschgoo.castapp.support
 
+import io.github.patschgoo.castapp.Txt
+import io.github.patschgoo.castapp.R
 import android.content.Context
 import android.content.Intent
 import android.net.Uri
@@ -67,12 +69,12 @@ object Updates {
     /** Pure: turns GitHub's answer into a result. */
     fun interpret(status: Int, body: String?, currentVersion: String): CheckResult = when {
         status == 404 -> CheckResult.NoRelease
-        status == 403 || status == 429 -> CheckResult.Failed("GitHub is limiting requests right now ($status). Try again later.")
-        status !in 200..299 || body == null -> CheckResult.Failed("GitHub answered with an error ($status).")
+        status == 403 || status == 429 -> CheckResult.Failed(Txt.s(R.string.err_http_limit, status))
+        status !in 200..299 || body == null -> CheckResult.Failed(Txt.s(R.string.err_http_error, status))
         else -> {
             val release = ReleaseInfo.parse(body)
             when {
-                release == null -> CheckResult.Failed("GitHub's answer could not be understood.")
+                release == null -> CheckResult.Failed(Txt.s(R.string.err_github_unclear))
                 Versions.isNewer(release.version, currentVersion) -> CheckResult.Newer(release)
                 else -> CheckResult.UpToDate(currentVersion)
             }
@@ -94,7 +96,7 @@ object Updates {
             conn.disconnect()
         }
     } catch (e: Exception) {
-        CheckResult.Failed("Could not reach GitHub: ${e.message ?: e.javaClass.simpleName}")
+        CheckResult.Failed(Txt.s(R.string.err_github_unreachable, e.message ?: e.javaClass.simpleName))
     }
 
     /** "Check for updates": always asks, and always tells the user the answer. */
@@ -142,7 +144,7 @@ object Updates {
                 _ui.value = null
                 app.startActivity(installIntent(app, file))
             } catch (e: Exception) {
-                _ui.value = UpdateUi.Failed("Download failed: ${e.message ?: e.javaClass.simpleName}")
+                _ui.value = UpdateUi.Failed(Txt.s(R.string.err_update_failed, e.message ?: e.javaClass.simpleName))
             }
         }
     }
@@ -165,7 +167,7 @@ object Updates {
         conn.instanceFollowRedirects = true
         conn.setRequestProperty("User-Agent", "CastApp-update-check")
         try {
-            if (conn.responseCode !in 200..299) error("server answered ${conn.responseCode}")
+            if (conn.responseCode !in 200..299) error(Txt.s(R.string.err_update_server, conn.responseCode))
             val total = conn.contentLengthLong.takeIf { it > 0 } ?: release.apkSize
             var done = 0L
             var lastReport = 0L
@@ -184,7 +186,7 @@ object Updates {
                     }
                 }
             }
-            if (done == 0L) error("the file was empty")
+            if (done == 0L) error(Txt.s(R.string.err_update_empty))
         } finally {
             conn.disconnect()
         }

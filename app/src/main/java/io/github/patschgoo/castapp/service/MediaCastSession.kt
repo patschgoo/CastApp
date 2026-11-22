@@ -1,5 +1,6 @@
 package io.github.patschgoo.castapp.service
 
+import io.github.patschgoo.castapp.Txt
 import android.content.ContentResolver
 import android.content.Context
 import android.media.MediaMetadata
@@ -252,7 +253,7 @@ class MediaCastSession(
             throw e
         } catch (e: Exception) {
             Log.w(TAG, "Media cast failed", e)
-            finish(e.message ?: "Casting failed")
+            finish(e.message ?: Txt.s(R.string.err_cast_failed))
         }
     }
 
@@ -284,7 +285,7 @@ class MediaCastSession(
     /** A file on a network share: smb://<source id>/<path inside the share>. */
     private fun smbLocation(uri: String): Pair<NetworkSource, String> {
         val rest = uri.removePrefix("smb://")
-        val source = network.get(rest.substringBefore('/')) ?: throw IOException("This network share was removed from CastApp")
+        val source = network.get(rest.substringBefore('/')) ?: throw IOException(Txt.s(R.string.err_share_removed))
         return source to rest.substringAfter('/', "")
     }
 
@@ -580,7 +581,7 @@ class MediaCastSession(
         }
         val (setup, missing) = SpeechEngines.ready(context, settings.subtitleLanguage)
         if (setup == null) {
-            if (!auto) CastController.message(missing ?: "Choose the spoken language in Settings → Subtitles first")
+            if (!auto) CastController.message(missing ?: Txt.s(R.string.err_choose_language))
             return
         }
         startSubtitleJob(item, setup, ahead = false)
@@ -637,7 +638,7 @@ class MediaCastSession(
                 refreshExtras()
                 val playingNow = current.uri == item.uri
                 if (cues.isEmpty()) {
-                    if (playingNow) CastController.message("No speech found in \"${item.title}\"")
+                    if (playingNow) CastController.message(Txt.s(R.string.err_no_speech, item.title))
                 } else if (playingNow) {
                     if (!subtitlesOn) toggleSubtitles()
                     reloadForSubtitles(item)
@@ -656,7 +657,7 @@ class MediaCastSession(
                 subtitleFor = null
                 subtitleProgress = -1
                 refreshExtras()
-                if (current.uri == item.uri) CastController.message("Couldn't write subtitles: ${e.message ?: "unknown error"}")
+                if (current.uri == item.uri) CastController.message(Txt.s(R.string.err_subs_failed, e.message ?: Txt.s(R.string.err_unknown)))
             }
         }
     }
@@ -779,7 +780,7 @@ class MediaCastSession(
     private fun mediaFor(i: Int, d: Delivery, startMs: Long): RendererMedia {
         val item = items[i]
         val id = queue.idAt(i)
-        val local = renderer?.localAddress ?: throw CastException("No network path to the TV")
+        val local = renderer?.localAddress ?: throw CastException(Txt.s(R.string.err_no_path))
         val t = server.token
         val audio = audioChoice[item.uri] ?: 0
         val url = when (d) {
@@ -901,7 +902,7 @@ class MediaCastSession(
                     skipped = 0
                     refreshExtras()
                     if (d == Delivery.CONVERT && convertHeight == 0 && (audioChoice[item.uri] ?: 0) == 0) {
-                        CastController.message("Converting \"${item.title}\" on the phone so the TV can play it")
+                        CastController.message(Txt.s(R.string.msg_converting, item.title))
                     }
                     if (settings.autoSubtitles && canCreateSubtitles(item)) createSubtitles(auto = true) else writeAhead()
                     probeTracks(item)
@@ -917,7 +918,7 @@ class MediaCastSession(
             }
         }
         // Nothing worked for this item: skip it (the way the user was going).
-        CastController.message("${device.name} couldn't play \"${item.title}\"")
+        CastController.message(Txt.s(R.string.err_cant_play_item, device.name, item.title))
         val nextIndex = i + direction
         if (nextIndex in items.indices && skipped < MAX_SKIPS) {
             skipped++
@@ -1305,7 +1306,7 @@ class MediaCastSession(
         }
 
         override fun onClosedOnDevice() {
-            if (r === renderer && !reconnecting) finish("Playback was stopped on the TV")
+            if (r === renderer && !reconnecting) finish(Txt.s(R.string.err_playback_stopped_tv))
         }
     }
 
@@ -1332,10 +1333,10 @@ class MediaCastSession(
                         direction = 1
                         scope.launch { playIndex(following, 0, resume = following != index) }
                     }
-                    else -> finish("Finished playing")
+                    else -> finish(Txt.s(R.string.err_finished))
                 }
             }
-            PlayState.STOPPED -> if (started && waiter == null && !reconnecting) finish("Playback was stopped on the TV")
+            PlayState.STOPPED -> if (started && waiter == null && !reconnecting) finish(Txt.s(R.string.err_playback_stopped_tv))
             PlayState.IDLE -> Unit
         }
         val converted = delivery == Delivery.CONVERT
@@ -1357,10 +1358,10 @@ class MediaCastSession(
         if (current.type == MediaType.VIDEO && !current.isHls && delivery != Delivery.CONVERT && settings.convert != ConvertMode.OFF) {
             playIndex(index, position, onlyFrom = Delivery.CONVERT)
         } else if (queue.nextIndex(auto = false)?.takeIf { it != index } != null) {
-            CastController.message("${device.name} couldn't play \"${current.title}\"")
+            CastController.message(Txt.s(R.string.err_cant_play_item, device.name, current.title))
             playIndex(queue.nextIndex(auto = false) ?: return, 0)
         } else {
-            finish("${device.name} couldn't play \"${current.title}\"")
+            finish(Txt.s(R.string.err_cant_play_item, device.name, current.title))
         }
     }
 
@@ -1368,7 +1369,7 @@ class MediaCastSession(
     private suspend fun restartLive() {
         if (ended.get() || reconnecting) return
         if (liveRetries >= MAX_LIVE_RETRIES) {
-            finish("\"${current.title}\" stopped sending")
+            finish(Txt.s(R.string.err_stopped_sending, current.title))
             return
         }
         liveRetries++
@@ -1410,7 +1411,7 @@ class MediaCastSession(
             }
         }
         reconnecting = false
-        finish("Lost the connection to ${device.name}")
+        finish(Txt.s(R.string.err_lost_connection, device.name))
     }
 
     // ---- lock screen / notification / volume keys -------------------------------------------------
@@ -1464,15 +1465,15 @@ class MediaCastSession(
             .setActions(actions)
             .setState(state, s?.positionMs ?: 0, if (state == PlaybackState.STATE_PLAYING) 1f else 0f, s?.positionAt ?: SystemClock.elapsedRealtime())
         if (items.size <= 1 && !live) {
-            builder.addCustomAction(PlaybackState.CustomAction.Builder(CUSTOM_REWIND, "Back 10 s", R.drawable.ic_rewind).build())
-            builder.addCustomAction(PlaybackState.CustomAction.Builder(CUSTOM_FORWARD, "Forward 30 s", R.drawable.ic_forward).build())
+            builder.addCustomAction(PlaybackState.CustomAction.Builder(CUSTOM_REWIND, context.getString(R.string.action_rewind), R.drawable.ic_rewind).build())
+            builder.addCustomAction(PlaybackState.CustomAction.Builder(CUSTOM_FORWARD, context.getString(R.string.action_forward), R.drawable.ic_forward).build())
         }
-        builder.addCustomAction(PlaybackState.CustomAction.Builder(CUSTOM_STOP, "Stop", R.drawable.ic_stop).build())
+        builder.addCustomAction(PlaybackState.CustomAction.Builder(CUSTOM_STOP, context.getString(R.string.action_stop), R.drawable.ic_stop).build())
         session.setPlaybackState(builder.build())
         session.setMetadata(
             MediaMetadata.Builder()
                 .putString(MediaMetadata.METADATA_KEY_TITLE, current.title)
-                .putString(MediaMetadata.METADATA_KEY_ARTIST, "On ${device.name}")
+                .putString(MediaMetadata.METADATA_KEY_ARTIST, context.getString(R.string.media_on_device, device.name))
                 .putLong(MediaMetadata.METADATA_KEY_DURATION, if (live) -1 else s?.durationMs ?: 0)
                 .build(),
         )

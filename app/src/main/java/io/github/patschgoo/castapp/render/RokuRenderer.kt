@@ -1,5 +1,7 @@
 package io.github.patschgoo.castapp.render
 
+import io.github.patschgoo.castapp.R
+import io.github.patschgoo.castapp.Txt
 import io.github.patschgoo.castapp.cast.CastException
 import io.github.patschgoo.castapp.discovery.CastDevice
 import io.github.patschgoo.castapp.dlna.Dlna
@@ -51,7 +53,7 @@ class RokuRenderer(override val device: CastDevice) : MediaRenderer {
             }
             http("GET", "/query/device-info")
         } catch (e: Exception) {
-            throw CastException("Can't reach ${device.name} at ${device.host}. Is it on the same Wi-Fi?")
+            throw CastException(Txt.s(R.string.err_cant_reach, device.name, device.host))
         }
         startPolling()
     }
@@ -80,7 +82,7 @@ class RokuRenderer(override val device: CastDevice) : MediaRenderer {
         fun enc(s: String) = URLEncoder.encode(s, "UTF-8")
         val query = "t=$type&u=${enc(media.url)}&k=(null)&videoName=${enc(media.title)}&videoFormat=$format"
         val code = http("POST", "/input/$PLAY_ON_ROKU?$query")
-        if (code !in 200..299) throw CastException("${device.name} refused the video ($code)")
+        if (code !in 200..299) throw CastException(Txt.s(R.string.err_refused_video, device.name, code))
         RendererStatus(PlayState.BUFFERING)
     }
 
@@ -139,7 +141,7 @@ class RokuRenderer(override val device: CastDevice) : MediaRenderer {
                 conn.outputStream.close()
             }
             val code = conn.responseCode
-            if (code == 403) throw CastException("${device.name} blocks control by phones. On the Roku: Settings → System → Advanced system settings → Control by mobile apps: turn it on (network access Default or Permissive).")
+            if (code == 403) throw CastException(Txt.s(R.string.err_roku_blocked_long, device.name))
             return code
         } finally {
             conn.disconnect()
@@ -158,7 +160,7 @@ class RokuRenderer(override val device: CastDevice) : MediaRenderer {
 
     private fun poll(): RendererStatus? {
         return try {
-            val xml = Dlna.fetch("$base/query/media-player", timeoutMs = 3000) ?: throw IOException("No answer")
+            val xml = Dlna.fetch("$base/query/media-player", timeoutMs = 3000) ?: throw IOException(Txt.s(R.string.err_no_answer))
             failures = 0
             val state = Regex("<player[^>]*state=\"([a-z]+)\"").find(xml)?.groupValues?.get(1).orEmpty()
             val error = Regex("<player[^>]*error=\"true\"").containsMatchIn(xml)

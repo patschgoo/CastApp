@@ -1,5 +1,8 @@
 package io.github.patschgoo.castapp.network
 
+import io.github.patschgoo.castapp.Txt
+import io.github.patschgoo.castapp.R
+import androidx.annotation.StringRes
 import android.content.Context
 import androidx.core.content.edit
 import io.github.patschgoo.castapp.dlna.Dlna
@@ -16,7 +19,12 @@ import java.net.NetworkInterface
 import java.util.UUID
 import java.util.concurrent.ConcurrentHashMap
 
-enum class SourceKind(val label: String) { SMB("Windows / Samba share"), WEBDAV("WebDAV (Nextcloud, NAS, cloud)") }
+enum class SourceKind(@StringRes val labelRes: Int) {
+    SMB(R.string.source_smb),
+    WEBDAV(R.string.source_webdav);
+
+    val label: String get() = Txt.s(labelRes)
+}
 
 /** A saved network share or cloud folder. */
 data class NetworkSource(
