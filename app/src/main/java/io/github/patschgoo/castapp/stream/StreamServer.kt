@@ -11,6 +11,8 @@ import java.util.Collections
  *  - /<token>/stream.mp4       progressive fragmented MP4 (lowest latency)
  *  - /<token>/hls/live.m3u8    HLS playlist (compatibility mode)
  *  - /<token>/hls/init.mp4, /<token>/hls/segN.m4s
+ *  - /<token>/audio.aac         sound only, as a live ADTS/AAC stream (speakers)
+ *  - /<token>/live.ts           MPEG transport stream for DLNA TVs
  */
 class StreamServer(private val hub: StreamHub, preferredPort: Int) : TokenHttpServer(preferredPort, "stream-http") {
 
@@ -19,6 +21,8 @@ class StreamServer(private val hub: StreamHub, preferredPort: Int) : TokenHttpSe
 
     val mp4Path: String get() = "/$token/stream.mp4"
     val hlsPath: String get() = "/$token/hls/live.m3u8"
+    val audioPath: String get() = "/$token/audio.aac"
+    val tsPath: String get() = "/$token/live.ts"
 
     val activeStreamClients: Int get() = liveClients.size
 
@@ -42,6 +46,8 @@ class StreamServer(private val hub: StreamHub, preferredPort: Int) : TokenHttpSe
         val head = request.isHead
         when {
             subPath == "stream.mp4" -> serveLiveMp4(socket, out, head)
+            subPath == "audio.aac" -> serveLiveAudio(socket, out, head)
+            subPath == "live.ts" -> serveLiveTs(socket, out, head)
             subPath == "hls/live.m3u8" -> {
                 val segmenter = hls ?: return notFound(out)
                 serveBytes(out, segmenter.playlist().toByteArray(), "application/vnd.apple.mpegurl", head)
@@ -56,6 +62,61 @@ class StreamServer(private val hub: StreamHub, preferredPort: Int) : TokenHttpSe
                 serveBytes(out, data, "video/mp4", head)
             }
             else -> notFound(out)
+        }
+    }
+
+    private fun serveLiveAudio(socket: Socket, out: OutputStream, head: Boolean) {
+        val config = hub.awaitAudioConfig(10_000)
+        if (config == null) {
+            writeHead(out, 503, "Service Unavailable", "text/plain", 0)
+            return
+        }
+        writeHead(out, 200, "OK", "audio/aac", -1)
+        out.flush()
+        if (head) return
+        val queue = LiveClientQueue(hub, maxLagUs = 3_000_000, audioOnly = true)
+        liveClients.add(queue)
+        hub.subscribe(queue)
+        try {
+            socket.soTimeout = 0
+            while (running && !queue.isClosed) {
+                val item = queue.take(1000) ?: continue
+                out.write(Adts.frame(config, item.sample.data))
+                out.flush()
+            }
+        } catch (_: SocketException) {
+        } finally {
+            hub.unsubscribe(queue)
+            queue.close()
+            liveClients.remove(queue)
+        }
+    }
+
+    private fun serveLiveTs(socket: Socket, out: OutputStream, head: Boolean) {
+        if (hub.awaitInitSegment(10_000) == null) {
+            writeHead(out, 503, "Service Unavailable", "text/plain", 0)
+            return
+        }
+        writeHead(out, 200, "OK", "video/mp2t", -1, MediaServer.dlnaHeaders("video/mp2t", seekable = false))
+        out.flush()
+        if (head) return
+        val muxer = TsMuxer(hub.videoConfig, if (hub.publishedAudioRate != null) hub.audioConfig else null)
+        val queue = LiveClientQueue(hub, maxLagUs = 2_000_000)
+        liveClients.add(queue)
+        hub.subscribe(queue)
+        try {
+            socket.soTimeout = 0
+            while (running && !queue.isClosed) {
+                val item = queue.take(1000) ?: continue
+                val bytes = muxer.mux(item.sample) ?: continue
+                out.write(bytes)
+                out.flush()
+            }
+        } catch (_: SocketException) {
+        } finally {
+            hub.unsubscribe(queue)
+            queue.close()
+            liveClients.remove(queue)
         }
     }
 

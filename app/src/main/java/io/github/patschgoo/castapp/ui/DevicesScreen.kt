@@ -83,6 +83,18 @@ import io.github.patschgoo.castapp.service.CastPhase
 import io.github.patschgoo.castapp.service.CastService
 import io.github.patschgoo.castapp.service.CastState
 import kotlinx.coroutines.launch
+import androidx.compose.material.icons.rounded.ClosedCaption
+import androidx.compose.material.icons.rounded.ClosedCaptionDisabled
+import androidx.compose.material.icons.rounded.LibraryMusic
+import androidx.compose.material.icons.rounded.Photo
+import androidx.compose.material.icons.rounded.Public
+import androidx.compose.material.icons.rounded.SkipNext
+import androidx.compose.material.icons.rounded.SkipPrevious
+import androidx.compose.material.icons.rounded.Speaker
+import androidx.compose.material.icons.rounded.SpeakerGroup
+import androidx.compose.material3.SegmentedButton
+import androidx.compose.material3.SegmentedButtonDefaults
+import androidx.compose.material3.SingleChoiceSegmentedButtonRow
 import androidx.compose.material.icons.rounded.DarkMode
 import androidx.compose.material.icons.rounded.Forward30
 import androidx.compose.material.icons.rounded.Movie
@@ -104,7 +116,10 @@ class DevicesActions(
     val onOpenSettings: () -> Unit,
     val onMirror: (CastDevice) -> Unit,
     val onCastApp: (CastDevice) -> Unit,
-    val onCastFile: (CastDevice) -> Unit,
+    val onCastFiles: (CastDevice) -> Unit,
+    val onCastSound: (CastDevice) -> Unit,
+    val onOpenBrowser: () -> Unit,
+    val onAudioMode: (Boolean) -> Unit,
     val onForget: (CastDevice) -> Unit,
     val onAddManual: suspend (String) -> CastDevice?,
     val onStop: () -> Unit,
@@ -116,6 +131,9 @@ class DevicesActions(
     val onSeek: (Long) -> Unit,
     val onRewind: () -> Unit,
     val onForward: () -> Unit,
+    val onNext: () -> Unit,
+    val onPrevious: () -> Unit,
+    val onToggleSubtitles: () -> Unit,
 )
 
 @Composable
@@ -124,11 +142,16 @@ fun DevicesScreen(
     onOpenSettings: () -> Unit,
     onMirror: (CastDevice) -> Unit,
     onCastApp: (CastDevice) -> Unit,
-    onCastFile: (CastDevice) -> Unit,
+    onCastFiles: (CastDevice) -> Unit,
+    onCastSound: (CastDevice) -> Unit,
+    onOpenBrowser: () -> Unit,
     onDarkScreen: () -> Unit,
 ) {
     val context = LocalContext.current
-    val devices by app.devices.devices.collectAsStateWithLifecycle()
+    val allDevices by app.devices.devices.collectAsStateWithLifecycle()
+    val audioMode by app.devices.audioMode.collectAsStateWithLifecycle()
+    // Video mode: TVs only. Audio mode: speakers and speaker groups too.
+    val devices = if (audioMode) allDevices else allDevices.filter { it.device.video }
     val scanning by app.devices.scanning.collectAsStateWithLifecycle()
     val castState by CastController.state.collectAsStateWithLifecycle()
     val snackbar = remember { SnackbarHostState() }
@@ -144,7 +167,10 @@ fun DevicesScreen(
             onOpenSettings = onOpenSettings,
             onMirror = onMirror,
             onCastApp = onCastApp,
-            onCastFile = onCastFile,
+            onCastFiles = onCastFiles,
+            onCastSound = onCastSound,
+            onOpenBrowser = onOpenBrowser,
+            onAudioMode = { app.devices.setAudioMode(it) },
             onForget = { app.devices.forget(it.id) },
             onAddManual = { app.devices.addManual(it) },
             onStop = { CastService.stop(context) },
@@ -156,9 +182,12 @@ fun DevicesScreen(
             onSeek = { CastService.seek(context, it) },
             onRewind = { CastService.send(context, CastService.ACTION_REWIND) },
             onForward = { CastService.send(context, CastService.ACTION_FORWARD) },
+            onNext = { CastService.send(context, CastService.ACTION_NEXT) },
+            onPrevious = { CastService.send(context, CastService.ACTION_PREVIOUS) },
+            onToggleSubtitles = { CastService.send(context, CastService.ACTION_SUBTITLES) },
         )
     }
-    DevicesContent(devices, scanning, castState as? CastState.Active, snackbar, actions)
+    DevicesContent(devices, scanning, castState as? CastState.Active, snackbar, actions, audioMode)
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -169,6 +198,7 @@ fun DevicesContent(
     active: CastState.Active?,
     snackbar: SnackbarHostState,
     actions: DevicesActions,
+    audioMode: Boolean = false,
 ) {
     var sheetFor by remember { mutableStateOf<DeviceEntry?>(null) }
     var showAddDialog by remember { mutableStateOf(false) }
@@ -178,6 +208,9 @@ fun DevicesContent(
             TopAppBar(
                 title = { Text(stringResource(R.string.app_name), fontWeight = FontWeight.SemiBold) },
                 actions = {
+                    IconButton(onClick = actions.onOpenBrowser) {
+                        Icon(Icons.Rounded.Public, contentDescription = stringResource(R.string.web_video))
+                    }
                     if (scanning) {
                         Box(Modifier.size(48.dp), contentAlignment = Alignment.Center) {
                             CircularProgressIndicator(Modifier.size(22.dp), strokeWidth = 2.5.dp)
@@ -209,9 +242,26 @@ fun DevicesContent(
                 }
             }
 
+            item(key = "mode") {
+                SingleChoiceSegmentedButtonRow(Modifier.fillMaxWidth().padding(top = 4.dp)) {
+                    SegmentedButton(
+                        selected = !audioMode,
+                        onClick = { actions.onAudioMode(false) },
+                        shape = SegmentedButtonDefaults.itemShape(0, 2),
+                        icon = { Icon(Icons.Rounded.Tv, contentDescription = null, modifier = Modifier.size(18.dp)) },
+                    ) { Text(stringResource(R.string.mode_video)) }
+                    SegmentedButton(
+                        selected = audioMode,
+                        onClick = { actions.onAudioMode(true) },
+                        shape = SegmentedButtonDefaults.itemShape(1, 2),
+                        icon = { Icon(Icons.Rounded.Speaker, contentDescription = null, modifier = Modifier.size(18.dp)) },
+                    ) { Text(stringResource(R.string.mode_audio)) }
+                }
+            }
+
             item(key = "header") {
                 Text(
-                    stringResource(R.string.devices_header),
+                    stringResource(if (audioMode) R.string.devices_header_audio else R.string.devices_header),
                     style = MaterialTheme.typography.titleSmall,
                     color = MaterialTheme.colorScheme.primary,
                     modifier = Modifier.padding(start = 4.dp, top = 8.dp),
@@ -228,7 +278,13 @@ fun DevicesContent(
                     entry = entry,
                     casting = castingHere,
                     onClick = { sheetFor = entry },
-                    onCast = { if (castingHere) actions.onStop() else actions.onMirror(entry.device) },
+                    onCast = {
+                        when {
+                            castingHere -> actions.onStop()
+                            audioMode || !entry.device.video -> actions.onCastSound(entry.device)
+                            else -> actions.onMirror(entry.device)
+                        }
+                    },
                 )
             }
 
@@ -245,10 +301,13 @@ fun DevicesContent(
     sheetFor?.let { entry ->
         DeviceSheet(
             entry = entry,
+            audioMode = audioMode,
+            onCastSound = { sheetFor = null; actions.onCastSound(entry.device) },
+            onOpenBrowser = { sheetFor = null; actions.onOpenBrowser() },
             onDismiss = { sheetFor = null },
             onMirror = { sheetFor = null; actions.onMirror(entry.device) },
             onCastApp = { sheetFor = null; actions.onCastApp(entry.device) },
-            onCastFile = { sheetFor = null; actions.onCastFile(entry.device) },
+            onCastFile = { sheetFor = null; actions.onCastFiles(entry.device) },
             onForget = { sheetFor = null; actions.onForget(entry.device) },
         )
     }
@@ -274,28 +333,47 @@ private fun CastingCard(state: CastState.Active, actions: DevicesActions) {
             val file = state.kind == CastKind.FILE
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Icon(
-                    if (file) Icons.Rounded.Movie else Icons.Rounded.CastConnected,
+                    when {
+                        state.audioOnly -> Icons.Rounded.Speaker
+                        state.isPhoto -> Icons.Rounded.Photo
+                        file -> Icons.Rounded.Movie
+                        else -> Icons.Rounded.CastConnected
+                    },
                     contentDescription = null,
                     modifier = Modifier.size(28.dp),
                 )
                 Spacer(Modifier.width(12.dp))
                 Column(Modifier.weight(1f)) {
                     Text(
-                        if (file) state.title ?: "Video" else stringResource(R.string.casting_to, state.device.name),
+                        when {
+                            file -> state.title ?: "Video"
+                            state.audioOnly -> stringResource(R.string.casting_sound_to, state.device.name)
+                            else -> stringResource(R.string.casting_to, state.device.name)
+                        },
                         style = MaterialTheme.typography.titleMedium,
                         maxLines = 1, overflow = TextOverflow.Ellipsis,
                     )
                     val details = if (file) {
-                        when {
-                            state.phase != CastPhase.LIVE -> state.phase.label
-                            state.paused -> "Paused on ${state.device.name}"
-                            else -> "Playing on ${state.device.name} · screen can be off"
-                        }
+                        buildList {
+                            add(
+                                when {
+                                    state.phase != CastPhase.LIVE -> state.phase.label
+                                    state.paused && state.isPhoto -> "Slideshow paused"
+                                    state.paused -> "Paused on ${state.device.name}"
+                                    else -> "On ${state.device.name} · screen can be off"
+                                },
+                            )
+                            if (state.queueSize > 1) add("${state.queueIndex + 1} of ${state.queueSize}")
+                            if (state.converting) add("converted on the phone")
+                        }.joinToString(" · ")
                     } else {
                         buildList {
                             add(state.phase.label)
+                            if (state.audioOnly) add("phone sound")
                             if (state.resolution.isNotEmpty()) add(state.resolution)
-                            if (state.phase != CastPhase.CONNECTING) add(if (state.audio) "Audio on" else "No audio")
+                            if (state.bitrateKbps > 0 && !state.audioOnly) add("%.1f Mbit/s".format(state.bitrateKbps / 1000f))
+                            if (!state.audioOnly && state.phase != CastPhase.CONNECTING) add(if (state.audio) "Audio on" else "No audio")
+                            if (state.lowLatencyPlayer) add("Low-latency player")
                             if (state.compatibilityMode) add("Compatible mode")
                         }.joinToString(" · ")
                     }
@@ -305,7 +383,8 @@ private fun CastingCard(state: CastState.Active, actions: DevicesActions) {
                     CircularProgressIndicator(Modifier.size(20.dp), strokeWidth = 2.dp, color = MaterialTheme.colorScheme.onPrimaryContainer)
                 }
             }
-            if (file) PlaybackControls(state, actions)
+            if (file && state.isPhoto) PhotoControls(state, actions)
+            else if (file) PlaybackControls(state, actions)
             Spacer(Modifier.height(12.dp))
             Row(verticalAlignment = Alignment.CenterVertically) {
                 VolumeControls(state, actions)
@@ -369,6 +448,11 @@ private fun PlaybackControls(state: CastState.Active, actions: DevicesActions) {
             Text(if (duration > 0) formatTime(duration) else "--:--", style = MaterialTheme.typography.labelMedium)
         }
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.Center, verticalAlignment = Alignment.CenterVertically) {
+            if (state.queueSize > 1) {
+                IconButton(onClick = actions.onPrevious, enabled = state.queueIndex > 0 || position > 5000) {
+                    Icon(Icons.Rounded.SkipPrevious, contentDescription = stringResource(R.string.action_previous))
+                }
+            }
             IconButton(onClick = actions.onRewind) {
                 Icon(Icons.Rounded.Replay10, contentDescription = stringResource(R.string.action_rewind))
             }
@@ -385,6 +469,40 @@ private fun PlaybackControls(state: CastState.Active, actions: DevicesActions) {
             IconButton(onClick = actions.onForward) {
                 Icon(Icons.Rounded.Forward30, contentDescription = stringResource(R.string.action_forward))
             }
+            if (state.queueSize > 1) {
+                IconButton(onClick = actions.onNext, enabled = state.queueIndex + 1 < state.queueSize) {
+                    Icon(Icons.Rounded.SkipNext, contentDescription = stringResource(R.string.action_next))
+                }
+            }
+            if (state.hasSubtitles) {
+                IconButton(onClick = actions.onToggleSubtitles) {
+                    Icon(
+                        if (state.subtitlesOn) Icons.Rounded.ClosedCaption else Icons.Rounded.ClosedCaptionDisabled,
+                        contentDescription = stringResource(R.string.action_subtitles),
+                    )
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun PhotoControls(state: CastState.Active, actions: DevicesActions) {
+    Row(Modifier.fillMaxWidth().padding(top = 8.dp), horizontalArrangement = Arrangement.Center, verticalAlignment = Alignment.CenterVertically) {
+        IconButton(onClick = actions.onPrevious, enabled = state.queueIndex > 0) {
+            Icon(Icons.Rounded.SkipPrevious, contentDescription = stringResource(R.string.action_previous))
+        }
+        Spacer(Modifier.width(12.dp))
+        FilledIconButton(onClick = actions.onPlayPause, modifier = Modifier.size(56.dp), enabled = state.queueSize > 1) {
+            Icon(
+                if (state.paused) Icons.Rounded.PlayArrow else Icons.Rounded.Pause,
+                contentDescription = stringResource(if (state.paused) R.string.action_play else R.string.action_pause),
+                modifier = Modifier.size(32.dp),
+            )
+        }
+        Spacer(Modifier.width(12.dp))
+        IconButton(onClick = actions.onNext, enabled = state.queueIndex + 1 < state.queueSize) {
+            Icon(Icons.Rounded.SkipNext, contentDescription = stringResource(R.string.action_next))
         }
     }
 }
@@ -442,7 +560,11 @@ private fun DeviceCard(entry: DeviceEntry, casting: Boolean, onClick: () -> Unit
             colors = ListItemDefaults.colors(containerColor = androidx.compose.ui.graphics.Color.Transparent),
             leadingContent = {
                 Icon(
-                    Icons.Rounded.Tv,
+                    when {
+                        d.group -> Icons.Rounded.SpeakerGroup
+                        !d.video -> Icons.Rounded.Speaker
+                        else -> Icons.Rounded.Tv
+                    },
                     contentDescription = null,
                     tint = if (entry.online) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outline,
                 )
@@ -452,6 +574,8 @@ private fun DeviceCard(entry: DeviceEntry, casting: Boolean, onClick: () -> Unit
                     if (casting) add("Casting now")
                     else if (!entry.online) add("Not found right now")
                     else d.status?.let { add(it) }
+                    if (d.isDlna) add("DLNA")
+                    if (d.group) add("Speaker group")
                     d.model?.let { add(it) }
                     add(d.host)
                 }
@@ -513,6 +637,9 @@ private fun HelpCard(scanning: Boolean, onScan: () -> Unit, onAdd: () -> Unit) {
 @Composable
 private fun DeviceSheet(
     entry: DeviceEntry,
+    audioMode: Boolean,
+    onCastSound: () -> Unit,
+    onOpenBrowser: () -> Unit,
     onDismiss: () -> Unit,
     onMirror: () -> Unit,
     onCastApp: () -> Unit,
@@ -533,14 +660,27 @@ private fun DeviceSheet(
                 modifier = Modifier.padding(horizontal = 24.dp, vertical = 4.dp),
             )
             Spacer(Modifier.height(8.dp))
-            SheetAction(Icons.AutoMirrored.Rounded.ScreenShare, stringResource(R.string.mirror_screen), stringResource(R.string.mirror_screen_hint), onMirror)
-            SheetAction(
-                Icons.Rounded.Apps,
-                stringResource(R.string.cast_app),
-                if (android.os.Build.VERSION.SDK_INT >= 34) stringResource(R.string.cast_app_hint_system) else stringResource(R.string.cast_app_hint_legacy),
-                onCastApp,
-            )
-            SheetAction(Icons.Rounded.VideoFile, stringResource(R.string.cast_file), stringResource(R.string.cast_file_hint), onCastFile)
+            val d = entry.device
+            if (audioMode || !d.video) {
+                SheetAction(Icons.Rounded.Speaker, stringResource(R.string.cast_sound), stringResource(R.string.cast_sound_hint), onCastSound)
+                SheetAction(Icons.Rounded.LibraryMusic, stringResource(R.string.cast_music_files), stringResource(R.string.cast_file_hint), onCastFile)
+            } else {
+                SheetAction(
+                    Icons.AutoMirrored.Rounded.ScreenShare,
+                    stringResource(R.string.mirror_screen),
+                    stringResource(if (d.isDlna) R.string.mirror_screen_hint_dlna else R.string.mirror_screen_hint),
+                    onMirror,
+                )
+                SheetAction(
+                    Icons.Rounded.Apps,
+                    stringResource(R.string.cast_app),
+                    if (android.os.Build.VERSION.SDK_INT >= 34) stringResource(R.string.cast_app_hint_system) else stringResource(R.string.cast_app_hint_legacy),
+                    onCastApp,
+                )
+                SheetAction(Icons.Rounded.VideoFile, stringResource(R.string.cast_file), stringResource(R.string.cast_file_hint), onCastFile)
+                SheetAction(Icons.Rounded.Public, stringResource(R.string.web_video), stringResource(R.string.web_video_hint), onOpenBrowser)
+                SheetAction(Icons.Rounded.Speaker, stringResource(R.string.cast_sound), stringResource(R.string.cast_sound_hint_tv), onCastSound)
+            }
             if (entry.saved) {
                 HorizontalDivider(Modifier.padding(vertical = 8.dp))
                 SheetAction(Icons.Rounded.Delete, stringResource(R.string.forget_tv), null, onForget)

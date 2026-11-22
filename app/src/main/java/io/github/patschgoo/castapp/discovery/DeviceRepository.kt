@@ -44,12 +44,22 @@ class DeviceRepository(context: Context) {
     /** True while a full network scan is running. */
     val scanning: StateFlow<Boolean> = _scanning.asStateFlow()
 
+    private val _audioMode = MutableStateFlow(prefs.getBoolean(KEY_AUDIO_MODE, false))
+    /** Audio mode lists speakers and speaker groups too and casts sound only. */
+    val audioMode: StateFlow<Boolean> = _audioMode.asStateFlow()
+
+    fun setAudioMode(on: Boolean) {
+        _audioMode.value = on
+        prefs.edit { putBoolean(KEY_AUDIO_MODE, on) }
+    }
+
     private val _searching = MutableStateFlow(false)
     /** True while discovery is active (the device list is on screen). */
     val searching: StateFlow<Boolean> = _searching.asStateFlow()
 
     private var mdns: MdnsBrowser? = null
     private var nsd: NsdBrowser? = null
+    private var ssdp: io.github.patschgoo.castapp.dlna.SsdpBrowser? = null
     private var multicastLock: WifiManager.MulticastLock? = null
     private var autoScanJob: Job? = null
     private var scanJob: Job? = null
@@ -79,6 +89,7 @@ class DeviceRepository(context: Context) {
         val ifaces = NetworkScanner.localNetworks().map { it.iface }.distinct()
         mdns = MdnsBrowser(onDevice).also { it.start(ifaces) }
         nsd = NsdBrowser(appContext, onDevice).also { it.start() }
+        ssdp = io.github.patschgoo.castapp.dlna.SsdpBrowser(onDevice).also { it.start(ifaces) }
         checkSavedDevices()
         // If the normal discovery finds nothing quickly, scan the network automatically.
         autoScanJob = scope.launch {
@@ -96,6 +107,7 @@ class DeviceRepository(context: Context) {
         autoScanJob?.cancel()
         mdns?.stop(); mdns = null
         nsd?.stop(); nsd = null
+        ssdp?.stop(); ssdp = null
         try { multicastLock?.release() } catch (_: Exception) {}
         multicastLock = null
     }
@@ -103,6 +115,7 @@ class DeviceRepository(context: Context) {
     /** Re-queries the network and re-checks remembered devices. */
     fun refresh() {
         mdns?.queryNow()
+        ssdp?.searchAgain()
         checkSavedDevices()
         scanNetwork()
     }
@@ -147,9 +160,11 @@ class DeviceRepository(context: Context) {
         return device
     }
 
-    private fun found(device: CastDevice) {
+    private fun sameEndpoint(a: CastDevice, b: CastDevice) = a.host == b.host && a.port == b.port && a.kind == b.kind
+
+    fun found(device: CastDevice) {
         // A device found by IP only may already be known under its real id.
-        val existing = discovered.values.firstOrNull { it.host == device.host && it.id != device.id }
+        val existing = discovered.values.firstOrNull { sameEndpoint(it, device) && it.id != device.id }
         if (existing != null && device.id.startsWith("host:")) {
             discovered[existing.id] = existing.copy(status = device.status ?: existing.status)
         } else {
@@ -159,8 +174,8 @@ class DeviceRepository(context: Context) {
         reachable.add(device.id)
         // Keep remembered devices up to date (e.g. the TV got a new IP address).
         synchronized(saved) {
-            val match = saved[device.id] ?: saved.values.firstOrNull { it.host == device.host && it.id.startsWith("host:") }
-            if (match != null && (match.host != device.host || match.name != device.name || match.id != device.id)) {
+            val match = saved[device.id] ?: saved.values.firstOrNull { sameEndpoint(it, device) && it.id.startsWith("host:") }
+            if (match != null && (match.host != device.host || match.port != device.port || match.name != device.name || match.id != device.id)) {
                 saved.remove(match.id)
                 saved[device.id] = device.copy(status = null)
                 persistSaved()
@@ -175,7 +190,7 @@ class DeviceRepository(context: Context) {
     fun save(device: CastDevice) {
         synchronized(saved) {
             saved.remove(device.id)
-            saved.values.removeAll { it.host == device.host && it.id.startsWith("host:") }
+            saved.values.removeAll { sameEndpoint(it, device) && it.id.startsWith("host:") }
             saved[device.id] = device.copy(status = null)
             persistSaved()
         }
@@ -228,6 +243,9 @@ class DeviceRepository(context: Context) {
         val entries = LinkedHashMap<String, DeviceEntry>()
         for ((id, d) in discovered) entries[id] = DeviceEntry(d, savedCopy.containsKey(id), true)
         for ((id, d) in savedCopy) if (id !in entries) entries[id] = DeviceEntry(d, true, id in reachable)
+        // A TV with Chromecast built in often also answers as DLNA; show it once, as Cast.
+        val castHosts = entries.values.filter { !it.device.isDlna && it.device.video }.map { it.device.host }.toSet()
+        entries.values.removeAll { it.device.isDlna && it.device.host in castHosts }
         val lastId = prefs.getString(KEY_LAST, null)
         _devices.value = entries.values.sortedWith(
             compareByDescending<DeviceEntry> { it.online }
@@ -240,5 +258,6 @@ class DeviceRepository(context: Context) {
     companion object {
         private const val KEY_SAVED = "saved_devices"
         private const val KEY_LAST = "last_device"
+        private const val KEY_AUDIO_MODE = "audio_mode"
     }
 }

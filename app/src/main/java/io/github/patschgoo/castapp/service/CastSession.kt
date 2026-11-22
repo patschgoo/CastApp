@@ -1,22 +1,29 @@
 package io.github.patschgoo.castapp.service
 
-import android.annotation.SuppressLint
 import android.content.Context
 import android.media.projection.MediaProjection
-import android.net.wifi.WifiManager
 import android.os.Build
 import android.os.Handler
 import android.os.Looper
-import android.os.PowerManager
 import android.util.Log
+import io.github.patschgoo.castapp.CastApp
 import io.github.patschgoo.castapp.capture.AudioEncoder
 import io.github.patschgoo.castapp.capture.ScreenEncoder
 import io.github.patschgoo.castapp.cast.CastClient
 import io.github.patschgoo.castapp.cast.CastException
 import io.github.patschgoo.castapp.cast.RunningApp
 import io.github.patschgoo.castapp.discovery.CastDevice
+import io.github.patschgoo.castapp.discovery.NetworkScanner
+import io.github.patschgoo.castapp.render.DlnaRenderer
+import io.github.patschgoo.castapp.render.MediaRenderer
+import io.github.patschgoo.castapp.render.PlayState
+import io.github.patschgoo.castapp.render.RendererMedia
+import io.github.patschgoo.castapp.render.RendererStatus
 import io.github.patschgoo.castapp.settings.CastSettings
+import io.github.patschgoo.castapp.settings.PictureMode
 import io.github.patschgoo.castapp.settings.StreamMode
+import io.github.patschgoo.castapp.stream.AdaptiveBitrate
+import io.github.patschgoo.castapp.stream.AvcUtils
 import io.github.patschgoo.castapp.stream.StreamHub
 import io.github.patschgoo.castapp.stream.StreamServer
 import kotlinx.coroutines.CancellationException
@@ -26,6 +33,7 @@ import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.sync.Mutex
@@ -37,40 +45,55 @@ import java.net.InetAddress
 import java.util.concurrent.atomic.AtomicBoolean
 
 /**
- * One casting session: connects to the TV, starts the encoders and the stream
- * server, asks the TV's Default Media Receiver to play our stream and watches
- * it. Falls back from the low-latency MP4 stream to HLS when the TV can't play it.
+ * One live casting session (screen, single app, or sound only): connects to the
+ * TV, starts the encoders and the stream server, has the TV play the stream and
+ * keeps watching it.
+ *
+ *  - Low latency: our own TV player if configured, else Google's Default Media
+ *    Receiver with a progressive MP4 stream, falling back to HLS when needed.
+ *  - Reconnects by itself for up to two minutes if the Wi-Fi drops or the TV
+ *    restarts (and finds the TV again if it got a new IP address).
+ *  - Lowers the bitrate automatically when the Wi-Fi can't keep up.
  */
 class CastSession(
     private val context: Context,
-    override val device: CastDevice,
+    device: CastDevice,
     private val projection: MediaProjection,
-    private val settings: CastSettings,
+    private val settingsFlow: StateFlow<CastSettings>,
     /** The user shared a single app (Android 14+), so the phone screen may be blacked out. */
     private val singleApp: Boolean,
+    /** Only the phone's sound is cast (speakers, or a TV without picture). */
+    private val audioOnly: Boolean,
     private val onEnded: (ActiveCast) -> Unit,
 ) : ActiveCast {
+    @Volatile override var device: CastDevice = device
+        private set
+
+    private val settings = settingsFlow.value
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
     private val mainHandler = Handler(Looper.getMainLooper())
     private val ended = AtomicBoolean(false)
     private val loadMutex = Mutex()
+    private val locks = CastLocks(context, "CastApp:screen")
 
     @Volatile private var client: CastClient? = null
+    /** Set instead of [client] when casting to a DLNA TV. */
+    @Volatile private var dlna: DlnaRenderer? = null
     @Volatile private var app: RunningApp? = null
     @Volatile private var server: StreamServer? = null
     @Volatile private var localAddress: InetAddress? = null
     private var hub: StreamHub? = null
     private var video: ScreenEncoder? = null
     private var audio: AudioEncoder? = null
-    private var wakeLock: PowerManager.WakeLock? = null
-    private var wifiLock: WifiManager.WifiLock? = null
 
     @Volatile private var usingHls = false
+    @Volatile private var usingCustomPlayer = false
     @Volatile private var loading = false
     @Volatile private var mediaSessionId = -1
     @Volatile private var playing = false
     @Volatile private var volume: Double? = null
     @Volatile private var muted = false
+    @Volatile private var reconnecting = false
     private var reloads = 0
     private var watchdog: Job? = null
 
@@ -81,8 +104,10 @@ class CastSession(
                 device = device,
                 phase = CastPhase.CONNECTING,
                 compatibilityMode = settings.streamMode == StreamMode.COMPATIBLE,
-                resolution = settings.resolution.label,
-                canDarkScreen = singleApp && Build.VERSION.SDK_INT >= 34,
+                resolution = if (audioOnly) "" else settings.resolution.label,
+                canDarkScreen = singleApp && !audioOnly && Build.VERSION.SDK_INT >= 34,
+                audioOnly = audioOnly,
+                audio = audioOnly,
             ),
         )
         scope.launch { run() }
@@ -90,34 +115,23 @@ class CastSession(
 
     private suspend fun run() {
         try {
-            acquireLocks()
-            val c = CastClient(device.host, device.port)
-            c.listener = castListener
-            client = c
-            try {
-                c.connect(6000)
-            } catch (e: Exception) {
-                throw CastException("Can't reach ${device.name} at ${device.host}. Is it on the same Wi-Fi?")
-            }
-            val local = c.localAddress ?: throw CastException("No network path to the TV")
-            localAddress = local
-
+            locks.acquire()
             val h = StreamHub()
             hub = h
             val s = StreamServer(h, settings.port)
             s.start()
             server = s
             startCapture(h)
+            // Sound sync can be changed in Settings while casting.
+            scope.launch { settingsFlow.collect { h.audioOffsetUs = it.audioDelayMs * 1000L } }
 
-            update { it.copy(phase = CastPhase.STARTING) }
-            val a = c.launch(CastClient.DEFAULT_MEDIA_RECEIVER)
-            app = a
-            try { readVolume(c.getReceiverStatus()) } catch (_: Exception) {}
-            // Make sure capture is running and the track layout is fixed (falls back to
-            // video-only if audio capture never starts).
-            h.awaitInitSegment(8_000) ?: throw CastException("Screen capture did not start")
-
-            if (settings.streamMode == StreamMode.COMPATIBLE) loadHls() else loadMp4()
+            try {
+                connectAndPlay(device.host, device.port)
+            } catch (e: CastException) {
+                throw e
+            } catch (e: Exception) {
+                throw CastException("Can't reach ${device.name} at ${device.host}. Is it on the same Wi-Fi?")
+            }
         } catch (e: CancellationException) {
             throw e
         } catch (e: Exception) {
@@ -127,20 +141,32 @@ class CastSession(
     }
 
     private suspend fun startCapture(h: StreamHub) {
-        val wantAudio = Build.VERSION.SDK_INT >= 29 && settings.audio
+        val wantAudio = Build.VERSION.SDK_INT >= 29 && (settings.audio || audioOnly)
         h.expectAudio(wantAudio)
-        withContext(Dispatchers.Main) {
-            val dpi = context.resources.displayMetrics.densityDpi
-            val res = settings.resolution
-            val v = ScreenEncoder(projection, h, res.width, res.height, settings.fps, settings.effectiveBitrate, dpi) { e ->
-                Log.w(TAG, "Video encoder error", e)
-                finish("Screen capture stopped")
+        if (!audioOnly) {
+            withContext(Dispatchers.Main) {
+                val dpi = context.resources.displayMetrics.densityDpi
+                val res = settings.resolution
+                val v = ScreenEncoder(
+                    context, projection, h, res.width, res.height, settings.fps, settings.effectiveBitrate, dpi,
+                    fill = settings.picture == PictureMode.FILL,
+                ) { e ->
+                    Log.w(TAG, "Video encoder error", e)
+                    finish("Screen capture stopped")
+                }
+                v.start(mainHandler)
+                video = v
             }
-            v.start(mainHandler)
-            video = v
+            update { it.copy(bitrateKbps = settings.effectiveBitrate / 1000) }
+            if (settings.adaptiveQuality) {
+                h.congestionListener = AdaptiveBitrate(settings.effectiveBitrate) { bps ->
+                    video?.setBitrate(bps)
+                    update { it.copy(bitrateKbps = bps / 1000) }
+                }
+            }
         }
         var audioOn = false
-        if (wantAudio) {
+        if (wantAudio && Build.VERSION.SDK_INT >= 29) {
             val a = AudioEncoder(context, projection, h) { e ->
                 Log.w(TAG, "Audio encoder error", e)
                 finish("Audio capture stopped")
@@ -152,10 +178,130 @@ class CastSession(
                 h.expectAudio(false)
             }
         }
+        if (audioOnly && !audioOn) {
+            throw CastException(
+                "Couldn't capture the phone's sound. Allow CastApp to record audio, and note that some apps block it.",
+            )
+        }
         update { it.copy(audio = audioOn) }
     }
 
-    // ---- loading the stream on the TV ----------------------------------------
+    // ---- connecting and loading ------------------------------------------------------
+
+    /** Connects to the TV at [host] and starts playback. Throws if anything fails. */
+    private suspend fun connectAndPlay(host: String, port: Int) {
+        if (device.isDlna) return connectDlna()
+        val c = CastClient(host, port)
+        c.listener = listenerFor(c)
+        try {
+            c.connect(6000)
+        } catch (e: Exception) {
+            c.close()
+            throw e
+        }
+        client = c
+        localAddress = c.localAddress ?: throw CastException("No network path to the TV")
+        update { it.copy(phase = CastPhase.STARTING) }
+
+        val h = hub ?: return
+        if (audioOnly) {
+            h.awaitAudioConfig(8_000) ?: throw CastException("Sound capture did not start")
+        } else {
+            // Capture is running and the track layout is fixed (video-only if audio never starts).
+            h.awaitInitSegment(8_000) ?: throw CastException("Screen capture did not start")
+        }
+
+        if (!audioOnly && settings.receiverAppId.isNotBlank() && settings.streamMode == StreamMode.LOW_LATENCY) {
+            if (tryCustomPlayer(c, settings.receiverAppId.trim())) return
+        }
+        val a = c.launch(CastClient.DEFAULT_MEDIA_RECEIVER)
+        app = a
+        try { readVolume(c.getReceiverStatus()) } catch (_: Exception) {}
+        when {
+            audioOnly -> loadAudio()
+            settings.streamMode == StreamMode.COMPATIBLE || usingHls -> loadHls()
+            else -> loadMp4()
+        }
+    }
+
+    /** DLNA TVs get a live MPEG-TS stream (or AAC for sound only). Their players buffer a few seconds. */
+    private suspend fun connectDlna() {
+        val r = DlnaRenderer(device)
+        r.listener = object : MediaRenderer.Listener {
+            override fun onStatus(status: RendererStatus) {
+                if (r !== dlna) return
+                when (status.state) {
+                    PlayState.PLAYING -> { playing = true; update { it.copy(phase = CastPhase.LIVE) } }
+                    PlayState.BUFFERING -> if (!playing) update { it.copy(phase = CastPhase.BUFFERING) }
+                    PlayState.STOPPED, PlayState.FINISHED, PlayState.ERROR -> if (playing && !reconnecting) finish("Casting was stopped on the TV")
+                    else -> Unit
+                }
+            }
+            override fun onVolume(level: Double?, muted: Boolean) {
+                if (r !== dlna) return
+                level?.let { volume = it }
+                this@CastSession.muted = muted
+                update { it.copy(volume = volume?.toFloat(), muted = muted) }
+            }
+            override fun onLost(error: Throwable?) {
+                if (r === dlna && !ended.get()) scope.launch { reconnect() }
+            }
+            override fun onClosedOnDevice() {
+                if (r === dlna) finish("Casting was stopped on the TV")
+            }
+        }
+        r.connect()
+        dlna = r
+        localAddress = r.localAddress ?: throw CastException("No network path to the TV")
+        update { it.copy(phase = CastPhase.STARTING) }
+        val h = hub ?: return
+        val s = server ?: return
+        if (audioOnly) {
+            h.awaitAudioConfig(8_000) ?: throw CastException("Sound capture did not start")
+        } else {
+            h.awaitInitSegment(8_000) ?: throw CastException("Screen capture did not start")
+        }
+        playing = false
+        val local = localAddress!!
+        val media = if (audioOnly) {
+            RendererMedia(s.urlFor(local, s.audioPath), "audio/aac", "Phone sound", device.name, live = true)
+        } else {
+            RendererMedia(s.urlFor(local, s.tsPath), "video/mp2t", TITLE, device.name, live = true)
+        }
+        r.load(media)
+        update { it.copy(phase = CastPhase.BUFFERING) }
+    }
+
+    /** Our own low-latency TV player (see receiver/index.html). Returns false to fall back. */
+    private suspend fun tryCustomPlayer(c: CastClient, appId: String): Boolean {
+        val s = server ?: return false
+        val h = hub ?: return false
+        val local = localAddress ?: return false
+        return try {
+            val a = c.launch(appId, timeoutMs = 20_000)
+            app = a
+            try { readVolume(c.getReceiverStatus()) } catch (_: Exception) {}
+            val codecs = buildString {
+                append(h.videoConfig?.sps?.let { AvcUtils.codecString(it) } ?: "avc1.42E01F")
+                if (h.publishedAudioRate != null) append(",mp4a.40.2")
+            }
+            val reply = c.requestCustom(
+                a, NS_PLAYER,
+                JSONObject().put("type", "PLAY").put("url", s.urlFor(local, s.mp4Path)).put("codecs", codecs),
+                timeoutMs = 15_000,
+            )
+            if (reply.optString("state") == "error") throw CastException(reply.optString("message", "player error"))
+            usingCustomPlayer = true
+            playing = true
+            update { it.copy(phase = CastPhase.LIVE, lowLatencyPlayer = true, compatibilityMode = false) }
+            true
+        } catch (e: Exception) {
+            Log.w(TAG, "Low-latency TV player not available ($appId): ${e.message}")
+            CastController.message("Low-latency TV player didn't start, using the standard player")
+            usingCustomPlayer = false
+            false
+        }
+    }
 
     private suspend fun loadMp4(): Unit = loadMutex.withLock {
         val c = client ?: return
@@ -176,7 +322,7 @@ class CastSession(
             delay(MP4_START_TIMEOUT_MS)
             // A connected stream client means the TV is at least trying; give it a bit longer.
             if (!playing && (server?.activeStreamClients ?: 0) > 0) delay(MP4_START_TIMEOUT_MS)
-            if (!playing && !usingHls && !ended.get()) fallbackToHls("no playback")
+            if (!playing && !usingHls && !ended.get() && !reconnecting) fallbackToHls("no playback")
         }
     }
 
@@ -192,6 +338,16 @@ class CastSession(
         withTimeoutOrNull(12_000) { while (segmenter.completedSegments < 3) delay(100) }
         val media = CastClient.liveMedia(s.urlFor(local, s.hlsPath), hls = true, title = TITLE, subtitle = device.name)
         if (!loadMedia(c, a, media)) finish("${device.name} couldn't play the stream")
+    }
+
+    private suspend fun loadAudio(): Unit = loadMutex.withLock {
+        val c = client ?: return
+        val a = app ?: return
+        val s = server ?: return
+        val local = localAddress ?: return
+        update { it.copy(phase = CastPhase.BUFFERING) }
+        val media = CastClient.liveAudioMedia(s.urlFor(local, s.audioPath), title = "Phone sound", subtitle = device.name)
+        if (!loadMedia(c, a, media)) finish("${device.name} couldn't play the sound stream")
     }
 
     private suspend fun loadMedia(c: CastClient, a: RunningApp, media: JSONObject): Boolean {
@@ -211,26 +367,93 @@ class CastSession(
     }
 
     private suspend fun fallbackToHls(reason: String) {
-        if (usingHls || ended.get()) return
+        if (usingHls || audioOnly || ended.get()) return
         Log.i(TAG, "Switching to HLS: $reason")
         loadHls()
     }
 
+    private suspend fun reload() {
+        when {
+            audioOnly -> loadAudio()
+            usingHls -> loadHls()
+            else -> loadMp4()
+        }
+    }
+
+    // ---- reconnecting -------------------------------------------------------------------
+
+    /** The connection to the TV broke (Wi-Fi drop, TV restart): keep capturing and try again. */
+    private suspend fun reconnect() {
+        if (ended.get() || reconnecting) return
+        reconnecting = true
+        watchdog?.cancel()
+        update { it.copy(phase = CastPhase.RECONNECTING) }
+        try { client?.close() } catch (_: Exception) {}
+        try { dlna?.close() } catch (_: Exception) {}
+        playing = false
+        val deadline = System.currentTimeMillis() + RECONNECT_FOR_MS
+        var attempt = 0
+        var host = device.host
+        var port = device.port
+        while (!ended.get() && System.currentTimeMillis() < deadline) {
+            attempt++
+            delay(if (attempt == 1) 1500 else 4000)
+            if (attempt % 3 == 0 && !device.isDlna) {
+                // The TV may have come back with a different IP address.
+                NetworkScanner.findById(device.id)?.let { found ->
+                    host = found.host
+                    port = found.port
+                    device = device.copy(host = found.host, port = found.port)
+                    CastApp.get(context).devices.found(found)
+                }
+            }
+            try {
+                reloads = 0
+                mediaSessionId = -1
+                connectAndPlay(host, port)
+                reconnecting = false
+                Log.i(TAG, "Reconnected after $attempt attempt(s)")
+                return
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                Log.i(TAG, "Reconnect attempt $attempt failed: ${e.message}")
+            }
+        }
+        reconnecting = false
+        finish("Lost the connection to ${device.name}")
+    }
+
     // ---- receiver events -------------------------------------------------------
 
-    private val castListener = object : CastClient.Listener {
-        override fun onReceiverStatus(status: JSONObject) = readVolume(status)
+    private fun listenerFor(c: CastClient) = object : CastClient.Listener {
+        override fun onReceiverStatus(status: JSONObject) {
+            if (c === client) readVolume(status)
+        }
 
         override fun onMediaStatus(status: JSONObject) {
-            if (loading || mediaSessionId == -1) return // nothing of ours is loaded (yet)
+            if (c !== client || loading || mediaSessionId == -1) return // nothing of ours is loaded (yet)
             val id = status.optInt("mediaSessionId", -1)
             if (id != -1 && id != mediaSessionId) return // status of media we replaced
             handleMediaStatus(status)
         }
 
-        override fun onAppClosed() = finish("Casting was stopped on the TV")
+        override fun onCustomMessage(namespace: String, json: JSONObject) {
+            if (c !== client || namespace != NS_PLAYER || json.optString("type") != "STATUS") return
+            when (json.optString("state")) {
+                "playing" -> update { it.copy(phase = CastPhase.LIVE) }
+                "buffering" -> update { it.copy(phase = CastPhase.BUFFERING) }
+                "error" -> Log.w(TAG, "Low-latency player error: ${json.optString("message")}")
+            }
+        }
 
-        override fun onDisconnected(error: Throwable?) = finish("Lost the connection to ${device.name}")
+        override fun onAppClosed() {
+            if (c === client && !reconnecting) finish("Casting was stopped on the TV")
+        }
+
+        override fun onDisconnected(error: Throwable?) {
+            if (c === client && !ended.get()) scope.launch { reconnect() }
+        }
     }
 
     private fun handleMediaStatus(status: JSONObject) {
@@ -264,15 +487,15 @@ class CastSession(
 
     /** The TV stopped playing (network hiccup or playback error): reload, then fall back to HLS. */
     private suspend fun recoverPlayback() {
-        if (ended.get()) return
+        if (ended.get() || reconnecting) return
         playing = false
         reloads++
         when {
             reloads > 3 -> finish("${device.name} keeps stopping the stream")
-            !usingHls && reloads > 1 -> fallbackToHls("playback error")
+            !usingHls && !audioOnly && reloads > 1 -> fallbackToHls("playback error")
             else -> {
                 delay(500)
-                if (usingHls) loadHls() else loadMp4()
+                reload()
             }
         }
     }
@@ -287,23 +510,32 @@ class CastSession(
     // ---- user controls ----------------------------------------------------------
 
     override fun changeVolume(delta: Double) {
-        val c = client ?: return
+        val c = client
+        val r = dlna
+        if (c == null && r == null) return
         scope.launch {
             try {
-                if (muted) c.setMuted(false)
                 val target = ((volume ?: 0.5) + delta).coerceIn(0.0, 1.0)
                 volume = target
                 update { it.copy(volume = target.toFloat(), muted = false) }
-                c.setVolume(target)
+                if (r != null) {
+                    if (muted) r.setMuted(false)
+                    r.setVolume(target)
+                } else if (c != null) {
+                    if (muted) c.setMuted(false)
+                    c.setVolume(target)
+                }
             } catch (_: Exception) {
             }
         }
     }
 
     override fun toggleMute() {
-        val c = client ?: return
         scope.launch {
-            try { c.setMuted(!muted) } catch (_: Exception) {}
+            try {
+                dlna?.setMuted(!muted) ?: client?.setMuted(!muted)
+            } catch (_: Exception) {
+            }
         }
     }
 
@@ -330,48 +562,32 @@ class CastSession(
             }
         }
         try { c?.close() } catch (_: Exception) {}
+        dlna?.let { r ->
+            if (stopReceiver) try { runBlocking { withTimeoutOrNull(2500) { r.stop() } } } catch (_: Exception) {}
+            r.close()
+        }
         scope.cancel()
         if (Build.VERSION.SDK_INT >= 29) try { audio?.stop() } catch (_: Exception) {}
         try { video?.stop() } catch (_: Exception) {}
         try { server?.stop() } catch (_: Exception) {}
         try { projection.stop() } catch (_: Exception) {}
-        releaseLocks()
+        locks.release()
         CastController.end(this)
         if (message != null) CastController.message(message)
         mainHandler.post { onEnded(this) }
     }
 
-    @SuppressLint("WakelockTimeout")
-    private fun acquireLocks() {
-        try {
-            val pm = context.getSystemService(Context.POWER_SERVICE) as PowerManager
-            wakeLock = pm.newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, "CastApp:casting").apply { acquire() }
-        } catch (_: Exception) {
-        }
-        try {
-            val wifi = context.applicationContext.getSystemService(Context.WIFI_SERVICE) as WifiManager
-            @Suppress("DEPRECATION")
-            val mode = if (Build.VERSION.SDK_INT >= 29) WifiManager.WIFI_MODE_FULL_LOW_LATENCY else WifiManager.WIFI_MODE_FULL_HIGH_PERF
-            wifiLock = wifi.createWifiLock(mode, "CastApp:casting").apply {
-                setReferenceCounted(false)
-                acquire()
-            }
-        } catch (_: Exception) {
-        }
+    private fun update(transform: (CastState.Active) -> CastState.Active) = CastController.update(this) {
+        transform(it).copy(device = device)
     }
-
-    private fun releaseLocks() {
-        try { wakeLock?.takeIf { it.isHeld }?.release() } catch (_: Exception) {}
-        try { wifiLock?.takeIf { it.isHeld }?.release() } catch (_: Exception) {}
-        wakeLock = null
-        wifiLock = null
-    }
-
-    private fun update(transform: (CastState.Active) -> CastState.Active) = CastController.update(this, transform)
 
     companion object {
         private const val TAG = "CastSession"
         private const val TITLE = "Phone screen"
         private const val MP4_START_TIMEOUT_MS = 15_000L
+        private const val RECONNECT_FOR_MS = 120_000L
+
+        /** Namespace of our own low-latency TV player (receiver/index.html). */
+        const val NS_PLAYER = "urn:x-cast:io.github.patschgoo.castapp"
     }
 }

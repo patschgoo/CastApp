@@ -108,10 +108,20 @@ object NetworkScanner {
         Unit
     }
 
+    /** Scans every local network for the device with [id] (used when a TV got a new IP address). */
+    suspend fun findById(id: String): CastDevice? {
+        var match: CastDevice? = null
+        for (net in localNetworks().distinctBy { it.address }) {
+            scan(net) { d -> if (d.id == id) match = d }
+            if (match != null) break
+        }
+        return match
+    }
+
     /**
      * Works out what is behind [ip]: asks the device's own mDNS responder, then the
      * setup API, then falls back to a plain Cast handshake. Returns null when it is
-     * not a Cast receiver that can show video.
+     * not a Cast receiver.
      */
     suspend fun identify(ip: String, port: Int = CastClient.DEFAULT_PORT): CastDevice? = withContext(Dispatchers.IO) {
         val address = try { InetAddress.getByName(ip) } catch (_: Exception) { return@withContext null }

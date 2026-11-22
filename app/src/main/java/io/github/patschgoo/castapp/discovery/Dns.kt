@@ -130,25 +130,30 @@ object Dns {
 
 /** A Cast service instance extracted from mDNS records. */
 class MdnsCastInfo(val instance: String, val address: InetAddress?, val port: Int, val txt: Map<String, String>) {
-    /** Converts to a device, or null for audio-only devices and speaker groups that cannot show video. */
+    /** Converts to a device. Speakers and speaker groups are kept but marked as audio-only. */
     fun toDevice(): CastDevice? {
         val ip = address?.hostAddress ?: return null
         val caps = txt["ca"]?.toIntOrNull()
-        if (caps != null && caps and CAP_VIDEO_OUT == 0) return null
+        val model = txt["md"]?.takeIf { it.isNotBlank() }
+        val group = (caps != null && caps and CAP_GROUP != 0) || model == "Google Cast Group"
+        val video = !group && (caps == null || caps and CAP_VIDEO_OUT != 0)
         val name = txt["fn"]?.takeIf { it.isNotBlank() } ?: instance.substringBefore("._googlecast").substringBeforeLast('-')
         return CastDevice(
-            id = txt["id"]?.takeIf { it.isNotBlank() } ?: "host:$ip",
+            id = txt["id"]?.takeIf { it.isNotBlank() } ?: "host:$ip:$port",
             name = name,
             host = ip,
             port = if (port > 0) port else 8009,
-            model = txt["md"]?.takeIf { it.isNotBlank() },
+            model = model,
             status = txt["rs"]?.takeIf { it.isNotBlank() },
+            video = video,
+            group = group,
         )
     }
 
     companion object {
         const val SERVICE = "_googlecast._tcp.local"
         private const val CAP_VIDEO_OUT = 0x01
+        private const val CAP_GROUP = 0x20
 
         fun fromRecords(records: List<Dns.Record>, source: InetAddress?): List<MdnsCastInfo> {
             val instances = LinkedHashSet<String>()

@@ -12,6 +12,8 @@ enum class CastPhase(val label: String) {
     CONNECTING("Connecting to TV…"),
     STARTING("Starting the player on the TV…"),
     BUFFERING("Buffering…"),
+    RECONNECTING("Connection lost, reconnecting…"),
+    CONVERTING("Converting on the phone…"),
     LIVE("Live"),
 }
 
@@ -29,6 +31,20 @@ sealed interface CastState {
         val resolution: String = "",
         /** Single-app screen casting on Android 14+: the phone screen can be blacked out. */
         val canDarkScreen: Boolean = false,
+        /** Sound only (speakers, or a TV without picture). */
+        val audioOnly: Boolean = false,
+        /** Current video bitrate (it adapts to the Wi-Fi). */
+        val bitrateKbps: Int = 0,
+        /** Using the optional low-latency TV player. */
+        val lowLatencyPlayer: Boolean = false,
+        /** File casting: position in the play list. */
+        val queueIndex: Int = 0,
+        val queueSize: Int = 1,
+        val isPhoto: Boolean = false,
+        val hasSubtitles: Boolean = false,
+        val subtitlesOn: Boolean = false,
+        /** The phone is converting this video because the TV couldn't play it. */
+        val converting: Boolean = false,
         val darkScreen: Boolean = false,
         /** File casting: name, playback position and state as last reported by the TV. */
         val title: String? = null,
