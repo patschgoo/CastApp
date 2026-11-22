@@ -94,12 +94,13 @@ class HomeLogicTest {
         // Subtitle files are picked together with the video.
         assertTrue("application/x-subrip" in videos)
         assertTrue("text/vtt" in videos)
+        assertTrue("text/x-ssa" in videos)
     }
 
     @Test
     fun anyFileKeepsWhatTheOldPickerOffered() {
         assertArrayEquals(
-            arrayOf("video/*", "audio/*", "image/*", "application/x-subrip", "text/vtt", "application/octet-stream"),
+            arrayOf("video/*", "audio/*", "image/*", "application/x-subrip", "text/vtt", "text/x-ssa", "application/octet-stream"),
             HomeLogic.mimeTypes(FilePick.ANY, picture = true),
         )
     }

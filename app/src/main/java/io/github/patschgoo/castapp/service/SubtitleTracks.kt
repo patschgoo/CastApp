@@ -2,6 +2,7 @@ package io.github.patschgoo.castapp.service
 
 import io.github.patschgoo.castapp.subtitles.Cue
 import io.github.patschgoo.castapp.subtitles.CueBuilder
+import io.github.patschgoo.castapp.subtitles.Sidecars
 import java.util.concurrent.ConcurrentHashMap
 
 /** Where the subtitles on the TV come from. */
@@ -73,21 +74,38 @@ data class SubtitleChoice(val kind: SubtitleKind, val track: Int = 0) {
  * Another source plugs in by storing its cues ([setOnline]) and choosing it.
  */
 class SubtitleTracks {
-    private val chosen = ConcurrentHashMap<String, SubtitleChoice>()
+    /** A pick, with the address of the subtitle file picked: its place in the list can change. */
+    private class Pick(val choice: SubtitleChoice, val file: String?)
+
+    private val chosen = ConcurrentHashMap<String, Pick>()
     private val offsets = ConcurrentHashMap<String, Long>()
     private val online = ConcurrentHashMap<String, Pair<String, List<Cue>>>()
     private val embedded = ConcurrentHashMap<String, ConcurrentHashMap<Int, List<Cue>>>()
-    private val fileCues = ConcurrentHashMap<String, ConcurrentHashMap<Int, List<Cue>>>()
+    /** Cues read from subtitle files: video address → subtitle file address → cues. */
+    private val fileCues = ConcurrentHashMap<String, ConcurrentHashMap<String, List<Cue>>>()
 
-    fun choose(uri: String, choice: SubtitleChoice) {
-        chosen[uri] = choice
+    /**
+     * Picks [choice] for the video [uri]. A subtitle file is kept by its address in [files] (the
+     * video's [MediaItem.subtitleFiles]), so the pick follows it when the play list is replaced
+     * or added to and the files come in another order (they are ranked by the language setting).
+     */
+    fun choose(uri: String, choice: SubtitleChoice, files: List<String> = emptyList()) {
+        chosen[uri] = Pick(choice, files.getOrNull(choice.track)?.takeIf { choice.kind == SubtitleKind.FILE })
     }
 
-    fun chosen(uri: String): SubtitleChoice? = chosen[uri]
+    /**
+     * The pick for [uri]; a picked subtitle file at its place in [files] now, or null when it is
+     * no longer one of them.
+     */
+    fun chosen(uri: String, files: List<String> = emptyList()): SubtitleChoice? {
+        val pick = chosen[uri] ?: return null
+        val file = pick.file ?: return pick.choice
+        return files.indexOf(file).takeIf { it >= 0 }?.let { SubtitleChoice.file(it) }
+    }
 
-    /** The picked choice if it is still possible, else the default. */
-    fun effective(uri: String, available: Collection<SubtitleChoice>): SubtitleChoice {
-        val c = chosen[uri]
+    /** The picked choice if it is still possible, else the default. [files]: the video's subtitle files now. */
+    fun effective(uri: String, available: Collection<SubtitleChoice>, files: List<String> = emptyList()): SubtitleChoice {
+        val c = chosen(uri, files)
         return if (c != null && (c == SubtitleChoice.OFF || c in available)) c else SubtitleChoice.default(available)
     }
 
@@ -117,23 +135,46 @@ class SubtitleTracks {
 
     fun embeddedCues(uri: String, track: Int): List<Cue>? = embedded[uri]?.get(track)
 
-    /** The cues read from subtitle file [index] of the video [uri] ([MediaItem.subtitleFiles]). */
-    fun setFileCues(uri: String, index: Int, cues: List<Cue>) {
-        fileCues.getOrPut(uri) { ConcurrentHashMap() }[index] = cues
+    /** The cues read from the subtitle file at address [file] of the video [uri]. */
+    fun setFileCues(uri: String, file: String, cues: List<Cue>) {
+        fileCues.getOrPut(uri) { ConcurrentHashMap() }[file] = cues
     }
 
-    fun fileCues(uri: String, index: Int): List<Cue>? = fileCues[uri]?.get(index)
+    fun fileCues(uri: String, file: String): List<Cue>? = fileCues[uri]?.get(file)
 
-    /** The stored cues of [choice] (written ones come from [written]), or null when there are none (yet). */
-    fun cuesFor(uri: String, choice: SubtitleChoice, written: List<Cue>?): List<Cue>? = when (choice.kind) {
+    /**
+     * The stored cues of [choice] (written ones come from [written], a file's by its address in
+     * [files], the video's subtitle files), or null when there are none (yet).
+     */
+    fun cuesFor(uri: String, choice: SubtitleChoice, written: List<Cue>?, files: List<String> = emptyList()): List<Cue>? = when (choice.kind) {
         SubtitleKind.OFF -> null
-        SubtitleKind.FILE -> fileCues(uri, choice.track)
+        SubtitleKind.FILE -> files.getOrNull(choice.track)?.let { fileCues(uri, it) }
         SubtitleKind.EMBEDDED -> embeddedCues(uri, choice.track)
         SubtitleKind.WRITTEN -> written
         SubtitleKind.ONLINE -> online[uri]?.second
     }?.takeIf { it.isNotEmpty() }
 
+    /**
+     * Whether new subtitles may be written for [item] by speech recognition while [active] is
+     * shown. Yes when no subtitle file came with it, when the one shown turned out to hold no
+     * text, and when all of them are ASS/SSA (often only signs or karaoke), by hand or by itself:
+     * the ASS file keeps showing and the written ones are offered next to it.
+     * Written ones kept from before are offered either way ([canHaveWritten]).
+     */
+    fun mayWrite(item: MediaItem, active: SubtitleChoice): Boolean {
+        if (!canHaveWritten(item)) return false
+        val files = item.subtitleFiles
+        if (files.isEmpty()) return true
+        val shown = files.getOrNull(active.track)?.takeIf { active.kind == SubtitleKind.FILE }
+        if (shown != null && fileCues(item.uri, shown)?.isEmpty() == true) return true
+        return files.all { Sidecars.isStyled(item.subtitleName(it)) }
+    }
+
     companion object {
+        /** Subtitles written by speech recognition can be kept and shown for [item]: a video or a song, not live, not HLS. */
+        fun canHaveWritten(item: MediaItem): Boolean =
+            (item.type == MediaType.VIDEO || item.type == MediaType.AUDIO) && !item.live && !item.isHls
+
         const val STEP_MS = 500L
         const val MAX_OFFSET_MS = 10 * 60_000L
 

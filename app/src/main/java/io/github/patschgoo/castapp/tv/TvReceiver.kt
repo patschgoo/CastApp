@@ -97,13 +97,17 @@ object TvReceiver : RendererBackend, CastAppCommands {
     override fun setMedia(media: TvMedia) {
         this.media = media
         _state.value = _state.value.copy(state = TransportState.STOPPED, positionMs = 0, durationMs = 0)
-        main.post { player?.load(media, autoPlay = false) }
+        main.post {
+            keepScreen()
+            player?.load(media, autoPlay = false)
+        }
     }
 
     override fun play() {
         val m = media ?: return
         if (_state.value.state != TransportState.PAUSED) _state.value = _state.value.copy(state = TransportState.TRANSITIONING)
         main.post {
+            keepScreen()
             val p = player
             if (p != null && p.showing == m) p.resume() else openPlayer(m)
         }
@@ -115,7 +119,32 @@ object TvReceiver : RendererBackend, CastAppCommands {
 
     override fun stop() {
         _state.value = _state.value.copy(state = TransportState.STOPPED)
-        main.post { player?.stopAndClose() }
+        main.post {
+            // A phone moving on (next item, or its next way after "can't play") sends Stop, SetAVTransportURI
+            // and Play in a row. Stop the picture now but keep the screen for a moment, so the next address
+            // plays in it without a black flash; only a Stop that nothing follows closes it. The screen is let
+            // go of before it starts finishing, so nothing can be handed to a closing player.
+            val p = player ?: return@post
+            p.stopPlayback()
+            keepScreen()
+            val close = Runnable {
+                pendingClose = null
+                if (player === p) {
+                    player = null
+                    p.stopAndClose()
+                }
+            }
+            pendingClose = close
+            main.postDelayed(close, CLOSE_AFTER_STOP_MS)
+        }
+    }
+
+    /** Main thread: a close planned by [stop] that a new address or Play calls off. */
+    private var pendingClose: Runnable? = null
+
+    private fun keepScreen() {
+        pendingClose?.let(main::removeCallbacks)
+        pendingClose = null
     }
 
     override fun seek(positionMs: Long) {
@@ -266,4 +295,7 @@ object TvReceiver : RendererBackend, CastAppCommands {
     private const val KEY_UUID = "uuid"
     private const val KEY_BOOT = "start_on_boot"
     private const val NOTIFICATION_INCOMING = 41
+
+    /** How long a stopped screen waits for the next address before it closes. */
+    private const val CLOSE_AFTER_STOP_MS = 2_000L
 }

@@ -36,10 +36,10 @@ object HomeLogic {
      */
     fun mimeTypes(pick: FilePick, picture: Boolean): Array<String> = when {
         !picture -> arrayOf("audio/*")
-        pick == FilePick.VIDEOS -> arrayOf("video/*", "application/x-subrip", "text/vtt", "application/octet-stream")
+        pick == FilePick.VIDEOS -> arrayOf("video/*", "application/x-subrip", "text/vtt", "text/x-ssa", "application/octet-stream")
         pick == FilePick.PHOTOS -> arrayOf("image/*")
         pick == FilePick.MUSIC -> arrayOf("audio/*")
-        else -> arrayOf("video/*", "audio/*", "image/*", "application/x-subrip", "text/vtt", "application/octet-stream")
+        else -> arrayOf("video/*", "audio/*", "image/*", "application/x-subrip", "text/vtt", "text/x-ssa", "application/octet-stream")
     }
 }
 

@@ -19,6 +19,8 @@ class PeerRequest(
     val headers: Map<String, String>,
     val body: String,
     val remote: InetAddress?,
+    /** The body was larger than [PeerServer.MAX_BODY]: read and dropped, [body] is empty. */
+    val tooLarge: Boolean = false,
 ) {
     val json: JSONObject by lazy { try { JSONObject(body) } catch (_: Exception) { JSONObject() } }
     val remoteAddress: String get() = remote?.hostAddress ?: ""
@@ -100,6 +102,9 @@ class PeerServer(
                     }
                 } else if (!UpnpRenderer.isLocal(request.remote)) {
                     PeerResponse.error(403, "forbidden", "Only devices on the local network may ask that")
+                } else if (request.tooLarge) {
+                    // Said so, rather than handing on a cut-off body that fails as "bad request".
+                    PeerResponse.error(413, "too_large", "The request is larger than ${MAX_BODY / 1024} KB")
                 } else {
                     try {
                         handler(request)
@@ -132,20 +137,32 @@ class PeerServer(
             val i = h.indexOf(':')
             if (i > 0) headers[h.substring(0, i).trim().lowercase()] = h.substring(i + 1).trim()
         }
-        val length = headers["content-length"]?.toIntOrNull()?.coerceIn(0, MAX_BODY) ?: 0
-        val body = ByteArray(length)
-        var read = 0
-        while (read < length) {
-            val n = input.read(body, read, length - read)
-            if (n < 0) break
-            read += n
-        }
+        val declared = headers["content-length"]?.toLongOrNull()?.coerceAtLeast(0) ?: 0
         val target = parts[1]
         val path = target.substringBefore('?')
         val query = target.substringAfter('?', "").split('&').filter { it.contains('=') }.associate {
             val k = it.substringBefore('=')
             val v = it.substringAfter('=')
             decode(k) to decode(v)
+        }
+        if (declared > MAX_BODY) {
+            // Read it (up to a point), so the sender gets the answer instead of a broken connection.
+            var left = minOf(declared, MAX_DRAIN)
+            val buffer = ByteArray(16 * 1024)
+            while (left > 0) {
+                val n = input.read(buffer, 0, minOf(left, buffer.size.toLong()).toInt())
+                if (n < 0) break
+                left -= n
+            }
+            return PeerRequest(parts[0].uppercase(), path, query, headers, "", remote, tooLarge = true)
+        }
+        val length = declared.toInt()
+        val body = ByteArray(length)
+        var read = 0
+        while (read < length) {
+            val n = input.read(body, read, length - read)
+            if (n < 0) break
+            read += n
         }
         return PeerRequest(parts[0].uppercase(), path, query, headers, String(body, 0, read, Charsets.UTF_8), remote)
     }
@@ -171,12 +188,16 @@ class PeerServer(
         403 -> "Forbidden"
         404 -> "Not Found"
         409 -> "Conflict"
+        413 -> "Content Too Large"
         429 -> "Too Many Requests"
         else -> if (code >= 500) "Internal Server Error" else "OK"
     }
 
     companion object {
         const val TIME_PATH = "/castapp/time"
-        private const val MAX_BODY = 256 * 1024
+        /** The largest request body taken (a hand-over offer with its play list is the biggest). */
+        const val MAX_BODY = 256 * 1024
+        /** How much of a larger body is read before answering 413. */
+        private const val MAX_DRAIN = 16L * 1024 * 1024
     }
 }

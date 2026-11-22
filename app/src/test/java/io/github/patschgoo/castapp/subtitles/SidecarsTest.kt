@@ -144,6 +144,34 @@ class SidecarsTest {
     }
 
     @Test
+    fun languagesSavedSortedByAnOlderVersion() {
+        // Saved in the order typed ("search_languages_ordered"): that order counts.
+        assertEquals(listOf("en", "de"), Sidecars.preferredLanguages("en, de", Locale.GERMANY, ordered = true))
+        assertEquals(listOf("de", "en"), Sidecars.preferredLanguages("de, en", Locale.ENGLISH, ordered = true))
+        // Saved before, sorted by the alphabet ("en, de" became "de, en"): the phone's language first if it is
+        // one of them, then the others, English last.
+        assertEquals(listOf("en", "de"), Sidecars.preferredLanguages("de, en", Locale.US, ordered = false))
+        assertEquals(listOf("de", "en"), Sidecars.preferredLanguages("de, en", Locale.GERMANY, ordered = false))
+        assertEquals(listOf("fr", "de", "en"), Sidecars.preferredLanguages("de, en, fr", Locale.FRANCE, ordered = false))
+        assertEquals(listOf("es", "en", "it"), Sidecars.preferredLanguages("en, es", Locale.ITALY, ordered = false))
+        // One language has no order to lose.
+        assertEquals(listOf("fr", "de", "en"), Sidecars.preferredLanguages("fr", Locale.GERMANY, ordered = false))
+        assertEquals(listOf("de", "en"), Sidecars.preferredLanguages("", Locale.GERMANY, ordered = false))
+        // So with the old "de, en" an English phone gets the English file next to a video.
+        val subs = listOf("Kite 01.German.srt", "Kite 01.English.srt")
+        assertEquals("Kite 01.English.srt", best("Kite 01.mkv", subs, Sidecars.preferredLanguages("de, en", Locale.UK, ordered = false)))
+        assertEquals("Kite 01.German.srt", best("Kite 01.mkv", subs, Sidecars.preferredLanguages("de, en", Locale.UK, ordered = true)))
+    }
+
+    @Test
+    fun styledSubtitleFiles() {
+        assertTrue(Sidecars.isStyled("Kite 01.English.ass"))
+        assertTrue(Sidecars.isStyled("Kite 01.SSA"))
+        assertFalse(Sidecars.isStyled("Kite 01.English.srt"))
+        assertFalse(Sidecars.isStyled("Kite 01.ass.vtt"))
+    }
+
+    @Test
     fun pickerLabels() {
         assertEquals("English", Sidecars.label("Gala 01.mp4", "Gala 01.English10.srt", Locale.ENGLISH))
         assertEquals("Englisch", Sidecars.label("Gala 01.mp4", "Gala 01.eng.srt", Locale.GERMAN))

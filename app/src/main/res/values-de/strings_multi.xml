@@ -73,6 +73,7 @@
     <string name="multi_handover_failed_here">Übernehmen hat nicht geklappt. Das andere Gerät streamt weiter.</string>
     <string name="multi_handover_timeout">Keine rechtzeitige Antwort. Du streamst weiter.</string>
     <string name="multi_handover_busy">Es läuft schon eine Übergabe.</string>
+    <string name="multi_handover_too_big">Die Warteschlange ist zu lang, um sie an %1$s zu übergeben. Entferne ein paar Dateien daraus und versuch es noch mal.</string>
     <string name="multi_handover_gone">%1$s bietet das nicht mehr an.</string>
     <string name="multi_handover_control_given">%1$s hat jetzt die Steuerung. Lass dieses Handy im WLAN: Es spielt die Dateien weiter ab.</string>
     <string name="multi_handover_control_explained">Diese Dateien gibt es nur auf diesem Handy, deshalb spielt es sie weiter ab; das andere Gerät bekommt die Steuerung.</string>
