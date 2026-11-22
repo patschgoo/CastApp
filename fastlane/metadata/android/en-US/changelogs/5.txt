@@ -1,3 +1,0 @@
-• Test this phone: a self-test in Settings → Help & support
-• Releases are signed with a private key and published with release notes
-• Many fixes and improvements for casting, subtitles and the TV remote
