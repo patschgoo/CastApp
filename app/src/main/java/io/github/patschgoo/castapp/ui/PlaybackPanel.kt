@@ -372,7 +372,7 @@ private fun QueueSheet(queue: QueueView, live: Boolean, onDismiss: () -> Unit) {
                         },
                     )
                     AssistChip(
-                        onClick = { picker.launch(arrayOf("video/*", "audio/*", "image/*", "application/x-subrip", "text/vtt", "application/octet-stream")) },
+                        onClick = { picker.launch(arrayOf("video/*", "audio/*", "image/*", "application/x-subrip", "text/vtt", "text/x-ssa", "application/octet-stream")) },
                         label = { Text(stringResource(R.string.queue_add)) },
                         leadingIcon = { Icon(Icons.Rounded.Add, contentDescription = null, modifier = Modifier.size(18.dp)) },
                     )

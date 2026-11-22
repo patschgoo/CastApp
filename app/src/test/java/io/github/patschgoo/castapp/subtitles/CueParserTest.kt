@@ -54,7 +54,7 @@ class CueParserTest {
             listOf(
                 Cue(1.5, 3.0, "Hello, you,\nthere"),
                 Cue(5.0, 6.25, "Later, but listed first"),
-                Cue(10.0, 12.0, "Top sign\nnext"),
+                Cue(10.0, 12.0, "Top sign next"), // \n is a space without WrapStyle 2
                 Cue(30.0, 31.0, "Twice\nShop"),
             ),
             CueParser.parse(ass),
@@ -80,6 +80,28 @@ class CueParserTest {
         assertEquals(listOf(Cue(4.1, 5.2, "Old style")), CueParser.parse(ssa))
         val reordered = "[Events]\nFormat: Start, End, Text\nDialogue: 0:00:07.00,0:00:08.00,Short, format\n"
         assertEquals(listOf(Cue(7.0, 8.0, "Short, format")), CueParser.parse(reordered))
+    }
+
+    @Test
+    fun assSoftLineBreaksFollowWrapStyle() {
+        fun script(wrapStyle: String?) = listOfNotNull(
+            "[Script Info]",
+            "ScriptType: v4.00+",
+            wrapStyle?.let { "WrapStyle: $it" },
+            "",
+            "[Events]",
+            "Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text",
+            """Dialogue: 0,0:00:01.00,0:00:02.00,Default,,0,0,0,,Moss and \nfern\Nby the brook""",
+            """Dialogue: 0,0:00:03.00,0:00:04.00,Default,,0,0,0,,Wide \h\h gap\n""",
+        ).joinToString("\n")
+        // libass / VSFilter: \n breaks the line only with WrapStyle 2, else it is a space; \N always breaks it.
+        val soft = listOf(Cue(1.0, 2.0, "Moss and fern\nby the brook"), Cue(3.0, 4.0, "Wide gap"))
+        assertEquals(soft, CueParser.parse(script(null)))
+        assertEquals(soft, CueParser.parse(script("0")))
+        assertEquals(soft, CueParser.parse(script("1")))
+        assertEquals(soft, CueParser.parse(script("3")))
+        assertEquals(listOf(Cue(1.0, 2.0, "Moss and\nfern\nby the brook"), Cue(3.0, 4.0, "Wide gap")), CueParser.parse(script("2")))
+        assertEquals(listOf(Cue(1.0, 2.0, "Moss and\nfern\nby the brook"), Cue(3.0, 4.0, "Wide gap")), CueParser.parse(script(" 2").replace("WrapStyle", "wrapstyle")))
     }
 
     @Test

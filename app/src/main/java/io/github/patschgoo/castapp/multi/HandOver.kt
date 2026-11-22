@@ -102,12 +102,37 @@ data class HandOverOffer(
             else -> HandOverMode.CONTROL
         }
 
-        /** What travels to the other device: subtitle files only this one can read are dropped. */
-        fun portable(items: List<MediaItem>): List<MediaItem> = items.map { item ->
+        /**
+         * What travels to the other device: subtitle files only this one can read are dropped, and
+         * other languages' files are kept only for the item playing ([index]) and its neighbours
+         * (the others keep the one they show). A WebDAV folder with 29 languages per episode would
+         * outgrow what the peer server takes ([PeerServer.MAX_BODY]).
+         */
+        fun portable(items: List<MediaItem>, index: Int = 0): List<MediaItem> = items.mapIndexed { i, item ->
             val files = item.subtitleFiles
-            val kept = files.filter { it.startsWith("http://") || it.startsWith("https://") }
+            val readable = files.filter { it.startsWith("http://") || it.startsWith("https://") }
+            val kept = if (kotlin.math.abs(i - index) <= NEIGHBOURS) readable else readable.take(1)
             if (kept.size == files.size) item else item.copy(subtitleUri = kept.firstOrNull(), moreSubtitles = kept.drop(1))
         }
+
+        /** Items before and after the one playing that keep all their subtitle files. */
+        private const val NEIGHBOURS = 2
+
+        /** What an offer may take of [PeerServer.MAX_BODY], leaving room for the rest of the request. */
+        const val MAX_OFFER_BYTES = PeerServer.MAX_BODY - 16 * 1024
+    }
+
+    /** The size of the offer as sent. */
+    fun sizeBytes(): Int = toJson().toString().toByteArray(Charsets.UTF_8).size
+
+    /**
+     * This offer small enough for the other device's peer server, where possible: if it is too
+     * big, only the item playing keeps the subtitle files of other languages. Still too big (a very
+     * long play list), the other device answers 413 and the user is told.
+     */
+    fun fitted(maxBytes: Int = MAX_OFFER_BYTES): HandOverOffer {
+        if (items.isEmpty() || sizeBytes() <= maxBytes) return this
+        return copy(items = items.mapIndexed { i, item -> if (i == index || item.moreSubtitles.isEmpty()) item else item.copy(moreSubtitles = emptyList()) })
     }
 }
 

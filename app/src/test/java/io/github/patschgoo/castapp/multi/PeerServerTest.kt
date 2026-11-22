@@ -254,6 +254,25 @@ class PeerServerTest {
     }
 
     @Test
+    fun tooBigAnOfferIsRefusedNotCutOff() {
+        val a = Device("Pixel A")
+        val b = Device("Tablet B")
+        // A play list far over the limit, as a big folder with many subtitle files per video made it.
+        val items = (1..2000).map { e ->
+            MediaItem("Lark $e.mkv", "https://dav.example/Lark/Lark $e.mkv", "video/x-matroska", subtitleUri = "https://dav.example/Lark/Lark $e.English.srt")
+        }
+        val offer = offerFrom(a).copy(items = items)
+        assertTrue(offer.sizeBytes() > PeerServer.MAX_BODY)
+        val (code, text) = PeerClient.post(b.base, "/castapp/handover/offer", offer.toJson())
+        assertEquals(413, code)
+        assertEquals("too_large", JSONObject(text).optString("error"))
+        assertTrue("nothing reached the hub", b.events.log.isEmpty())
+        assertNull(b.hub.incoming.pending.value)
+        // Within the limit it goes through as before.
+        assertEquals(202, PeerClient.post(b.base, "/castapp/handover/offer", offerFrom(a).copy(items = items.take(50)).toJson()).first)
+    }
+
+    @Test
     fun unknownPathsAndMethods() {
         val a = Device("Pixel A")
         assertEquals(404, PeerClient.post(a.base, "/castapp/explode", JSONObject()).first)

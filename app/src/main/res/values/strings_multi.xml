@@ -73,6 +73,7 @@
     <string name="multi_handover_failed_here">Couldn\'t take over the cast. The other device is still casting.</string>
     <string name="multi_handover_timeout">No answer in time. You are still casting.</string>
     <string name="multi_handover_busy">A hand-over is already under way.</string>
+    <string name="multi_handover_too_big">The queue is too long to hand over to %1$s. Remove some files from it and try again.</string>
     <string name="multi_handover_gone">%1$s isn\'t offering this any more.</string>
     <string name="multi_handover_control_given">%1$s has the controls now. Keep this phone on Wi-Fi: it still plays the files.</string>
     <string name="multi_handover_control_explained">These files are only on this phone, so it keeps playing them; the other device gets the controls.</string>

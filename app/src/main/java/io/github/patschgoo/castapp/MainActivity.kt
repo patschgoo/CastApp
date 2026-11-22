@@ -181,7 +181,7 @@ private fun AppRoot(app: CastApp, activity: MainActivity, tourAtStart: Boolean) 
                 app.devices.save(device)
                 fileDeviceId = device.id
                 val types = if (device.video && !app.devices.audioMode.value) {
-                    arrayOf("video/*", "audio/*", "image/*", "application/x-subrip", "text/vtt", "application/octet-stream")
+                    arrayOf("video/*", "audio/*", "image/*", "application/x-subrip", "text/vtt", "text/x-ssa", "application/octet-stream")
                 } else {
                     arrayOf("audio/*")
                 }

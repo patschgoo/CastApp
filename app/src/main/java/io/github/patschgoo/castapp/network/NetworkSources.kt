@@ -188,7 +188,9 @@ class NetworkSources(context: Context) {
         val videoIndex = videos.withIndex().associate { it.value to it.index }
         fun address(e: RemoteEntry) = if (source.kind == SourceKind.SMB) "smb://${source.id}/${e.path}" else e.path
         return media.map { (e, mime) ->
-            val subs = videoIndex[e]?.let { v -> Sidecars.ranked(e.name, owned[v].map { subtitles[it] }, languages) { it.name }.map(::address) }.orEmpty()
+            val ranked = videoIndex[e]?.let { v -> Sidecars.ranked(e.name, owned[v].map { subtitles[it] }, languages) { it.name } }.orEmpty()
+            val subs = ranked.map(::address)
+            val names = MediaItem.subtitleNamesOf(ranked.map { address(it) to it.name })
             when (source.kind) {
                 SourceKind.SMB -> MediaItem(
                     title = e.name,
@@ -196,6 +198,7 @@ class NetworkSources(context: Context) {
                     mimeType = mime,
                     subtitleUri = subs.firstOrNull(),
                     moreSubtitles = subs.drop(1),
+                    subtitleNames = names,
                 )
                 SourceKind.WEBDAV -> MediaItem(
                     title = e.name,
@@ -205,14 +208,17 @@ class NetworkSources(context: Context) {
                     headers = WebDav.authHeader(source.user, source.password),
                     trustAll = source.trustAll,
                     moreSubtitles = subs.drop(1),
+                    subtitleNames = names,
                 )
             }
         }
     }
 
     /** The subtitle languages to prefer: those of the online search setting, else the phone's, then English. */
-    private fun preferredLanguages(): List<String> =
-        Sidecars.preferredLanguages(SubtitleSourceSettings.get(app).current.searchLanguages, Locale.getDefault())
+    private fun preferredLanguages(): List<String> {
+        val s = SubtitleSourceSettings.get(app).current
+        return Sidecars.preferredLanguages(s.searchLanguages, Locale.getDefault(), s.searchLanguagesOrdered)
+    }
 
     // ---- DLNA media servers ----------------------------------------------------------------------
 
@@ -242,9 +248,15 @@ class NetworkSources(context: Context) {
 
         fun isMediaName(name: String): Boolean = name.substringAfterLast('.', "").lowercase() in MEDIA_EXT
 
-        /** The type of a listed file: the server's (WebDAV) if it names one, else from the file name ("Show #9.mkv"). */
-        fun mimeOf(e: RemoteEntry): String? =
-            e.mimeType?.takeIf { it.startsWith("video/") || it.startsWith("audio/") || it.startsWith("image/") }
+        /**
+         * The type of a listed file: the server's (WebDAV) if it names one, else from the file name ("Show #9.mkv").
+         * Subtitle files have none, whatever the server says: Debian's mime.types (Apache, rclone, wsgidav…)
+         * calls .ass "audio/aac", and they'd be played as music.
+         */
+        fun mimeOf(e: RemoteEntry): String? {
+            if (Subtitles.isSubtitleFile(e.name)) return null
+            return e.mimeType?.takeIf { it.startsWith("video/") || it.startsWith("audio/") || it.startsWith("image/") }
                 ?: MediaItem.mimeForName(e.name).takeIf { isMediaName(e.name) }
+        }
     }
 }

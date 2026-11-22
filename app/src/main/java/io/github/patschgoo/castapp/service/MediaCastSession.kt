@@ -421,9 +421,8 @@ class MediaCastSession(
         }
     }
 
-    /** The text of subtitle file [index] of [item] ([MediaItem.subtitleFiles]). */
-    private fun subtitleText(item: MediaItem, index: Int): String? {
-        val uri = item.subtitleFiles.getOrNull(index) ?: return null
+    /** The text of the subtitle file at [uri], one of [item]'s ([MediaItem.subtitleFiles]). */
+    private fun subtitleText(item: MediaItem, uri: String): String? {
         val bytes = when {
             uri.startsWith("http") -> HttpMediaSource(uri, item.headers, item.trustAll).open(0).use { HttpMediaSource.readUpTo(it, MAX_SUBTITLE_BYTES) }
             uri.startsWith("smb://") -> smbLocation(uri).let { (source, path) ->
@@ -434,12 +433,18 @@ class MediaCastSession(
         return Subtitles.decode(bytes)
     }
 
-    /** The cues of [choice] for [item], reading the subtitle file the first time. */
+    /** The cues of [choice] for [item], reading the subtitle file the first time (kept by its address). */
     private fun cuesFor(item: MediaItem, choice: SubtitleChoice): List<Cue>? {
-        if (choice.kind == SubtitleKind.FILE && subtitleTracks.fileCues(item.uri, choice.track) == null) {
-            subtitleText(item, choice.track)?.let { subtitleTracks.setFileCues(item.uri, choice.track, CueParser.parse(it)) }
+        val file = item.subtitleFiles.getOrNull(choice.track)?.takeIf { choice.kind == SubtitleKind.FILE }
+        if (file != null && subtitleTracks.fileCues(item.uri, file) == null) {
+            subtitleText(item, file)?.let { text ->
+                val cues = CueParser.parse(text)
+                subtitleTracks.setFileCues(item.uri, file, cues)
+                // No text in it: writing them becomes possible ([SubtitleTracks.mayWrite]).
+                if (cues.isEmpty() && current.uri == item.uri) refreshExtras()
+            }
         }
-        return subtitleTracks.cuesFor(item.uri, choice, generated[item.uri])
+        return subtitleTracks.cuesFor(item.uri, choice, generated[item.uri], item.subtitleFiles)
     }
 
     private fun serveConverted(item: MediaItem, startMs: Long, height: Int, audio: Int, request: TokenHttpServer.Request, socket: Socket, out: OutputStream) {
@@ -586,11 +591,16 @@ class MediaCastSession(
 
     // ---- subtitles written by speech recognition -------------------------------------------------
 
-    private fun subtitlesPossible(item: MediaItem) =
-        (item.type == MediaType.VIDEO || item.type == MediaType.AUDIO) && !item.live && !item.isHls && item.subtitleUri == null
+    /**
+     * New subtitles may be written for [item] ([SubtitleTracks.mayWrite]: no subtitle file, or only
+     * ASS/SSA ones, or the one shown is empty; [auto]: written by itself, only when none shows).
+     * Ones written before are loaded and offered whenever the file can have them
+     * ([SubtitleTracks.canHaveWritten]), subtitle files or not.
+     */
+    private fun mayWrite(item: MediaItem, auto: Boolean = false) = subtitleTracks.mayWrite(item, activeSubtitle(item), auto)
 
-    private fun canCreateSubtitles(item: MediaItem) =
-        subtitlesPossible(item) && item.uri !in generatedDone && subtitleFor != item.uri
+    private fun canCreateSubtitles(item: MediaItem, auto: Boolean = false) =
+        mayWrite(item, auto) && item.uri !in generatedDone && subtitleFor != item.uri
 
     /**
      * Writes subtitles for the current file with offline speech recognition in the
@@ -599,7 +609,7 @@ class MediaCastSession(
      */
     fun createSubtitles(auto: Boolean = false) {
         val item = current
-        if (!canCreateSubtitles(item)) return
+        if (!canCreateSubtitles(item, auto)) return
         if (subtitleJob?.isActive == true) {
             if (writingAhead && subtitleFor != item.uri) {
                 // Only writing ahead for a later file: the one playing now goes first.
@@ -614,6 +624,8 @@ class MediaCastSession(
             if (!auto) CastController.message(missing ?: Txt.s(R.string.err_choose_language))
             return
         }
+        // Asked for next to a subtitle file (ASS, or one without text): the written ones show as they come.
+        if (!auto && item.subtitleFiles.isNotEmpty()) subtitleTracks.choose(item.uri, SubtitleChoice.WRITTEN)
         startSubtitleJob(item, setup, ahead = false)
     }
 
@@ -623,10 +635,10 @@ class MediaCastSession(
      */
     private fun writeAhead() {
         if (!settings.autoSubtitles || ended.get() || subtitleJob?.isActive == true) return
-        if (canCreateSubtitles(current)) return
+        if (canCreateSubtitles(current, auto = true)) return
         val setup = SpeechEngines.ready(context, settings.subtitleLanguage).first ?: return
         val next = queue.upcoming(WRITE_AHEAD).map { it.item }.firstOrNull { item ->
-            if (!subtitlesPossible(item) || item.uri in generatedDone) return@firstOrNull false
+            if (!mayWrite(item, auto = true) || item.uri in generatedDone) return@firstOrNull false
             loadCachedSubtitles(item)
             item.uri !in generatedDone
         } ?: return
@@ -751,7 +763,8 @@ class MediaCastSession(
                 }
             }
         }
-        if (!subtitlesPossible(item) || item.uri in generatedDone) return
+        // Written ones are kept even when the file came with subtitle files (an ASS one, say).
+        if (!SubtitleTracks.canHaveWritten(item) || item.uri in generatedDone) return
         val key = SpeechEngines.chosen(context, settings.subtitleLanguage)?.cacheKey ?: return
         val file = cacheFile(item, key).takeIf { it.exists() } ?: return
         try {
@@ -938,7 +951,7 @@ class MediaCastSession(
                         CastController.message(Txt.s(R.string.msg_converting, item.title))
                     }
                     if (d == Delivery.CONVERT) convertChecks[convertKey(item)]?.droppedAudioMime?.let { warnNoSound(item, it) }
-                    if (settings.autoSubtitles && canCreateSubtitles(item)) createSubtitles(auto = true) else writeAhead()
+                    if (settings.autoSubtitles && canCreateSubtitles(item, auto = true)) createSubtitles(auto = true) else writeAhead()
                     probeTracks(item)
                     return
                 }
@@ -1165,7 +1178,7 @@ class MediaCastSession(
         if (!generated[item.uri].isNullOrEmpty()) add(SubtitleChoice.WRITTEN)
     }
 
-    private fun activeSubtitle(item: MediaItem): SubtitleChoice = subtitleTracks.effective(item.uri, subtitleChoices(item))
+    private fun activeSubtitle(item: MediaItem): SubtitleChoice = subtitleTracks.effective(item.uri, subtitleChoices(item), item.subtitleFiles)
 
     /** Subtitles go to the TV with this file (the file's own are read when the TV asks). */
     private fun subtitlesReady(item: MediaItem): Boolean {
@@ -1173,7 +1186,7 @@ class MediaCastSession(
         return when (choice.kind) {
             SubtitleKind.OFF -> false
             SubtitleKind.FILE -> true
-            else -> subtitleTracks.cuesFor(item.uri, choice, generated[item.uri]) != null
+            else -> subtitleTracks.cuesFor(item.uri, choice, generated[item.uri], item.subtitleFiles) != null
         }
     }
 
@@ -1181,7 +1194,7 @@ class MediaCastSession(
     fun chooseSubtitles(key: String) {
         val choice = SubtitleChoice.fromKey(key) ?: return
         val item = current
-        subtitleTracks.choose(item.uri, choice)
+        subtitleTracks.choose(item.uri, choice, item.subtitleFiles)
         when {
             choice.kind == SubtitleKind.EMBEDDED && subtitleTracks.embeddedCues(item.uri, choice.track) == null -> {
                 extractEmbedded(item, choice.track)
@@ -1314,7 +1327,8 @@ class MediaCastSession(
         // Each subtitle file by its language ("English", from "Film.English.srt"), else by what its name adds.
         val display = context.resources.configuration.locales[0]
         item.subtitleFiles.forEachIndexed { i, uri ->
-            val name = Sidecars.fileName(uri)
+            // The name it was listed or picked with: content:// addresses often carry none ("…/document/msf%3A123").
+            val name = item.subtitleName(uri)
             val label = Sidecars.label(item.title, name, display) ?: context.getString(R.string.subs_file)
             add(SubtitleChoice.file(i), label, name.takeIf { it.isNotBlank() })
         }
