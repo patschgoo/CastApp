@@ -18,6 +18,7 @@ object Sidecars {
     private val SEPARATORS = Regex("""[\s._\-\[\]()]+""")
     private val MARKS = Regex("""\p{Mn}+""")
     private val TEXT_FORMATS = setOf("srt", "vtt")
+    private val STYLED_FORMATS = setOf("ass", "ssa")
 
     /** ISO 639-2 bibliographic codes ("ger") where they differ from the terminology ones Java knows ("deu"). */
     private val BIBLIOGRAPHIC = mapOf(
@@ -119,24 +120,34 @@ object Sidecars {
     /**
      * The languages subtitle files are preferred in: those of the subtitle search setting in their
      * order ("de,en"; empty = the phone's language), then the phone's language, then English.
+     *
+     * Not [ordered]: the setting was saved before it kept the order typed, sorted by the alphabet
+     * ("en, de" became "de, en"). Then the phone's language goes first if it is one of them, then
+     * the others, English last.
      */
-    fun preferredLanguages(searchLanguages: String, phone: Locale): List<String> {
+    fun preferredLanguages(searchLanguages: String, phone: Locale, ordered: Boolean = true): List<String> {
         val chosen = searchLanguages.split(',', ' ', ';')
             .map { it.trim().lowercase(Locale.ROOT).replace('_', '-').substringBefore('-') }
             .filter { it.isNotEmpty() }
-            .map { w -> if (w.length == 3) twoLetter(w) else w }
-        return (chosen.ifEmpty { listOf(phone.language) } + phone.language + "en")
-            .filter { it.isNotEmpty() }.map(::canonical).distinct()
+            .map { w -> canonical(if (w.length == 3) twoLetter(w) else w) }
+            .distinct()
+        val own = canonical(phone.language)
+        val inOrder = if (ordered || chosen.size < 2) {
+            chosen
+        } else {
+            chosen.sortedBy { if (it == own) 0 else if (it == "en") 2 else 1 }
+        }
+        return (inOrder.ifEmpty { listOf(own) } + own + "en").filter { it.isNotEmpty() }.distinct()
     }
 
     /** The same from the app's settings. */
     fun preferredLanguages(): List<String> {
-        val chosen = try {
-            SubtitleSourceSettings.get(CastApp.instance).current.searchLanguages
+        val s = try {
+            SubtitleSourceSettings.get(CastApp.instance).current
         } catch (_: UninitializedPropertyAccessException) {
-            "" // unit tests run without an Application
+            null // unit tests run without an Application
         }
-        return preferredLanguages(chosen, Locale.getDefault())
+        return preferredLanguages(s?.searchLanguages.orEmpty(), Locale.getDefault(), s?.searchLanguagesOrdered ?: true)
     }
 
     private fun twoLetter(code: String): String =
@@ -145,6 +156,9 @@ object Sidecars {
             ?: code
 
     private fun extension(name: String) = name.substringAfterLast('.', "").lowercase(Locale.ROOT)
+
+    /** An ASS/SSA file ("Film.English.ass"): styled subtitles, often only signs or karaoke. */
+    fun isStyled(name: String): Boolean = extension(name) in STYLED_FORMATS
 
     /**
      * The [subtitles] of the video [videoName], best first: the [preferred] languages in their

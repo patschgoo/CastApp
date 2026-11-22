@@ -2,6 +2,7 @@ package io.github.patschgoo.castapp.service
 
 import io.github.patschgoo.castapp.subtitles.Cue
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -37,14 +38,80 @@ class SubtitleTracksTest {
         t.choose(uri, SubtitleChoice.file(2))
         assertEquals(SubtitleChoice.file(2), t.effective(uri, available))
         assertEquals(SubtitleChoice.FILE, t.effective(uri, available.take(2)))
-        // Each file's cues are kept apart.
+        // Each file's cues are kept apart, by the file's address.
+        val files = listOf("smb://src/Vela 01.English.srt", "smb://src/Vela 01.German.srt", "smb://src/Vela 01.Arabic.srt")
         val other = listOf(Cue(1.0, 2.0, "Hallo"))
-        t.setFileCues(uri, 0, cues)
-        t.setFileCues(uri, 2, other)
-        assertEquals(cues, t.cuesFor(uri, SubtitleChoice.FILE, written = null))
-        assertEquals(other, t.cuesFor(uri, SubtitleChoice.file(2), written = null))
-        assertNull(t.cuesFor(uri, SubtitleChoice.file(1), written = null))
-        assertNull(t.fileCues("content://media/other", 0))
+        t.setFileCues(uri, files[0], cues)
+        t.setFileCues(uri, files[2], other)
+        assertEquals(cues, t.cuesFor(uri, SubtitleChoice.FILE, written = null, files = files))
+        assertEquals(other, t.cuesFor(uri, SubtitleChoice.file(2), written = null, files = files))
+        assertNull(t.cuesFor(uri, SubtitleChoice.file(1), written = null, files = files))
+        assertNull(t.cuesFor(uri, SubtitleChoice.file(5), written = null, files = files))
+        assertNull(t.fileCues("content://media/other", files[0]))
+    }
+
+    @Test
+    fun aPickedFileAndItsCuesFollowTheFileWhenTheListChanges() {
+        val en = "https://dav.example/Vela 02.English.srt"
+        val de = "https://dav.example/Vela 02.German.srt"
+        val ar = "https://dav.example/Vela 02.Arabic.srt"
+        val t = SubtitleTracks()
+        fun available(files: List<String>) = files.indices.map { SubtitleChoice.file(it) }
+        // Listed with English first; German picked (the second), and read.
+        val before = listOf(en, de, ar)
+        t.choose(uri, SubtitleChoice.file(1), before)
+        val german = listOf(Cue(1.0, 2.0, "Hallo"))
+        t.setFileCues(uri, de, german)
+        assertEquals(SubtitleChoice.file(1), t.effective(uri, available(before), before))
+        // The queue is replaced: the same video, its files now ranked German first (another language setting).
+        val after = listOf(de, en, ar)
+        assertEquals(SubtitleChoice.file(0), t.chosen(uri, after))
+        assertEquals(SubtitleChoice.file(0), t.effective(uri, available(after), after))
+        assertEquals(german, t.cuesFor(uri, t.effective(uri, available(after), after), written = null, files = after))
+        // English (now second) was never read: its place doesn't hand out German cues.
+        assertNull(t.cuesFor(uri, SubtitleChoice.file(1), written = null, files = after))
+        // The picked file is gone: the first one plays.
+        val without = listOf(en, ar)
+        assertNull(t.chosen(uri, without))
+        assertEquals(SubtitleChoice.FILE, t.effective(uri, available(without), without))
+        // Other picks don't depend on the files.
+        t.choose(uri, SubtitleChoice.OFF, after)
+        assertEquals(SubtitleChoice.OFF, t.effective(uri, available(without), without))
+    }
+
+    @Test
+    fun writingSubtitlesNextToSubtitleFiles() {
+        val t = SubtitleTracks()
+        val bare = MediaItem("Vela 03.mkv", "smb://src/Vela 03.mkv", "video/x-matroska")
+        val srt = bare.copy(subtitleUri = "smb://src/Vela 03.English.srt")
+        val ass = bare.copy(subtitleUri = "smb://src/Vela 03.English.ass", moreSubtitles = listOf("smb://src/Vela 03.German.SSA"))
+        // A picked file whose address has no name: the name it was picked with counts.
+        val picked = MediaItem(
+            "Vela 04.mkv", "content://docs/document/msf%3A40", "video/x-matroska",
+            subtitleUri = "content://docs/document/msf%3A41", subtitleNames = mapOf("content://docs/document/msf%3A41" to "Vela 04.ass"),
+        )
+        val file = SubtitleChoice.FILE
+        assertTrue(t.mayWrite(bare, SubtitleChoice.OFF))
+        assertTrue(t.mayWrite(bare, SubtitleChoice.OFF, auto = true))
+        // An SRT shows: nothing to write, by hand or by itself.
+        assertFalse(t.mayWrite(srt, file))
+        assertFalse(t.mayWrite(srt, file, auto = true))
+        // Only ASS/SSA files: by hand yes, by itself no (they do show).
+        assertTrue(t.mayWrite(ass, file))
+        assertFalse(t.mayWrite(ass, file, auto = true))
+        assertTrue(t.mayWrite(picked, file))
+        // The SRT shown turned out to hold no text: as if there were none.
+        t.setFileCues(srt.uri, "smb://src/Vela 03.English.srt", emptyList())
+        assertTrue(t.mayWrite(srt, file))
+        assertTrue(t.mayWrite(srt, file, auto = true))
+        // Never for photos, live streams and HLS; written ones can be kept for any file with sound.
+        assertFalse(t.mayWrite(MediaItem("Pic.jpg", "content://p/1", "image/jpeg"), SubtitleChoice.OFF))
+        assertFalse(t.mayWrite(bare.copy(live = true), SubtitleChoice.OFF))
+        assertFalse(t.mayWrite(MediaItem("Show", "https://example.com/a.m3u8", "application/x-mpegurl"), SubtitleChoice.OFF))
+        assertTrue(SubtitleTracks.canHaveWritten(srt))
+        assertTrue(SubtitleTracks.canHaveWritten(ass))
+        assertTrue(SubtitleTracks.canHaveWritten(MediaItem("Song.mp3", "content://p/2", "audio/mpeg")))
+        assertFalse(SubtitleTracks.canHaveWritten(bare.copy(live = true)))
     }
 
     @Test

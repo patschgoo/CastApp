@@ -191,6 +191,42 @@ class HandOverTest {
         assertEquals(many, HandOverOffer.fromJson(offered.toJson())!!.items)
     }
 
+    /** A WebDAV folder of [n] episodes with a subtitle file in each of [languages]. */
+    private fun episodes(n: Int, languages: Int) = (1..n).map { e ->
+        val subs = (1..languages).map { l -> "https://dav.example/Show/Tern $e.Lang$l.srt" }
+        MediaItem("Tern $e.mkv", "https://dav.example/Show/Tern $e.mkv", "video/x-matroska", subtitleUri = subs.first(), moreSubtitles = subs.drop(1))
+    }
+
+    @Test
+    fun otherLanguagesTravelOnlyAroundTheItemPlaying() {
+        val queue = episodes(10, 29)
+        val portable = HandOverOffer.portable(queue, index = 5)
+        for ((i, item) in portable.withIndex()) {
+            assertEquals("the one shown always goes", queue[i].subtitleUri, item.subtitleUri)
+            assertEquals("item $i", if (i in 3..7) 28 else 0, item.moreSubtitles.size)
+        }
+        // At the start of the queue: the first ones.
+        assertEquals(listOf(28, 28, 28, 0), HandOverOffer.portable(queue, index = 0).take(4).map { it.moreSubtitles.size })
+    }
+
+    @Test
+    fun aBigOfferIsTrimmedToFitThePeerServer() {
+        val queue = episodes(600, 6)
+        val base = offer().copy(items = queue.map { it.copy(headers = mapOf("Authorization" to "Basic dTpw")) }, index = 300)
+        val full = base.copy(items = HandOverOffer.portable(base.items, base.index))
+        assertTrue(full.sizeBytes() <= HandOverOffer.MAX_OFFER_BYTES)
+        assertEquals(full, full.fitted())
+        // Everything kept (an older offer builder): too big, so only the item playing keeps all its files.
+        assertTrue(base.sizeBytes() > HandOverOffer.MAX_OFFER_BYTES)
+        val fitted = base.fitted()
+        assertTrue(fitted.sizeBytes() <= HandOverOffer.MAX_OFFER_BYTES)
+        assertEquals(600, fitted.items.size)
+        assertEquals(5, fitted.items[300].moreSubtitles.size)
+        assertEquals(0, fitted.items[299].moreSubtitles.size)
+        assertEquals(queue.map { it.subtitleUri }, fitted.items.map { it.subtitleUri })
+        assertTrue(HandOverOffer.MAX_OFFER_BYTES < PeerServer.MAX_BODY)
+    }
+
     @Test
     fun offerTravelsAsJson() {
         val o = offer()

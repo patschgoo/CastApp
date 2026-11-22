@@ -166,7 +166,8 @@ fun SubtitleSourcesSection() {
         SourcesDialog.ACCOUNT -> AccountDialog(
             account = account,
             languages = s.searchLanguages,
-            onSaveLanguages = { l -> store.update { it.copy(searchLanguages = l) } },
+            // Saved in the order typed from now on (older versions sorted them).
+            onSaveLanguages = { l -> store.update { it.copy(searchLanguages = l, searchLanguagesOrdered = true) } },
             onDismiss = { dialog = null },
         )
         null -> Unit
