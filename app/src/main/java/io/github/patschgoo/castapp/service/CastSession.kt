@@ -1,5 +1,6 @@
 package io.github.patschgoo.castapp.service
 
+import io.github.patschgoo.castapp.Txt
 import android.content.Context
 import android.media.projection.MediaProjection
 import android.os.Build
@@ -150,13 +151,13 @@ class CastSession(
             } catch (e: CastException) {
                 throw e
             } catch (e: Exception) {
-                throw CastException("Can't reach ${device.name} at ${device.host}. Is it on the same Wi-Fi?")
+                throw CastException(Txt.s(R.string.err_cant_reach, device.name, device.host))
             }
         } catch (e: CancellationException) {
             throw e
         } catch (e: Exception) {
             Log.w(TAG, "Cast session failed", e)
-            finish(e.message ?: "Casting failed")
+            finish(e.message ?: Txt.s(R.string.err_cast_failed))
         }
     }
 
@@ -177,7 +178,7 @@ class CastSession(
                     codec = codec,
                 ) { e ->
                     Log.w(TAG, "Video encoder error", e)
-                    finish("Screen capture stopped")
+                    finish(Txt.s(R.string.err_screen_capture_stopped))
                 }
                 v.start(mainHandler)
                 video = v
@@ -194,7 +195,7 @@ class CastSession(
                 micGain = if (wantMic) ({ settingsFlow.value.micLevel / 100f }) else null,
             ) { e ->
                 Log.w(TAG, "Audio encoder error", e)
-                finish("Audio capture stopped")
+                finish(Txt.s(R.string.err_audio_capture_stopped))
             }
             if (a.start()) {
                 audio = a
@@ -206,9 +207,7 @@ class CastSession(
             }
         }
         if (audioOnly && !audioOn) {
-            throw CastException(
-                "Couldn't capture the phone's sound. Allow CastApp to record audio, and note that some apps block it.",
-            )
+            throw CastException(Txt.s(R.string.err_sound_capture_failed))
         }
         update { it.copy(audio = audioOn, microphone = micOn) }
     }
@@ -314,15 +313,15 @@ class CastSession(
             throw e
         }
         client = c
-        localAddress = c.localAddress ?: throw CastException("No network path to the TV")
+        localAddress = c.localAddress ?: throw CastException(Txt.s(R.string.err_no_path))
         update { it.copy(phase = CastPhase.STARTING) }
 
         val h = hub ?: return
         if (audioOnly) {
-            h.awaitAudioConfig(8_000) ?: throw CastException("Sound capture did not start")
+            h.awaitAudioConfig(8_000) ?: throw CastException(Txt.s(R.string.err_sound_start))
         } else {
             // Capture is running and the track layout is fixed (video-only if audio never starts).
-            h.awaitInitSegment(8_000) ?: throw CastException("Screen capture did not start")
+            h.awaitInitSegment(8_000) ?: throw CastException(Txt.s(R.string.err_screen_start))
         }
 
         if (!audioOnly && settings.receiverAppId.isNotBlank() && settings.streamMode == StreamMode.LOW_LATENCY) {
@@ -356,9 +355,9 @@ class CastSession(
                     PlayState.BUFFERING -> if (!playing) update { it.copy(phase = CastPhase.BUFFERING) }
                     PlayState.ERROR -> when {
                         !playing && codec == VideoCodec.HEVC && !hevcPlayed -> scope.launch { urlRendererToH264(r, "player error") }
-                        playing && !reconnecting -> finish("Casting was stopped on the TV")
+                        playing && !reconnecting -> finish(Txt.s(R.string.err_cast_stopped_tv))
                     }
-                    PlayState.STOPPED, PlayState.FINISHED -> if (playing && !reconnecting) finish("Casting was stopped on the TV")
+                    PlayState.STOPPED, PlayState.FINISHED -> if (playing && !reconnecting) finish(Txt.s(R.string.err_cast_stopped_tv))
                     else -> Unit
                 }
             }
@@ -373,19 +372,19 @@ class CastSession(
                 if (r === urlRenderer && !ended.get()) scope.launch { reconnect() }
             }
             override fun onClosedOnDevice() {
-                if (r === urlRenderer) finish("Casting was stopped on the TV")
+                if (r === urlRenderer) finish(Txt.s(R.string.err_cast_stopped_tv))
             }
         }
         r.connect()
         urlRenderer = r
-        localAddress = r.localAddress ?: throw CastException("No network path to the TV")
+        localAddress = r.localAddress ?: throw CastException(Txt.s(R.string.err_no_path))
         update { it.copy(phase = CastPhase.STARTING) }
         val h = hub ?: return
         val s = server ?: return
         if (audioOnly) {
-            h.awaitAudioConfig(8_000) ?: throw CastException("Sound capture did not start")
+            h.awaitAudioConfig(8_000) ?: throw CastException(Txt.s(R.string.err_sound_start))
         } else {
-            h.awaitInitSegment(8_000) ?: throw CastException("Screen capture did not start")
+            h.awaitInitSegment(8_000) ?: throw CastException(Txt.s(R.string.err_screen_start))
         }
         playing = false
         val local = localAddress!!
@@ -412,7 +411,7 @@ class CastSession(
             if (r === urlRenderer) r.load(mirrorMedia(s, local))
         } catch (e: Exception) {
             Log.w(TAG, "Reload in H.264 failed", e)
-            finish("${device.name} couldn't play the stream")
+            finish(Txt.s(R.string.err_stream_unplayable, device.name))
         }
     }
 
@@ -468,7 +467,7 @@ class CastSession(
             true
         } catch (e: Exception) {
             Log.w(TAG, "Low-latency TV player not available ($appId): ${e.message}")
-            CastController.message("Low-latency TV player didn't start, using the standard player")
+            CastController.message(Txt.s(R.string.err_lowlat_failed))
             usingCustomPlayer = false
             false
         }
@@ -512,9 +511,9 @@ class CastSession(
         val media = CastClient.liveMedia(s.urlFor(local, path), hls = true, title = TITLE, subtitle = device.name)
         if (!loadMedia(c, a, media)) {
             if (codec == VideoCodec.HEVC) {
-                scope.launch { if (switchToH264("HLS load failed")) loadHls() else finish("${device.name} couldn't play the stream") }
+                scope.launch { if (switchToH264("HLS load failed")) loadHls() else finish(Txt.s(R.string.err_stream_unplayable, device.name)) }
             } else {
-                finish("${device.name} couldn't play the stream")
+                finish(Txt.s(R.string.err_stream_unplayable, device.name))
             }
         }
     }
@@ -526,7 +525,7 @@ class CastSession(
         val local = localAddress ?: return
         update { it.copy(phase = CastPhase.BUFFERING) }
         val media = CastClient.liveAudioMedia(s.urlFor(local, s.audioPath), title = "Phone sound", subtitle = device.name)
-        if (!loadMedia(c, a, media)) finish("${device.name} couldn't play the sound stream")
+        if (!loadMedia(c, a, media)) finish(Txt.s(R.string.err_sound_unplayable, device.name))
     }
 
     private suspend fun loadMedia(c: CastClient, a: RunningApp, media: JSONObject): Boolean {
@@ -608,7 +607,7 @@ class CastSession(
             }
         }
         reconnecting = false
-        finish("Lost the connection to ${device.name}")
+        finish(Txt.s(R.string.err_lost_connection, device.name))
     }
 
     // ---- receiver events -------------------------------------------------------
@@ -635,7 +634,7 @@ class CastSession(
         }
 
         override fun onAppClosed() {
-            if (c === client && !reconnecting) finish("Casting was stopped on the TV")
+            if (c === client && !reconnecting) finish(Txt.s(R.string.err_cast_stopped_tv))
         }
 
         override fun onDisconnected(error: Throwable?) {
@@ -668,7 +667,7 @@ class CastSession(
             }
             "IDLE" -> when (status.optString("idleReason")) {
                 "ERROR", "FINISHED" -> scope.launch { recoverPlayback() }
-                "CANCELLED", "INTERRUPTED" -> finish("Casting was stopped on the TV")
+                "CANCELLED", "INTERRUPTED" -> finish(Txt.s(R.string.err_cast_stopped_tv))
             }
         }
     }
@@ -679,7 +678,7 @@ class CastSession(
         playing = false
         reloads++
         when {
-            reloads > 3 -> finish("${device.name} keeps stopping the stream")
+            reloads > 3 -> finish(Txt.s(R.string.err_keeps_stopping, device.name))
             // An HEVC stream that never played: don't retry, it's most likely the codec.
             !usingHls && !audioOnly && (reloads > 1 || (codec == VideoCodec.HEVC && !hevcPlayed)) -> fallbackToHls("playback error")
             else -> {
@@ -726,7 +725,7 @@ class CastSession(
                 installAdaptiveBitrate(h, bitrate)
             }
             if (h.awaitInitSegment(8_000) == null) {
-                finish("The phone can't encode ${res.short}")
+                finish(Txt.s(R.string.err_cant_encode, res.short))
                 return@launch
             }
             // The TV has to reload to pick up the new picture size.

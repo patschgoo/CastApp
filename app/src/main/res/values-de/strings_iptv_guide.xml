@@ -1,0 +1,47 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- TV channels: programme guide (EPG) and Xtream movies / series -->
+    <string name="iptvg_tab_live">Live</string>
+    <string name="iptvg_tab_movies">Filme</string>
+    <string name="iptvg_tab_series">Serien</string>
+
+    <string name="iptvg_view_channels">Sender</string>
+    <string name="iptvg_view_guide">Programm</string>
+
+    <string name="iptvg_search_channels">Sender und Sendungen suchen</string>
+    <string name="iptvg_search_movies">Filme suchen</string>
+    <string name="iptvg_search_series">Serien suchen</string>
+
+    <string name="iptvg_next">Danach: %1$s %2$s</string>
+    <string name="iptvg_found">Gefunden: %1$s %2$s</string>
+    <string name="iptvg_updating_guide">Programmführer wird aktualisiert …</string>
+    <string name="iptvg_guide_failed">Der Programmführer konnte nicht geladen werden: %1$s</string>
+    <string name="iptvg_channel_count">Sender: %1$d</string>
+    <string name="iptvg_guide_empty">Noch keine Programminformationen. Der Programmführer stammt aus der Wiedergabeliste, vom Anbieter oder von einer Adresse, die du im Menü festlegst.</string>
+    <string name="iptvg_no_schedule">Keine Programminformationen für diesen Sender</string>
+    <string name="iptvg_schedule">Programm</string>
+    <string name="iptvg_watch_live">Live ansehen</string>
+    <string name="iptvg_replay">Nochmal ansehen</string>
+    <string name="iptvg_replay_hint">Tippe auf eine vergangene Sendung, um sie noch einmal anzusehen</string>
+
+    <string name="iptvg_menu_guide_address">Adresse des Programmführers …</string>
+    <string name="iptvg_menu_update_guide">Programmführer aktualisieren</string>
+    <string name="iptvg_guide_dialog_title">Adresse des Programmführers</string>
+    <string name="iptvg_guide_dialog_text">Eine XMLTV-Adresse (auch .xml.gz). Lass das Feld leer, um den Programmführer aus der Wiedergabeliste oder vom Anbieter zu verwenden.</string>
+    <string name="iptvg_guide_dialog_field">Adresse des Programmführers (XMLTV)</string>
+    <string name="iptvg_guide_dialog_current">Aktuell verwendet: %1$s</string>
+    <string name="iptvg_guide_dialog_none">In dieser Wiedergabeliste wurde keine Adresse für einen Programmführer gefunden.</string>
+    <string name="iptvg_save">Speichern</string>
+    <string name="iptvg_cancel">Abbrechen</string>
+
+    <string name="iptvg_load_failed">Laden fehlgeschlagen: %1$s</string>
+    <string name="iptvg_all">Alle</string>
+    <string name="iptvg_no_movies">Keine Filme gefunden</string>
+    <string name="iptvg_no_series">Keine Serien gefunden</string>
+    <string name="iptvg_item_count">Titel: %1$d</string>
+    <string name="iptvg_season">Staffel %1$d</string>
+    <string name="iptvg_minutes">%1$d Min.</string>
+    <string name="iptvg_no_episodes">Keine Folgen gefunden</string>
+    <string name="iptvg_poster">Poster von %1$s</string>
+    <string name="iptvg_info">Programm von %1$s</string>
+</resources>

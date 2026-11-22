@@ -1,5 +1,8 @@
 package io.github.patschgoo.castapp
 
+import androidx.compose.ui.res.stringResource
+import io.github.patschgoo.castapp.Txt
+import io.github.patschgoo.castapp.R
 import android.content.Intent
 import android.os.Bundle
 import android.widget.Toast
@@ -178,7 +181,7 @@ internal fun NetworkScreen(network: NetworkSources, onBack: () -> Unit) {
         }
         val items = MediaItem.fromUris(context.contentResolver, uris)
         if (items.isEmpty()) Toast.makeText(context, R.string.share_unsupported, Toast.LENGTH_LONG).show()
-        else launcher.cast(items, 0, if (items.size == 1) items[0].title else "${items.size} files")
+        else launcher.cast(items, 0, if (items.size == 1) items[0].title else Txt.n(R.plurals.share_count, items.size, items.size))
     }
 
     val place = stack.lastOrNull()
@@ -187,20 +190,20 @@ internal fun NetworkScreen(network: NetworkSources, onBack: () -> Unit) {
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text(place?.title ?: "Network & cloud", maxLines = 1, overflow = TextOverflow.Ellipsis) },
+                title = { Text(place?.title ?: stringResource(R.string.net_title), maxLines = 1, overflow = TextOverflow.Ellipsis) },
                 navigationIcon = {
                     IconButton(onClick = { if (stack.isEmpty()) onBack() else stack.removeAt(stack.lastIndex) }) {
-                        Icon(Icons.AutoMirrored.Rounded.ArrowBack, contentDescription = "Back")
+                        Icon(Icons.AutoMirrored.Rounded.ArrowBack, contentDescription = stringResource(R.string.back))
                     }
                 },
                 actions = {
                     if (place == null) {
-                        IconButton(onClick = { showAdd = true }) { Icon(Icons.Rounded.Add, contentDescription = "Add a network folder") }
+                        IconButton(onClick = { showAdd = true }) { Icon(Icons.Rounded.Add, contentDescription = stringResource(R.string.net_add_folder_cd)) }
                     } else if (folderItems.isNotEmpty()) {
                         TextButton(onClick = { launcher.cast(folderItems, 0, place.title) }) {
                             Icon(Icons.Rounded.PlayArrow, contentDescription = null, modifier = Modifier.size(18.dp))
                             Spacer(Modifier.width(4.dp))
-                            Text("Play all")
+                            Text(stringResource(R.string.net_play_all))
                         }
                     }
                 },
@@ -243,26 +246,26 @@ private fun Home(network: NetworkSources, onPickFiles: () -> Unit, onOpen: (Plac
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         Icon(Icons.Rounded.Cloud, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
                         Spacer(Modifier.width(12.dp))
-                        Text("Phone & cloud", style = MaterialTheme.typography.titleMedium)
+                        Text(stringResource(R.string.net_phone_cloud), style = MaterialTheme.typography.titleMedium)
                     }
                     Spacer(Modifier.height(4.dp))
                     Text(
-                        "Files on the phone or in a cloud app (Google Drive, OneDrive, Dropbox, Nextcloud…). The phone streams them to the TV.",
+                        stringResource(R.string.net_phone_cloud_text),
                         style = MaterialTheme.typography.bodySmall,
                     )
                     Spacer(Modifier.height(10.dp))
-                    FilledTonalButton(onClick = onPickFiles) { Text("Choose files") }
+                    FilledTonalButton(onClick = onPickFiles) { Text(stringResource(R.string.net_choose_files)) }
                 }
             }
         }
-        item { SectionTitle("Media servers on this Wi-Fi") }
+        item { SectionTitle(stringResource(R.string.net_sec_servers)) }
         if (servers.isEmpty()) {
             item {
                 Row(Modifier.padding(horizontal = 20.dp, vertical = 12.dp), verticalAlignment = Alignment.CenterVertically) {
                     CircularProgressIndicator(Modifier.size(18.dp), strokeWidth = 2.dp)
                     Spacer(Modifier.width(14.dp))
                     Text(
-                        "Looking for Plex, Jellyfin, Emby, NAS boxes and shared PCs…",
+                        stringResource(R.string.net_looking_servers),
                         style = MaterialTheme.typography.bodyMedium,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
@@ -273,15 +276,14 @@ private fun Home(network: NetworkSources, onPickFiles: () -> Unit, onOpen: (Plac
             ListItem(
                 onClick = { onOpen(Place.Server(s, "0", s.name)) },
                 leadingContent = { Thumb(s.iconUrl, Icons.Rounded.Dns) },
-                supportingContent = { Text("Media server (DLNA)") },
+                supportingContent = { Text(stringResource(R.string.net_server_dlna)) },
             ) { Text(s.name, maxLines = 1, overflow = TextOverflow.Ellipsis) }
         }
-        item { SectionTitle("Network folders") }
+        item { SectionTitle(stringResource(R.string.net_sec_folders)) }
         if (sources.isEmpty()) {
             item {
                 Text(
-                    "Add a Windows or Samba share (most NAS, a router's USB disk, a PC's shared folder) or a WebDAV folder " +
-                        "(Nextcloud, ownCloud, Synology, QNAP) with the + button.",
+                    stringResource(R.string.net_folders_hint),
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     modifier = Modifier.padding(horizontal = 20.dp, vertical = 8.dp),
@@ -307,10 +309,10 @@ private fun SourceRow(network: NetworkSources, s: NetworkSource, onOpen: (Place)
         },
         trailingContent = {
             Box {
-                IconButton(onClick = { menu = true }) { Icon(Icons.Rounded.MoreVert, contentDescription = "More") }
+                IconButton(onClick = { menu = true }) { Icon(Icons.Rounded.MoreVert, contentDescription = stringResource(R.string.net_more)) }
                 DropdownMenu(expanded = menu, onDismissRequest = { menu = false }) {
                     DropdownMenuItem(
-                        text = { Text("Remove") },
+                        text = { Text(stringResource(R.string.net_remove)) },
                         leadingIcon = { Icon(Icons.Rounded.Delete, contentDescription = null) },
                         onClick = { menu = false; network.remove(s.id) },
                     )
@@ -348,6 +350,8 @@ private fun Folder(network: NetworkSources, place: Place, launcher: CastLauncher
     var items by remember(place) { mutableStateOf<List<MediaItem>>(emptyList()) }
     var error by remember(place) { mutableStateOf<String?>(null) }
     var reload by remember { mutableIntStateOf(0) }
+    val removedText = stringResource(R.string.net_folder_removed)
+    val cantOpenText = stringResource(R.string.net_cant_open_folder)
 
     LaunchedEffect(place, reload) {
         error = null
@@ -355,7 +359,7 @@ private fun Folder(network: NetworkSources, place: Place, launcher: CastLauncher
         try {
             when (place) {
                 is Place.Share -> {
-                    val source = network.get(place.sourceId) ?: throw java.io.IOException("This folder was removed")
+                    val source = network.get(place.sourceId) ?: throw java.io.IOException(removedText)
                     val entries = network.list(source, place.path)
                     val playable = network.itemsFor(source, entries)
                     items = playable
@@ -383,7 +387,7 @@ private fun Folder(network: NetworkSources, place: Place, launcher: CastLauncher
             }
             onItems(items)
         } catch (e: Exception) {
-            error = e.message ?: "Couldn't open this folder"
+            error = e.message ?: cantOpenText
             rows = emptyList()
             onItems(emptyList())
         }
@@ -398,10 +402,10 @@ private fun Folder(network: NetworkSources, place: Place, launcher: CastLauncher
             OutlinedButton(onClick = { reload++ }) {
                 Icon(Icons.Rounded.Refresh, contentDescription = null, modifier = Modifier.size(18.dp))
                 Spacer(Modifier.width(6.dp))
-                Text("Try again")
+                Text(stringResource(R.string.net_try_again))
             }
         }
-        list.isEmpty() -> Text("This folder is empty", modifier = Modifier.padding(24.dp), color = MaterialTheme.colorScheme.onSurfaceVariant)
+        list.isEmpty() -> Text(stringResource(R.string.net_folder_empty), modifier = Modifier.padding(24.dp), color = MaterialTheme.colorScheme.onSurfaceVariant)
         else -> LazyColumn(contentPadding = PaddingValues(bottom = 24.dp)) {
             items(list) { r ->
                 ListItem(
@@ -467,7 +471,7 @@ private fun AddSourceDialog(network: NetworkSources, onDismiss: () -> Unit) {
             val host = cleaned.substringBefore('/')
             val shareName = share.trim().trim('/', '\\').ifEmpty { cleaned.substringAfter('/', "").substringBefore('/') }
             if (host.isEmpty() || shareName.isEmpty()) return null
-            NetworkSource("", SourceKind.SMB, name.trim().ifEmpty { "$shareName on $host" }, host, shareName, user.trim(), password, domain.trim())
+            NetworkSource("", SourceKind.SMB, name.trim().ifEmpty { Txt.s(R.string.net_default_name, shareName, host) }, host, shareName, user.trim(), password, domain.trim())
         } else {
             val url = address.trim().let { if (it.contains("://")) it else "https://$it" }.let { if (it.endsWith("/")) it else "$it/" }
             if (url.length < 12) return null
@@ -478,7 +482,7 @@ private fun AddSourceDialog(network: NetworkSources, onDismiss: () -> Unit) {
 
     AlertDialog(
         onDismissRequest = { if (!busy) onDismiss() },
-        title = { Text("Add a network folder") },
+        title = { Text(stringResource(R.string.net_add_title)) },
         text = {
             LazyColumn(verticalArrangement = Arrangement.spacedBy(10.dp)) {
                 item {
@@ -487,19 +491,19 @@ private fun AddSourceDialog(network: NetworkSources, onDismiss: () -> Unit) {
                             selected = kind == SourceKind.SMB,
                             onClick = { kind = SourceKind.SMB; error = null },
                             shape = SegmentedButtonDefaults.itemShape(0, 2),
-                        ) { Text("Windows / Samba") }
+                        ) { Text(stringResource(R.string.net_kind_smb)) }
                         SegmentedButton(
                             selected = kind == SourceKind.WEBDAV,
                             onClick = { kind = SourceKind.WEBDAV; error = null },
                             shape = SegmentedButtonDefaults.itemShape(1, 2),
-                        ) { Text("WebDAV") }
+                        ) { Text(stringResource(R.string.net_kind_webdav)) }
                     }
                 }
                 item {
                     OutlinedTextField(
                         value = address,
                         onValueChange = { address = it; error = null },
-                        label = { Text(if (kind == SourceKind.SMB) "Server name or IP" else "Folder address") },
+                        label = { Text(stringResource(if (kind == SourceKind.SMB) R.string.net_server_name else R.string.net_folder_address)) },
                         placeholder = { Text(if (kind == SourceKind.SMB) "192.168.1.10 or nas.local" else "https://cloud.example.com/remote.php/dav/files/me/") },
                         singleLine = true,
                         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Uri),
@@ -510,7 +514,7 @@ private fun AddSourceDialog(network: NetworkSources, onDismiss: () -> Unit) {
                     item {
                         OutlinedTextField(
                             value = share, onValueChange = { share = it; error = null },
-                            label = { Text("Share name") }, placeholder = { Text("Media") }, singleLine = true,
+                            label = { Text(stringResource(R.string.net_share_name)) }, placeholder = { Text("Media") }, singleLine = true,
                             modifier = Modifier.fillMaxWidth(),
                         )
                     }
@@ -518,14 +522,14 @@ private fun AddSourceDialog(network: NetworkSources, onDismiss: () -> Unit) {
                 item {
                     OutlinedTextField(
                         value = user, onValueChange = { user = it; error = null },
-                        label = { Text(if (kind == SourceKind.SMB) "User name (empty = guest)" else "User name") },
+                        label = { Text(stringResource(if (kind == SourceKind.SMB) R.string.net_user_guest else R.string.net_user)) },
                         singleLine = true, modifier = Modifier.fillMaxWidth(),
                     )
                 }
                 item {
                     OutlinedSecureTextField(
                             state = passwordState,
-                            label = { Text(if (kind == SourceKind.WEBDAV) "Password or app password" else "Password") },
+                            label = { Text(stringResource(if (kind == SourceKind.WEBDAV) R.string.net_password_app else R.string.net_password)) },
                             modifier = Modifier.fillMaxWidth(),
                         )
                 }
@@ -533,7 +537,7 @@ private fun AddSourceDialog(network: NetworkSources, onDismiss: () -> Unit) {
                     item {
                         OutlinedTextField(
                             value = domain, onValueChange = { domain = it },
-                            label = { Text("Domain / workgroup (usually empty)") }, singleLine = true,
+                            label = { Text(stringResource(R.string.net_domain)) }, singleLine = true,
                             modifier = Modifier.fillMaxWidth(),
                         )
                     }
@@ -541,21 +545,20 @@ private fun AddSourceDialog(network: NetworkSources, onDismiss: () -> Unit) {
                     item {
                         Row(verticalAlignment = Alignment.CenterVertically) {
                             Checkbox(checked = trustAll, onCheckedChange = { trustAll = it })
-                            Text("Accept the server's own (self-signed) certificate", style = MaterialTheme.typography.bodyMedium)
+                            Text(stringResource(R.string.net_self_signed), style = MaterialTheme.typography.bodyMedium)
                         }
                     }
                 }
                 item {
                     OutlinedTextField(
                         value = name, onValueChange = { name = it },
-                        label = { Text("Name (optional)") }, singleLine = true, modifier = Modifier.fillMaxWidth(),
+                        label = { Text(stringResource(R.string.net_name_optional)) }, singleLine = true, modifier = Modifier.fillMaxWidth(),
                     )
                 }
                 if (kind == SourceKind.WEBDAV && address.trim().startsWith("http://", ignoreCase = true)) {
                     item {
                         Text(
-                            "This address isn't encrypted (http). That's fine at home, but over the internet your password " +
-                                "and files could be read on the way: use https, or connect through a VPN.",
+                            stringResource(R.string.net_http_warning),
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.error,
                         )
@@ -563,7 +566,7 @@ private fun AddSourceDialog(network: NetworkSources, onDismiss: () -> Unit) {
                 }
                 item {
                     Text(
-                        "The password is stored encrypted on this phone only.",
+                        stringResource(R.string.net_password_stored),
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
@@ -577,7 +580,7 @@ private fun AddSourceDialog(network: NetworkSources, onDismiss: () -> Unit) {
                 onClick = {
                     val source = build()
                     if (source == null) {
-                        error = if (kind == SourceKind.SMB) "Enter the server and the share name" else "Enter the folder's address"
+                        error = Txt.s(if (kind == SourceKind.SMB) R.string.net_enter_smb else R.string.net_enter_address)
                         return@TextButton
                     }
                     busy = true
@@ -588,16 +591,16 @@ private fun AddSourceDialog(network: NetworkSources, onDismiss: () -> Unit) {
                             network.add(source)
                             onDismiss()
                         } catch (e: Exception) {
-                            error = "Couldn't open it: " + (e.message ?: e.javaClass.simpleName)
+                            error = Txt.s(R.string.net_couldnt_open, e.message ?: e.javaClass.simpleName)
                         } finally {
                             busy = false
                         }
                     }
                 },
             ) {
-                if (busy) CircularProgressIndicator(Modifier.size(18.dp), strokeWidth = 2.dp) else Text("Test & add")
+                if (busy) CircularProgressIndicator(Modifier.size(18.dp), strokeWidth = 2.dp) else Text(stringResource(R.string.net_test_add))
             }
         },
-        dismissButton = { TextButton(onClick = onDismiss, enabled = !busy) { Text("Cancel") } },
+        dismissButton = { TextButton(onClick = onDismiss, enabled = !busy) { Text(stringResource(R.string.cancel)) } },
     )
 }

@@ -1,0 +1,109 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Settings: Help & support -->
+    <string name="support_section">Hilfe &amp; Support</string>
+    <string name="send_log_title">Debug-Protokoll senden</string>
+    <string name="send_log_summary">Sammelt das eigene Protokoll der App, Versionen, Einstellungen und die gefundenen Geräte in einer Datei und öffnet das Teilen-Menü. Es wird nichts automatisch gesendet; du entscheidest, wohin es geht.</string>
+    <string name="send_log_preparing">Protokoll wird vorbereitet …</string>
+    <string name="send_log_failed">Das Protokoll konnte nicht erstellt werden</string>
+    <string name="send_log_subject">CastApp-Debug-Protokoll</string>
+    <string name="network_check_title">Warum finde ich meinen Fernseher nicht?</string>
+    <string name="network_check_summary">Prüft WLAN, Router und Fernseher-Suche und erklärt, was nicht stimmt</string>
+    <string name="check_updates_title">Nach Updates suchen</string>
+    <string name="check_updates_summary">CastApp wird von GitHub installiert, deshalb wird dort nachgesehen. Es wird nur github.com kontaktiert und nichts über dich gesendet.</string>
+    <string name="auto_update_title">Automatisch nach Updates suchen</string>
+    <string name="auto_update_summary">Sucht einmal am Tag beim Start der App</string>
+    <string name="battery_title">Akku &amp; Hintergrund</string>
+    <string name="battery_summary_exempt">CastApp darf im Hintergrund laufen. Tippe für handyspezifische Tipps.</string>
+    <string name="battery_summary_limited">Nötig, damit beim Streamen einer Datei die Wiedergabe mit ausgeschaltetem Bildschirm weiterläuft</string>
+    <string name="dnd_title">Nicht stören beim Spiegeln</string>
+    <string name="dnd_summary">Schaltet „Nicht stören“ ein, solange der Bildschirm gespiegelt wird, und stellt danach deinen vorherigen Modus wieder her. Ab Android 15 werden sensible Benachrichtigungen bei Bildschirmfreigaben ohnehin ausgeblendet.</string>
+    <string name="dnd_needs_access">Zugriff auf „Nicht stören“ nötig</string>
+    <string name="dnd_grant">Erlauben</string>
+    <string name="dnd_access_hint">Erlaube CastApp im nächsten Bildschirm unter „Zugriff auf ‚Nicht stören‘“ und komm dann zurück.</string>
+
+    <!-- Network check -->
+    <string name="check_button">Warum finde ich meinen Fernseher nicht?</string>
+    <string name="check_title">Netzwerkprüfung</string>
+    <string name="check_running">Dein Netzwerk wird geprüft … das dauert etwa 6 Sekunden.</string>
+    <string name="check_again">Erneut prüfen</string>
+    <string name="support_close">Schließen</string>
+    <string name="check_phone_address">Dieses Handy: %1$s</string>
+    <string name="check_intro">Ergebnisse, die wichtigsten zuerst:</string>
+    <string name="finding_no_network_title">Keine Netzwerkverbindung</string>
+    <string name="finding_no_network_text">Das Handy ist mit keinem Netzwerk verbunden. Verbinde es mit demselben WLAN wie dein Fernseher.</string>
+    <string name="finding_mobile_data_title">Du nutzt mobile Daten</string>
+    <string name="finding_mobile_data_text">Streamen funktioniert nur über WLAN: Handy und Fernseher müssen im selben Netzwerk sein. Schalte WLAN ein und verbinde dich mit deinem Heimnetzwerk.</string>
+    <string name="finding_no_local_address_title">Keine Adresse im lokalen Netzwerk</string>
+    <string name="finding_no_local_address_text">Das Handy hat keine Adresse in einem lokalen Netzwerk. Verbinde dich erneut mit dem WLAN oder schalte WLAN aus und wieder ein. Falls ein VPN läuft, schalte es aus.</string>
+    <string name="finding_vpn_title">Ein VPN ist aktiv</string>
+    <string name="finding_vpn_text">Ein VPN blendet das lokale Netzwerk oft aus, sodass Fernseher nicht gefunden werden. Pausiere das VPN (oder erlaube in der VPN-App den Zugriff auf das lokale Netzwerk), solange du streamst.</string>
+    <string name="finding_router_title">Der Router antwortet nicht</string>
+    <string name="finding_router_text">Das Handy (%1$s) konnte den Router nicht erreichen. Das WLAN hat möglicherweise keine echte Verbindung, oder es ist ein Gastnetzwerk. Verbinde dich erneut oder geh näher an den Router.</string>
+    <string name="finding_nothing_title">In diesem WLAN hat nichts geantwortet</string>
+    <string name="finding_nothing_text">Kein Fernseher und kein anderes Gerät hat auf die Suchanfragen geantwortet. Gastnetzwerke und „AP-Isolation“ (auch Client-Isolation genannt) blockieren das Streamen; ebenso ein Router, der Multicast filtert. Prüfe, ob der Fernseher eingeschaltet und im selben WLAN ist, schalte die AP-Isolation im Router aus oder versuche „Per IP hinzufügen“ mit der Adresse des Fernsehers.</string>
+    <string name="finding_mdns_title">Die Suche nach Chromecast und AirPlay blieb ohne Antwort</string>
+    <string name="finding_mdns_text">Google-Cast- und AirPlay-Geräte werden per mDNS gefunden, und nichts hat geantwortet. Smart-TVs, die auf anderem Weg gefunden werden, funktionieren trotzdem. Wenn ein Chromecast oder Apple TV fehlt, blockiert der Router möglicherweise Multicast: Suche nach Einstellungen wie „IGMP-Snooping“ oder „Multicast“ oder nutze „Per IP hinzufügen“.</string>
+    <string name="finding_ssdp_title">Die DLNA-Suche blieb ohne Antwort</string>
+    <string name="finding_ssdp_text">Kein Smart-TV (DLNA) hat auf die Suche geantwortet. Wenn dein Fernseher ein Samsung-, LG-, Sony- oder Philips-Modell ist, prüfe, ob er eingeschaltet, aktiv und in diesem WLAN ist.</string>
+    <string name="finding_found_title">Gefundene Geräte</string>
+    <string name="finding_saved_off_title">Gespeicherte Fernseher nicht erreichbar</string>
+    <string name="finding_saved_off_text">Diese Fernseher haben nicht geantwortet: %1$s. Sie sind möglicherweise ausgeschaltet, im Standby oder in einem anderen Netzwerk. Schalte sie ein (ein Fernseher im Standby lässt sich über „Aufwecken“ in seinem Menü einschalten) und suche dann erneut.</string>
+    <string name="finding_saved_subnet_title">Fernseher in einem anderen Netzwerk</string>
+    <string name="finding_saved_subnet_text">%1$s hat eine Adresse außerhalb des Netzwerks dieses WLANs. Handy und Fernseher müssen im selben Netzwerk sein; zum Beispiel hängt der Fernseher per Ethernet an einem anderen Router, oder das Handy ist in einem Gast- oder 5-GHz-Netzwerk mit eigenem Adressbereich.</string>
+    <string name="finding_saved_silent_title">Fernseher erreichbar, antwortet aber nicht auf die Suche</string>
+    <string name="finding_saved_silent_text">%1$s ist direkt erreichbar, hat aber nicht auf die Suche geantwortet. Wahrscheinlich wird Multicast in diesem Netzwerk blockiert. Nutze „Netzwerk scannen“ oder „Per IP hinzufügen“; gespeicherte Fernseher bleiben in der Liste.</string>
+    <string name="finding_data_saver_title">Datensparmodus ist an</string>
+    <string name="finding_data_saver_text">Der Datensparmodus von Android kann die Netzwerknutzung im Hintergrund einschränken. Wenn das Streamen von selbst stoppt, schalte ihn aus oder erlaube CastApp uneingeschränkte Datennutzung.</string>
+    <string name="finding_battery_saver_title">Energiesparmodus ist an</string>
+    <string name="finding_battery_saver_text">Der Energiesparmodus verlangsamt oder stoppt Hintergrundaktivität, was das Streamen bei ausgeschaltetem Bildschirm unterbrechen kann. Schalte ihn aus, solange du streamst.</string>
+    <string name="finding_ok_title">Alles sieht gut aus</string>
+    <string name="finding_ok_text">Das Netzwerk ist korrekt für das Streamen eingerichtet. Wenn trotzdem etwas nicht klappt, nutze in den Einstellungen „Debug-Protokoll senden“.</string>
+
+    <!-- Battery prompt -->
+    <string name="battery_dialog_title">Wiedergabe bei ausgeschaltetem Bildschirm fortsetzen</string>
+    <string name="battery_dialog_text">Wenn du eine Video- oder Musikdatei streamst, spielt CastApp sie von diesem Handy aus ab. Damit das bei ausgeschaltetem Bildschirm weiterläuft, darf Android die App nicht in den Ruhezustand versetzen. Erlaube, dass sie ohne Akkubeschränkungen läuft.</string>
+    <string name="battery_allow">Erlauben</string>
+    <string name="battery_not_now">Nicht jetzt</string>
+    <string name="battery_already">CastApp darf bereits im Hintergrund laufen.</string>
+    <string name="battery_tips_title">Tipps für dein Handy</string>
+    <string name="battery_tip_xiaomi">Xiaomi / Redmi / POCO: Öffne Einstellungen > Apps > Apps verwalten > CastApp, schalte „Autostart“ ein, öffne dann „Energiesparmodus“ und wähle „Keine Einschränkungen“.</string>
+    <string name="battery_tip_samsung">Samsung: Öffne Einstellungen > Akku > Hintergrundnutzungsgrenzen und stelle sicher, dass CastApp nicht unter „Ruhende Apps“ oder „Tief ruhende Apps“ steht. Füge sie zu „Nie ruhende Apps“ hinzu.</string>
+    <string name="battery_tip_huawei">Huawei / Honor: Öffne Einstellungen > Apps > App-Start > CastApp, wechsle zu „Manuell verwalten“ und erlaube Automatischen Start, Start durch andere Apps und Hintergrundaktivität.</string>
+    <string name="battery_tip_oneplus">OnePlus / Oppo / Realme: Öffne Einstellungen > Akku > CastApp (oder App-Akkuverwaltung) und erlaube Hintergrundaktivität; schalte auch „Automatischen Start zulassen“ ein, falls du es siehst.</string>
+
+    <!-- Update dialog -->
+    <string name="update_checking">Suche nach Updates …</string>
+    <string name="update_title_available">Update verfügbar: %1$s</string>
+    <string name="update_current">Du hast %1$s.</string>
+    <string name="update_no_notes">Keine Versionshinweise.</string>
+    <string name="update_install">Herunterladen und installieren</string>
+    <string name="update_later">Später</string>
+    <string name="update_skip">Diese Version überspringen</string>
+    <string name="update_uptodate_title">Du bist auf dem neuesten Stand</string>
+    <string name="update_uptodate_text">CastApp %1$s ist die neueste Version.</string>
+    <string name="update_norelease_title">Kein Release gefunden</string>
+    <string name="update_norelease_text">GitHub meldet, dass es kein veröffentlichtes Release gibt. Entweder existiert noch keins, oder das Repository ist privat. Du kannst die Releases-Seite öffnen und selbst nachsehen.</string>
+    <string name="update_open_releases">Releases-Seite öffnen</string>
+    <string name="update_failed_title">Update-Suche fehlgeschlagen</string>
+    <string name="update_downloading">%1$s wird heruntergeladen …</string>
+    <string name="update_no_apk">Dieses Release enthält keine Datei CastApp.apk. Öffne die Releases-Seite, um sie herunterzuladen.</string>
+    <string name="update_permission_title">Installation erlauben</string>
+    <string name="update_permission_text">Android braucht deine Erlaubnis, bevor CastApp das Update installieren kann. Erlaube im nächsten Bildschirm „Unbekannte Apps installieren“ für CastApp, komm zurück und tippe noch einmal auf „Herunterladen“.</string>
+    <string name="update_open_settings">Einstellungen öffnen</string>
+
+    <!-- Wake-on-LAN -->
+    <string name="wol_wake">Aufwecken</string>
+    <string name="wol_wake_hint">Sendet ein Wake-on-LAN-Signal an %1$s und sucht dann erneut</string>
+    <string name="wol_set_mac">MAC-Adresse zum Aufwecken festlegen</string>
+    <string name="wol_edit_mac">MAC-Adresse: %1$s</string>
+    <string name="wol_edit_hint">Zum Ändern tippen</string>
+    <string name="wol_set_hint">Nötig, um den Fernseher aus dem Standby aufzuwecken. Du findest sie in den Netzwerkeinstellungen des Fernsehers; Wake-on-LAN muss am Fernseher eingeschaltet sein.</string>
+    <string name="wol_dialog_title">MAC-Adresse</string>
+    <string name="wol_dialog_label">MAC-Adresse</string>
+    <string name="wol_dialog_invalid">Keine gültige MAC-Adresse. Beispiel: AA:BB:CC:DD:EE:FF</string>
+    <string name="wol_sent">Aufwecksignal gesendet, suche …</string>
+    <string name="wol_failed">Das Signal konnte nicht gesendet werden</string>
+    <string name="wol_save">Speichern</string>
+    <string name="wol_remove">Entfernen</string>
+</resources>

@@ -1,5 +1,7 @@
 package io.github.patschgoo.castapp.subtitles
 
+import io.github.patschgoo.castapp.Txt
+import io.github.patschgoo.castapp.R
 import android.content.Context
 import android.media.AudioFormat
 import android.media.MediaCodec
@@ -54,7 +56,7 @@ class SubtitleGenerator(private val context: Context) {
             try {
                 val track = (0 until extractor.trackCount).firstOrNull {
                     extractor.getTrackFormat(it).getString(MediaFormat.KEY_MIME)?.startsWith("audio/") == true
-                } ?: throw IOException("This file has no sound")
+                } ?: throw IOException(Txt.s(R.string.err_no_sound))
                 extractor.selectTrack(track)
                 val format = extractor.getTrackFormat(track)
                 val durationUs = if (format.containsKey(MediaFormat.KEY_DURATION)) format.getLong(MediaFormat.KEY_DURATION) else 0L

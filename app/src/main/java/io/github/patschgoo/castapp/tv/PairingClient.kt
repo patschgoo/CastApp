@@ -1,5 +1,7 @@
 package io.github.patschgoo.castapp.tv
 
+import io.github.patschgoo.castapp.Txt
+import io.github.patschgoo.castapp.R
 import android.content.Context
 import android.content.SharedPreferences
 import android.os.Build
@@ -90,19 +92,19 @@ class PairingClient(
                 401, 403 -> {
                     val error = json.optString("error")
                     if (error != "code_required" && error != "wrong_code") {
-                        throw PairingException(text.ifBlank { "${device.name} doesn't allow this phone." })
+                        throw PairingException(text.ifBlank { Txt.sOr(R.string.pair_not_allowed, "%s doesn't allow this phone.", device.name) })
                     }
                     if (error == "wrong_code" && ++attempts >= MAX_ATTEMPTS) {
-                        throw PairingException("Wrong code. Look at the code on ${device.name} and try again.")
+                        throw PairingException(Txt.sOr(R.string.pair_wrong_code, "Wrong code. Look at the code on %s and try again.", device.name))
                     }
                     if (error == "code_required") tokens.remove(device.id)
                     code = askCode(device.name)?.trim()?.takeIf { it.isNotEmpty() }
-                        ?: throw PairingException("Pairing cancelled. ${device.name} only accepts paired phones.")
+                        ?: throw PairingException(Txt.sOr(R.string.pair_cancelled, "Pairing cancelled. %s only accepts paired phones.", device.name))
                 }
                 429 -> throw PairingException(
-                    "Too many wrong codes. Wait ${json.optInt("retryInSeconds", 60)} s, then try again with the new code on ${device.name}.",
+                    Txt.sOr(R.string.pair_too_many, "Too many wrong codes. Wait %d s, then try again with the new code on %s.", json.optInt("retryInSeconds", 60), device.name),
                 )
-                else -> throw PairingException("${device.name} can't pair right now (HTTP $status).")
+                else -> throw PairingException(Txt.sOr(R.string.pair_cant_now, "%s can't pair right now (HTTP %d).", device.name, status))
             }
         }
     }

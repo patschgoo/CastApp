@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Receive on this phone -->
+    <string name="receive_title">Auf diesem Handy empfangen</string>
+    <string name="receive_summary_off">Andere Handys (und DLNA-Apps) können wie an einen Fernseher an dieses Handy streamen</string>
+    <string name="receive_summary_on">An: Dieses Handy erscheint auf anderen Handys als „%1$s“</string>
+    <string name="receive_notification_title">Streams werden empfangen</string>
+    <string name="receive_stop">Empfang beenden</string>
+    <string name="receive_card">Dieses Handy empfängt Streams als „%1$s“</string>
+
+    <!-- Swap direction -->
+    <string name="swap_action">Tauschen: Fernseher → Handy</string>
+    <string name="swap_back">Zurücktauschen</string>
+    <string name="swap_started">%1$s fragt jetzt nach der Bildschirmaufnahme. Bestätige „Jetzt starten“ am Fernseher mit der Fernbedienung; Android fragt jedes Mal nach. Apps wie Netflix sowie HDMI- oder Antennen-TV lassen sich nicht aufnehmen und bleiben schwarz.</string>
+    <string name="swap_error_not_castapp_tv">Nur ein Fire TV oder Android TV mit CastApp kann seinen Bildschirm an das Handy senden.</string>
+    <string name="swap_error_old_tv">%1$s hat eine ältere CastApp-Version. Aktualisiere CastApp auf dem Fernseher, um zu tauschen.</string>
+    <string name="swap_error_receiver">Dieses Handy konnte den Empfang nicht starten.</string>
+    <string name="swap_error_unreachable">Das andere Gerät ist nicht erreichbar. Sind beide im selben WLAN?</string>
+    <string name="swap_error_not_receiver">Das Handy ist nicht empfangsbereit.</string>
+    <string name="swap_tv_notification_title">Diesen Fernseher auf %1$s spiegeln</string>
+    <string name="swap_tv_notification_text">Zum Starten auswählen und dann die Bildschirmaufnahme bestätigen</string>
+</resources>

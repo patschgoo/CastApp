@@ -1,5 +1,7 @@
 package io.github.patschgoo.castapp.subtitles
 
+import io.github.patschgoo.castapp.R
+import io.github.patschgoo.castapp.Txt
 import android.content.Context
 import io.github.patschgoo.castapp.settings.SpeechEngineKind
 import io.github.patschgoo.castapp.settings.SubtitleSourceSettings
@@ -41,7 +43,7 @@ class VoskEngine(context: Context, lang: VoskModels.Language) : SpeechEngine {
     private var fed = 0L
 
     init {
-        if (!VoskModels.isInstalled(context, lang)) throw IOException("The ${lang.label} language isn't downloaded")
+        if (!VoskModels.isInstalled(context, lang)) throw IOException(Txt.s(R.string.err_lang_not_downloaded, lang.label))
         model = Model(VoskModels.modelDir(context, lang).absolutePath)
         recognizer = try {
             Recognizer(model, SpeechEngine.SAMPLE_RATE.toFloat()).apply { setWords(true) }
@@ -109,15 +111,15 @@ object SpeechEngines {
         return when (val setup = chosen(context, spokenLanguage)) {
             is SpeechSetup.Vosk ->
                 if (VoskModels.isInstalled(context, setup.lang)) setup to null
-                else null to "Choose and download the spoken language in Settings → Subtitles first"
+                else null to Txt.s(R.string.err_choose_download_language)
             is SpeechSetup.Whisper ->
                 if (WhisperModels.isInstalled(context, setup.model)) setup to null
-                else null to "Download the Whisper model in Settings → Subtitles first"
+                else null to Txt.s(R.string.err_download_whisper)
             null ->
                 if (SubtitleSourceSettings.get(context).current.engine == SpeechEngineKind.WHISPER) {
-                    null to "Choose a Whisper model in Settings → Subtitles first"
+                    null to Txt.s(R.string.err_choose_whisper)
                 } else {
-                    null to "Choose and download the spoken language in Settings → Subtitles first"
+                    null to Txt.s(R.string.err_choose_download_language)
                 }
         }
     }

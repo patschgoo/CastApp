@@ -1,0 +1,62 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Settings → Subtitles: speech engine -->
+    <string name="subsrc_engine">Spracherkennung</string>
+    <string name="subsrc_engine_vosk">Schnell (Vosk)</string>
+    <string name="subsrc_engine_vosk_text">Schnell und ressourcenschonend. Die gesprochene Sprache muss oben ausgewählt und heruntergeladen sein.</string>
+    <string name="subsrc_engine_whisper">Genau (Whisper)</string>
+    <string name="subsrc_engine_whisper_text">Weniger Fehler, erkennt die Sprache und kann ins Englische übersetzen. Langsamer.</string>
+    <string name="subsrc_model_tiny">Tiny – am schnellsten, macht mehr Fehler</string>
+    <string name="subsrc_model_base">Base – gute Balance (empfohlen)</string>
+    <string name="subsrc_model_small">Small – am genauesten, auf älteren Handys langsam</string>
+    <string name="subsrc_whisper_model">Whisper-Modell</string>
+    <string name="subsrc_whisper_model_none">Modell auswählen (wird einmal heruntergeladen und funktioniert dann offline)</string>
+    <string name="subsrc_whisper_model_ready">%1$s – bereit, funktioniert offline</string>
+    <string name="subsrc_whisper_model_missing">%1$s – muss heruntergeladen werden (%2$d MB)</string>
+    <string name="subsrc_whisper_hint">Whisper macht weniger Fehler als die schnelle Spracherkennung, versteht etwa 100 Sprachen und kann sie ins Englische übersetzen. Das Erstellen von Untertiteln dauert länger, besonders mit dem Small-Modell. Die Modelle werden einmalig vom Projekt whisper.cpp auf Hugging Face heruntergeladen.</string>
+    <string name="subsrc_model_download">%1$d MB Download</string>
+    <string name="subsrc_model_downloading">Wird heruntergeladen … %1$d %%</string>
+    <string name="subsrc_model_downloaded">Heruntergeladen</string>
+    <string name="subsrc_delete_model">%1$s löschen</string>
+    <string name="subsrc_whisper_language">Sprache, auf die Whisper hört</string>
+    <string name="subsrc_detect_language">Automatisch erkennen</string>
+    <string name="subsrc_translate">Ins Englische übersetzen</string>
+    <string name="subsrc_translate_on">Whisper erstellt englische Untertitel, egal welche Sprache gesprochen wird</string>
+    <string name="subsrc_translate_needs_whisper">Erfordert die Spracherkennung „Genau (Whisper)“</string>
+    <string name="subsrc_done">Fertig</string>
+
+    <!-- Settings → Subtitles: OpenSubtitles.com -->
+    <string name="subsrc_online_title">Untertitel aus dem Internet</string>
+    <string name="subsrc_account">OpenSubtitles.com</string>
+    <string name="subsrc_account_off">Aus. Gib deinen eigenen kostenlosen API-Schlüssel ein, um beim Streamen eines Videos nach Untertiteln zu suchen.</string>
+    <string name="subsrc_account_on">An – tippe beim Streamen eines Videos auf „Untertitel suchen“</string>
+    <string name="subsrc_account_on_user">An, angemeldet als %1$s – tippe beim Streamen eines Videos auf „Untertitel suchen“</string>
+    <string name="subsrc_account_text">Hol dir einen kostenlosen API-Schlüssel auf opensubtitles.com (dein Profil → API-Nutzer). Es wird nichts gesendet, bis du beim Streamen auf „Untertitel suchen“ tippst. Dann gehen der Dateiname des Videos und sein OpenSubtitles-Fingerabdruck (ein Hash aus seiner Größe und zwei kleinen Teilen der Datei) an OpenSubtitles.com. Benutzername und Passwort sind optional und erlauben mehr Downloads pro Tag. Alles wird verschlüsselt auf diesem Handy gespeichert.</string>
+    <string name="subsrc_api_key">API-Schlüssel</string>
+    <string name="subsrc_username">Benutzername (optional)</string>
+    <string name="subsrc_password">Passwort (optional)</string>
+    <string name="subsrc_remove">Entfernen</string>
+    <string name="subsrc_search_languages">Untertitelsprachen</string>
+    <string name="subsrc_search_languages_hint">Sprachcodes, z. B. en, de</string>
+    <string name="subsrc_search_languages_default">%1$s (Sprache des Handys)</string>
+
+    <!-- While casting -->
+    <string name="subsrc_find">Untertitel suchen</string>
+    <string name="subsrc_searching">OpenSubtitles.com wird durchsucht …</string>
+    <string name="subsrc_downloading">Untertitel werden heruntergeladen …</string>
+    <string name="subsrc_searched_for">Gesucht nach „%1$s“ in %2$s</string>
+    <string name="subsrc_searched_hash">Treffer mit „Passt zu deiner Datei“ wurden genau für diese Datei erstellt.</string>
+    <string name="subsrc_hash_match">Passt zu deiner Datei</string>
+    <string name="subsrc_downloads">%1$s Downloads</string>
+    <string name="subsrc_hearing_impaired">für Hörgeschädigte</string>
+    <string name="subsrc_machine_translated">maschinell übersetzt</string>
+    <string name="subsrc_not_video">Untertitel können nur gesucht werden, während eine Videodatei gestreamt wird.</string>
+    <string name="subsrc_search_again">Erneut suchen</string>
+    <string name="subsrc_close">Schließen</string>
+    <string name="subsrc_using">Untertitel von OpenSubtitles.com laufen auf dem Fernseher</string>
+    <plurals name="subsrc_using_remaining">
+        <item quantity="one">Untertitel von OpenSubtitles.com laufen auf dem Fernseher (heute noch %1$d Download)</item>
+        <item quantity="other">Untertitel von OpenSubtitles.com laufen auf dem Fernseher (heute noch %1$d Downloads)</item>
+    </plurals>
+    <string name="subsrc_empty_file">Diese Datei enthält keine Untertitel. Probiere eine andere.</string>
+</resources>

@@ -1,5 +1,7 @@
 package io.github.patschgoo.castapp.opensubtitles
 
+import io.github.patschgoo.castapp.Txt
+import io.github.patschgoo.castapp.R
 import io.github.patschgoo.castapp.stream.MediaSource
 import java.io.IOException
 import java.io.InputStream
@@ -41,7 +43,7 @@ object MovieHash {
         var done = 0
         while (done < n) {
             val r = input.read(out, done, n - done)
-            if (r < 0) throw IOException("The file ended early")
+            if (r < 0) throw IOException(Txt.sOr(R.string.os_err_file_ended, "The file ended early"))
             done += r
         }
         return out

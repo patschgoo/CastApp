@@ -1,5 +1,6 @@
 package io.github.patschgoo.castapp.remote.net
 
+import io.github.patschgoo.castapp.Txt
 import android.content.Context
 import android.os.Build
 import io.github.patschgoo.castapp.R
@@ -151,7 +152,7 @@ internal class RokuTarget(host: String, name: String, private val port: Int = 80
     override suspend fun connect(context: Context, ui: RemoteUi): RemoteSession = friendly(context) {
         ui.showMessage(context.getString(R.string.remote_connecting, name))
         val client = RokuRemoteClient(host, port)
-        withContext(Dispatchers.IO) { client.info() } ?: throw IOException("No answer")
+        withContext(Dispatchers.IO) { client.info() } ?: throw IOException(Txt.s(R.string.err_no_answer))
         remember(context)
         object : RemoteSession {
             override suspend fun press(key: RemoteKey) = withContext(Dispatchers.IO) { client.press(key) }
