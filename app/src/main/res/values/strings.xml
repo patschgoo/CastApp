@@ -73,7 +73,10 @@
     <!-- Browser -->
     <string name="browser_hint">Search or type a web address</string>
     <string name="browser_cast_video">Cast video</string>
-    <string name="browser_cast_videos">Cast video (%1$d found)</string>
+    <plurals name="browser_cast_videos">
+        <item quantity="one">Cast video (%1$d found)</item>
+        <item quantity="other">Cast video (%1$d found)</item>
+    </plurals>
     <string name="browser_found">Videos on this page</string>
     <string name="browser_casting">Playing on %1$s. You can leave the app or lock the phone.</string>
 
@@ -81,7 +84,10 @@
     <string name="share_label">Cast to TV</string>
     <string name="share_title">Cast to TV</string>
     <string name="share_unsupported">Only videos, music, photos and web links can be cast</string>
-    <string name="share_count">%1$d files</string>
+    <plurals name="share_count">
+        <item quantity="one">%1$d file</item>
+        <item quantity="other">%1$d files</item>
+    </plurals>
 
     <!-- Notification -->
     <string name="channel_casting">Casting</string>

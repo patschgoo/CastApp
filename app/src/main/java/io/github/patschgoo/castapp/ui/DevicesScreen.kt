@@ -273,7 +273,11 @@ fun DevicesContent(
             }
 
             items(devices, key = { it.device.id }) { entry ->
-                val castingHere = active?.device?.id == entry.device.id || active?.device?.host == entry.device.host
+                // Same device: same id, or same address and port (speaker groups share an IP with a speaker).
+                val castingHere = active != null && (
+                    active.device.id == entry.device.id ||
+                        (active.device.host == entry.device.host && active.device.port == entry.device.port)
+                    )
                 DeviceCard(
                     entry = entry,
                     casting = castingHere,

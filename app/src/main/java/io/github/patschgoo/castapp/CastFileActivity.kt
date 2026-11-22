@@ -79,7 +79,7 @@ class CastFileActivity : ComponentActivity() {
 
         val app = CastApp.get(this)
         val soundOnly = items.all { it.type == MediaType.AUDIO }
-        val title = if (items.size == 1) items[0].title else getString(R.string.share_count, items.size)
+        val title = if (items.size == 1) items[0].title else resources.getQuantityString(R.plurals.share_count, items.size, items.size)
         setContent {
             val settings by app.settings.state.collectAsStateWithLifecycle()
             CastAppTheme(settings.theme) {
