@@ -11,6 +11,8 @@ import java.net.SocketTimeoutException
 import java.security.MessageDigest
 import java.security.cert.X509Certificate
 import java.security.interfaces.RSAPublicKey
+import java.util.concurrent.LinkedBlockingQueue
+import java.util.concurrent.TimeUnit
 import javax.net.ssl.SSLSocket
 
 /**
@@ -41,6 +43,9 @@ object AtvMessages {
     const val REMOTE_IME_KEY_INJECT = 20
     const val REMOTE_IME_BATCH_EDIT = 21
     const val REMOTE_IME_SHOW_REQUEST = 22
+    const val REMOTE_VOICE_BEGIN = 30
+    const val REMOTE_VOICE_PAYLOAD = 31
+    const val REMOTE_VOICE_END = 32
     const val REMOTE_START = 40
 
     /** RemoteDirection.SHORT: a full press. */
@@ -50,10 +55,22 @@ object AtvMessages {
     const val FEATURE_PING = 1
     const val FEATURE_KEY = 2
     const val FEATURE_IME = 4
+    /** The TV answers KEYCODE_SEARCH with a voice session (remote_voice_begin) for this phone. */
+    const val FEATURE_VOICE = 8
     const val FEATURE_POWER = 32
     const val FEATURE_VOLUME = 64
     const val FEATURE_APP_LINK = 512
-    const val FEATURES = FEATURE_PING or FEATURE_KEY or FEATURE_IME or FEATURE_POWER or FEATURE_VOLUME or FEATURE_APP_LINK
+    const val FEATURES = FEATURE_PING or FEATURE_KEY or FEATURE_IME or FEATURE_VOICE or FEATURE_POWER or FEATURE_VOLUME or FEATURE_APP_LINK
+
+    /** KEYCODE_SEARCH: with the voice feature on, it makes the TV open a voice session. */
+    const val KEYCODE_SEARCH = 84
+
+    /** Voice audio: 16-bit signed little-endian PCM, mono, 8 kHz. */
+    const val VOICE_SAMPLE_RATE = 8000
+    /** Larger chunks make the TV drop the connection. */
+    const val VOICE_CHUNK_MAX = 20 * 1024
+    /** NVIDIA Shield ignores smaller chunks; they're padded with silence. */
+    const val VOICE_CHUNK_MIN = 8 * 1024
 
     private fun outer(body: ProtoWriter.() -> Unit): ByteArray =
         ProtoWriter().varint(1, 2).varint(2, STATUS_OK).apply(body).toByteArray()
@@ -90,6 +107,28 @@ object AtvMessages {
 
     fun keyInject(keyCode: Int, direction: Int = DIRECTION_SHORT): ByteArray =
         ProtoWriter().message(REMOTE_KEY_INJECT) { nz(1, keyCode); nz(2, direction) }.toByteArray()
+
+    /** Answer to the TV's remote_voice_begin: the phone starts streaming for [sessionId]. */
+    fun voiceBegin(sessionId: Int): ByteArray = ProtoWriter().message(REMOTE_VOICE_BEGIN) { nz(1, sessionId) }.toByteArray()
+
+    fun voicePayload(sessionId: Int, samples: ByteArray): ByteArray =
+        ProtoWriter().message(REMOTE_VOICE_PAYLOAD) { nz(1, sessionId); if (samples.isNotEmpty()) bytes(2, samples) }.toByteArray()
+
+    fun voiceEnd(sessionId: Int): ByteArray = ProtoWriter().message(REMOTE_VOICE_END) { nz(1, sessionId) }.toByteArray()
+
+    /** Splits audio like androidtvremote2: pieces of at most 20 KB, each padded with silence to at least 8 KB. */
+    fun voiceChunks(pcm: ByteArray, length: Int = pcm.size): List<ByteArray> {
+        val out = ArrayList<ByteArray>()
+        var i = 0
+        while (i < length) {
+            val n = minOf(VOICE_CHUNK_MAX, length - i)
+            val piece = ByteArray(maxOf(n, VOICE_CHUNK_MIN))
+            System.arraycopy(pcm, i, piece, 0, n)
+            out += piece
+            i += n
+        }
+        return out
+    }
 
     /** Puts [text] into the focused text field, cursor after it (like androidtvremote2's send_text). */
     fun imeBatchEdit(imeCounter: Int, fieldCounter: Int, text: String): ByteArray {
@@ -247,6 +286,11 @@ class AndroidTvConnection internal constructor(
     private val input = socket.inputStream.buffered()
     private val output = socket.outputStream
     private val writeLock = Any()
+    private val voiceBegins = LinkedBlockingQueue<Int>()
+    @Volatile private var voiceStarting = false
+    /** The open voice session, if any. */
+    @Volatile var voiceSession: Int? = null
+        private set
     @Volatile private var closed = false
     @Volatile private var active = AtvMessages.FEATURES
     @Volatile var imeCounter = 0
@@ -345,6 +389,9 @@ class AndroidTvConnection internal constructor(
             if (!hasFieldCounter) fieldCounter = it.int(2)
         }
         msg.message(AtvMessages.REMOTE_START)?.let { isOn = it.bool(1) }
+        // The TV opens a voice session after KEYCODE_SEARCH; ignored when the phone didn't ask.
+        msg.message(AtvMessages.REMOTE_VOICE_BEGIN)?.let { if (voiceStarting) voiceBegins.offer(it.int(1)) }
+        msg.message(AtvMessages.REMOTE_VOICE_END)?.let { if (voiceSession == it.int(1)) voiceSession = null }
     }
 
     fun sendKey(keyCode: Int, direction: Int = AtvMessages.DIRECTION_SHORT) = send(AtvMessages.keyInject(keyCode, direction))
@@ -357,8 +404,78 @@ class AndroidTvConnection internal constructor(
 
     val supportsText: Boolean get() = active and AtvMessages.FEATURE_IME != 0
 
+    /** The TV said (in its configure message) that it takes voice from the phone. */
+    val supportsVoice: Boolean get() = active and AtvMessages.FEATURE_VOICE != 0
+
+    /**
+     * Starts a voice session like Google's TV remote: KEYCODE_SEARCH, then the TV's
+     * remote_voice_begin with a session id, answered with remote_voice_begin.
+     * Null when the TV has no voice for phones or doesn't open a session in time.
+     */
+    fun startVoice(timeoutMs: Long = 2000): Int? {
+        if (!supportsVoice) return null
+        voiceSession?.let { try { endVoice(it) } catch (_: IOException) {} }
+        voiceBegins.clear()
+        voiceStarting = true
+        try {
+            sendKey(AtvMessages.KEYCODE_SEARCH)
+            val id = voiceBegins.poll(timeoutMs, TimeUnit.MILLISECONDS) ?: return null
+            send(AtvMessages.voiceBegin(id))
+            voiceSession = id
+            return id
+        } finally {
+            voiceStarting = false
+        }
+    }
+
+    /** Sends PCM audio (16-bit, mono, 8 kHz) for the voice session [sessionId]. */
+    fun sendVoice(sessionId: Int, pcm: ByteArray, length: Int = pcm.size) {
+        for (chunk in AtvMessages.voiceChunks(pcm, length)) send(AtvMessages.voicePayload(sessionId, chunk))
+    }
+
+    fun endVoice(sessionId: Int) {
+        if (voiceSession == sessionId) voiceSession = null
+        send(AtvMessages.voiceEnd(sessionId))
+    }
+
     override fun close() {
         closed = true
         try { socket.close() } catch (_: Exception) {}
+    }
+}
+
+/**
+ * One voice search on an Android TV. Collects the recording into 8 KB chunks (the
+ * smallest the TVs take without padding) and sends them as they fill.
+ */
+class AndroidTvVoice(private val conn: AndroidTvConnection, val sessionId: Int) {
+    private val buffer = ByteArray(AtvMessages.VOICE_CHUNK_MIN)
+    private var filled = 0
+    private var ended = false
+
+    @Synchronized
+    fun send(pcm: ByteArray, length: Int = pcm.size) {
+        if (ended) return
+        var i = 0
+        while (i < length) {
+            val n = minOf(buffer.size - filled, length - i)
+            System.arraycopy(pcm, i, buffer, filled, n)
+            filled += n
+            i += n
+            if (filled == buffer.size) {
+                conn.sendVoice(sessionId, buffer)
+                filled = 0
+            }
+        }
+    }
+
+    /** Sends what's left (padded) and ends the session. */
+    @Synchronized
+    fun end() {
+        if (ended) return
+        ended = true
+        if (filled > 0) conn.sendVoice(sessionId, buffer, filled)
+        filled = 0
+        conn.endVoice(sessionId)
     }
 }
