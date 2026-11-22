@@ -340,7 +340,7 @@ class CastService : Service() {
         }
         val style = Notification.MediaStyle().setShowActionsInCompactView(0, 1, 2)
         file.mediaSession?.sessionToken?.let { style.setMediaSession(it) }
-        val builder = Notification.Builder(this, CHANNEL_ID)
+        val builder = (if (Build.VERSION.SDK_INT >= 26) Notification.Builder(this, CHANNEL_ID) else @Suppress("DEPRECATION") Notification.Builder(this))
             .setSmallIcon(R.drawable.ic_cast_connected)
             .setContentTitle(state.title ?: "Video")
             .setContentText(status)
@@ -476,6 +476,7 @@ class CastService : Service() {
         }
 
         fun createChannel(context: Context) {
+            if (Build.VERSION.SDK_INT < 26) return // Android 7.x (older Fire TV sticks) has no channels
             val nm = context.getSystemService(NotificationManager::class.java) ?: return
             if (nm.getNotificationChannel(CHANNEL_ID) != null) return
             val channel = NotificationChannel(CHANNEL_ID, context.getString(R.string.channel_casting), NotificationManager.IMPORTANCE_LOW)

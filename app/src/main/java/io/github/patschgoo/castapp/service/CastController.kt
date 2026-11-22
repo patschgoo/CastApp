@@ -84,6 +84,37 @@ object CastController {
 
     val isActive: Boolean get() = _state.value is CastState.Active
 
+    /** An AirPlay TV shows a code that the user has to type in (device name), or null. */
+    private val _pinRequest = MutableStateFlow<String?>(null)
+    val pinRequest: StateFlow<String?> = _pinRequest.asStateFlow()
+    @Volatile private var pinAnswer: kotlinx.coroutines.CompletableDeferred<String?>? = null
+
+    /** Asks the user for the code [deviceName] shows; null if cancelled or after 3 minutes. */
+    suspend fun askPin(deviceName: String): String? {
+        val answer = kotlinx.coroutines.CompletableDeferred<String?>()
+        pinAnswer = answer
+        _pinRequest.value = deviceName
+        try {
+            val app = io.github.patschgoo.castapp.CastApp.instance
+            app.startActivity(
+                android.content.Intent(app, io.github.patschgoo.castapp.PinActivity::class.java)
+                    .addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK),
+            )
+        } catch (_: Exception) {
+        }
+        return try {
+            kotlinx.coroutines.withTimeoutOrNull(180_000) { answer.await() }
+        } finally {
+            _pinRequest.value = null
+            pinAnswer = null
+        }
+    }
+
+    fun answerPin(pin: String?) {
+        pinAnswer?.complete(pin?.trim()?.takeIf { it.isNotEmpty() })
+        _pinRequest.value = null
+    }
+
     /** The session that currently owns the state; updates from older sessions are ignored. */
     @Volatile private var owner: Any? = null
 

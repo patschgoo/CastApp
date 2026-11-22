@@ -171,3 +171,49 @@ class MdnsCastInfo(val instance: String, val address: InetAddress?, val port: In
         }
     }
 }
+
+/** An AirPlay receiver (Apple TV, a TV or Mac with AirPlay) from mDNS records. */
+class MdnsAirPlayInfo(val instance: String, val address: InetAddress?, val port: Int, val txt: Map<String, String>) {
+    /** Only receivers that play video; HomePods and other speakers need a different protocol. */
+    fun toDevice(): CastDevice? {
+        val ip = address?.hostAddress ?: return null
+        val featuresText = txt["features"] ?: txt["ft"]
+        val features = io.github.patschgoo.castapp.airplay.AirPlayFeatures.parse(featuresText)
+        if (!io.github.patschgoo.castapp.airplay.AirPlayFeatures.video(features)) return null
+        val model = txt["model"]
+        val id = txt["deviceid"]?.takeIf { it.isNotBlank() } ?: txt["pi"]?.takeIf { it.isNotBlank() } ?: "$ip:$port"
+        return CastDevice(
+            id = "airplay:$id",
+            name = instance.substringBefore("._airplay").ifBlank { "Apple TV" },
+            host = ip,
+            port = if (port > 0) port else 7000,
+            model = when {
+                model == null -> null
+                model.startsWith("AppleTV") -> "Apple TV"
+                model.startsWith("Mac") || model.startsWith("iMac") -> "Mac"
+                else -> model
+            },
+            kind = DeviceKind.AIRPLAY,
+            airplayFeatures = featuresText,
+        )
+    }
+
+    companion object {
+        const val SERVICE = "_airplay._tcp.local"
+
+        fun fromRecords(records: List<Dns.Record>, source: InetAddress?): List<MdnsAirPlayInfo> {
+            val instances = LinkedHashSet<String>()
+            for (r in records) {
+                if (r.type == Dns.TYPE_PTR && r.name.equals(SERVICE, true)) (r.data as? String)?.let { instances.add(it) }
+                if ((r.type == Dns.TYPE_SRV || r.type == Dns.TYPE_TXT) && r.name.endsWith(".$SERVICE", true)) instances.add(r.name)
+            }
+            return instances.map { instance ->
+                val srv = records.firstOrNull { it.type == Dns.TYPE_SRV && it.name.equals(instance, true) }?.data as? Dns.Srv
+                @Suppress("UNCHECKED_CAST")
+                val txt = records.firstOrNull { it.type == Dns.TYPE_TXT && it.name.equals(instance, true) }?.data as? Map<String, String>
+                val a = srv?.let { s -> records.firstOrNull { it.type == Dns.TYPE_A && it.name.equals(s.target, true) }?.data as? InetAddress }
+                MdnsAirPlayInfo(instance, a ?: source, srv?.port ?: 7000, txt ?: emptyMap())
+            }.filter { it.txt.isNotEmpty() }
+        }
+    }
+}

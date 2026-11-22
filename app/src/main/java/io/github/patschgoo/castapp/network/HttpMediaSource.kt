@@ -83,17 +83,20 @@ class HttpMediaSource(
             method: String = "GET",
             range: String? = null,
             timeoutMs: Int = 15_000,
-        ): HttpURLConnection = (URL(url).openConnection() as HttpURLConnection).apply {
-            if (trustAll && this is HttpsURLConnection) {
-                sslSocketFactory = RawHttp.trustAllFactory()
-                hostnameVerifier = HostnameVerifier { _, _ -> true }
+        ): HttpURLConnection {
+            // Plain assignments on purpose: HttpURLConnection has its own protected "method" and "url" fields.
+            val conn = URL(url).openConnection() as HttpURLConnection
+            if (trustAll && conn is HttpsURLConnection) {
+                conn.sslSocketFactory = RawHttp.trustAllFactory()
+                conn.hostnameVerifier = HostnameVerifier { _, _ -> true }
             }
-            connectTimeout = timeoutMs
-            readTimeout = 30_000
-            instanceFollowRedirects = true
-            requestMethod = method
-            for ((k, v) in headers) setRequestProperty(k, v)
-            range?.let { setRequestProperty("Range", it) }
+            conn.connectTimeout = timeoutMs
+            conn.readTimeout = 30_000
+            conn.instanceFollowRedirects = true
+            conn.requestMethod = method
+            for ((k, v) in headers) conn.setRequestProperty(k, v)
+            range?.let { conn.setRequestProperty("Range", it) }
+            return conn
         }
 
         /** Reads at most [max] bytes (null if the file is bigger). */

@@ -17,6 +17,8 @@ data class RendererMedia(
     val subtitleSrtUrl: String? = null,
     val subtitlesOn: Boolean = true,
     val startMs: Long = 0,
+    /** CastApp's screen stream to a CastApp TV receiver: play with minimal buffering. */
+    val lowLatency: Boolean = false,
 )
 
 enum class PlayState { PLAYING, PAUSED, BUFFERING, IDLE, FINISHED, ERROR, STOPPED }
@@ -72,7 +74,15 @@ interface MediaRenderer {
     fun close()
 
     companion object {
-        fun create(device: CastDevice): MediaRenderer =
-            if (device.isDlna) DlnaRenderer(device) else CastRenderer(device)
+        fun create(device: CastDevice): MediaRenderer = when (device.kind) {
+            io.github.patschgoo.castapp.discovery.DeviceKind.CAST -> CastRenderer(device)
+            io.github.patschgoo.castapp.discovery.DeviceKind.DLNA -> DlnaRenderer(device)
+            io.github.patschgoo.castapp.discovery.DeviceKind.AIRPLAY -> AirPlayRenderer(
+                device,
+                io.github.patschgoo.castapp.airplay.AndroidAirPlayStore,
+                io.github.patschgoo.castapp.service.CastController::askPin,
+            )
+            io.github.patschgoo.castapp.discovery.DeviceKind.ROKU -> RokuRenderer(device)
+        }
     }
 }

@@ -78,8 +78,8 @@ class CastSession(
     private val locks = CastLocks(context, "CastApp:screen")
 
     @Volatile private var client: CastClient? = null
-    /** Set instead of [client] when casting to a DLNA TV. */
-    @Volatile private var dlna: DlnaRenderer? = null
+    /** Set instead of [client] for TVs that play by URL: DLNA, CastApp TV, AirPlay, Roku. */
+    @Volatile private var urlRenderer: MediaRenderer? = null
     @Volatile private var app: RunningApp? = null
     @Volatile private var server: StreamServer? = null
     @Volatile private var localAddress: InetAddress? = null
@@ -193,7 +193,7 @@ class CastSession(
 
     /** Connects to the TV at [host] and starts playback. Throws if anything fails. */
     private suspend fun connectAndPlay(host: String, port: Int) {
-        if (device.isDlna) return connectDlna()
+        if (device.isUrlRenderer) return connectUrlRenderer()
         val c = CastClient(host, port)
         c.listener = listenerFor(c)
         try {
@@ -227,12 +227,15 @@ class CastSession(
         }
     }
 
-    /** DLNA TVs get a live MPEG-TS stream (or AAC for sound only). Their players buffer a few seconds. */
-    private suspend fun connectDlna() {
-        val r = DlnaRenderer(device)
+    /**
+     * TVs that play by URL. DLNA TVs get a live MPEG-TS stream, CastApp TV the
+     * low-latency MP4 stream, AirPlay and Roku devices HLS (sound only: AAC).
+     */
+    private suspend fun connectUrlRenderer() {
+        val r = MediaRenderer.create(device)
         r.listener = object : MediaRenderer.Listener {
             override fun onStatus(status: RendererStatus) {
-                if (r !== dlna) return
+                if (r !== urlRenderer) return
                 when (status.state) {
                     PlayState.PLAYING -> { playing = true; update { it.copy(phase = CastPhase.LIVE) } }
                     PlayState.BUFFERING -> if (!playing) update { it.copy(phase = CastPhase.BUFFERING) }
@@ -241,20 +244,20 @@ class CastSession(
                 }
             }
             override fun onVolume(level: Double?, muted: Boolean) {
-                if (r !== dlna) return
+                if (r !== urlRenderer) return
                 level?.let { volume = it }
                 this@CastSession.muted = muted
                 update { it.copy(volume = volume?.toFloat(), muted = muted) }
             }
             override fun onLost(error: Throwable?) {
-                if (r === dlna && !ended.get()) scope.launch { reconnect() }
+                if (r === urlRenderer && !ended.get()) scope.launch { reconnect() }
             }
             override fun onClosedOnDevice() {
-                if (r === dlna) finish("Casting was stopped on the TV")
+                if (r === urlRenderer) finish("Casting was stopped on the TV")
             }
         }
         r.connect()
-        dlna = r
+        urlRenderer = r
         localAddress = r.localAddress ?: throw CastException("No network path to the TV")
         update { it.copy(phase = CastPhase.STARTING) }
         val h = hub ?: return
@@ -266,13 +269,22 @@ class CastSession(
         }
         playing = false
         val local = localAddress!!
-        val media = if (audioOnly) {
-            RendererMedia(s.urlFor(local, s.audioPath), "audio/aac", "Phone sound", device.name, live = true)
-        } else {
-            RendererMedia(s.urlFor(local, s.tsPath), "video/mp2t", TITLE, device.name, live = true)
-        }
-        r.load(media)
+        r.load(mirrorMedia(s, local))
         update { it.copy(phase = CastPhase.BUFFERING) }
+    }
+
+    /** What a URL-playing TV gets for the screen (or the phone's sound). */
+    private suspend fun mirrorMedia(s: StreamServer, local: java.net.InetAddress): RendererMedia = when {
+        audioOnly -> RendererMedia(s.urlFor(local, s.audioPath), "audio/aac", "Phone sound", device.name, live = true, lowLatency = device.isCastAppTv)
+        device.isCastAppTv -> RendererMedia(s.urlFor(local, s.mp4Path), "video/mp4", TITLE, device.name, live = true, lowLatency = true)
+        device.isDlna -> RendererMedia(s.urlFor(local, s.tsPath), "video/mp2t", TITLE, device.name, live = true)
+        else -> {
+            // AirPlay and Roku players want HLS; give the segmenter a few segments first.
+            val segmenter = s.enableHls()
+            usingHls = true
+            withTimeoutOrNull(12_000) { while (segmenter.completedSegments < 3) delay(100) }
+            RendererMedia(s.urlFor(local, s.hlsPath), "application/x-mpegurl", TITLE, device.name, live = true)
+        }
     }
 
     /** Our own low-latency TV player (see receiver/index.html). Returns false to fall back. */
@@ -392,7 +404,7 @@ class CastSession(
         watchdog?.cancel()
         update { it.copy(phase = CastPhase.RECONNECTING) }
         try { client?.close() } catch (_: Exception) {}
-        try { dlna?.close() } catch (_: Exception) {}
+        try { urlRenderer?.close() } catch (_: Exception) {}
         playing = false
         val deadline = System.currentTimeMillis() + RECONNECT_FOR_MS
         var attempt = 0
@@ -401,7 +413,7 @@ class CastSession(
         while (!ended.get() && System.currentTimeMillis() < deadline) {
             attempt++
             delay(if (attempt == 1) 1500 else 4000)
-            if (attempt % 3 == 0 && !device.isDlna) {
+            if (attempt % 3 == 0 && !device.isUrlRenderer) {
                 // The TV may have come back with a different IP address.
                 NetworkScanner.findById(device.id)?.let { found ->
                     host = found.host
@@ -545,9 +557,9 @@ class CastSession(
             // The TV has to reload to pick up the new picture size.
             try {
                 when {
-                    device.isDlna -> dlna?.let { r ->
+                    device.isUrlRenderer -> urlRenderer?.let { r ->
                         val local = localAddress ?: return@let
-                        r.load(RendererMedia(s.urlFor(local, s.tsPath), "video/mp2t", TITLE, device.name, live = true))
+                        r.load(mirrorMedia(s, local))
                     }
                     usingCustomPlayer -> client?.let { c -> if (!tryCustomPlayer(c, settings.receiverAppId.trim())) reload() }
                     else -> reload()
@@ -560,7 +572,7 @@ class CastSession(
 
     override fun changeVolume(delta: Double) {
         val c = client
-        val r = dlna
+        val r = urlRenderer
         if (c == null && r == null) return
         scope.launch {
             try {
@@ -582,7 +594,7 @@ class CastSession(
     override fun toggleMute() {
         scope.launch {
             try {
-                dlna?.setMuted(!muted) ?: client?.setMuted(!muted)
+                urlRenderer?.setMuted(!muted) ?: client?.setMuted(!muted)
             } catch (_: Exception) {
             }
         }
@@ -611,7 +623,7 @@ class CastSession(
             }
         }
         try { c?.close() } catch (_: Exception) {}
-        dlna?.let { r ->
+        urlRenderer?.let { r ->
             if (stopReceiver) try { runBlocking { withTimeoutOrNull(2500) { r.stop() } } } catch (_: Exception) {}
             r.close()
         }

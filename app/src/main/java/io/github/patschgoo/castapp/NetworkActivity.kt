@@ -551,6 +551,16 @@ private fun AddSourceDialog(network: NetworkSources, onDismiss: () -> Unit) {
                         label = { Text("Name (optional)") }, singleLine = true, modifier = Modifier.fillMaxWidth(),
                     )
                 }
+                if (kind == SourceKind.WEBDAV && address.trim().startsWith("http://", ignoreCase = true)) {
+                    item {
+                        Text(
+                            "This address isn't encrypted (http). That's fine at home, but over the internet your password " +
+                                "and files could be read on the way: use https, or connect through a VPN.",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.error,
+                        )
+                    }
+                }
                 item {
                     Text(
                         "The password is stored encrypted on this phone only.",

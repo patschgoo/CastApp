@@ -1,6 +1,6 @@
 # CastApp
 
-Android app that casts to a **Chromecast**, **NVIDIA Shield**, **Google TV**, **Google/Nest speakers** and **DLNA smart TVs** (Samsung, LG, Sony…). It can:
+Android app that casts to a **Chromecast**, **NVIDIA Shield**, **Google TV**, **Google/Nest speakers**, **DLNA smart TVs** (Samsung, LG, Sony…), **Fire TV** and other Android TV boxes (with the included TV app), **Kodi**, **Apple TV** (AirPlay) and **Roku** (experimental). It can:
 
 - mirror your screen or a single app, in a quality you can change at any moment
 - play the phone's sound
@@ -21,13 +21,30 @@ No ads, no tracking, no account. It doesn't need Google Play Services or the pho
   <img src="docs/file_queue.png" width="260" alt="Playing a play list with subtitles">
 </p>
 
+## Which devices work
+
+| Device | How | Screen mirroring | Files, network, TV channels, web videos |
+|---|---|---|---|
+| Chromecast (all), Google TV Streamer | Google Cast | ✅ under 1 s delay | ✅ |
+| NVIDIA Shield, Sony/Philips/TCL/Hisense TVs with Google TV or Android TV | Google Cast (built in) | ✅ | ✅ |
+| Google Nest and other Cast speakers | Google Cast | sound only | music, radio |
+| **Fire TV**, Android TV boxes, projectors with Android | **CastApp TV** (this app, installed on the TV, see below) | ✅ low delay (aims for under half a second) | ✅ including subtitles |
+| Samsung, LG, Sony, Panasonic, Philips smart TVs | DLNA | ⚠️ experimental, a few seconds of delay | ✅ mostly (depends on the TV's formats) |
+| Kodi (on any box or PC) | DLNA (turn on UPnP in Kodi) | ⚠️ experimental | ✅ |
+| **Apple TV**, Macs and TVs with AirPlay | AirPlay (code on the TV the first time) | ⚠️ experimental, a few seconds of delay | ✅ videos, music, web videos, HLS channels; no subtitles or photos |
+| **Roku** players and Roku TVs | Roku's "Play on Roku" (experimental) | ⚠️ experimental | ✅ but no seeking |
+
+Many TVs answer in several ways (for example a Sony TV with Chromecast, DLNA and AirPlay). CastApp lists each TV once, the best way first: Google Cast, then DLNA, Roku, AirPlay. A CastApp TV receiver is always listed, even on a Shield or Google TV, because its mirroring is faster.
+
+Not supported: the newest Fire TV sticks with Vega OS (they can't install Android apps), and AirPlay speakers such as HomePods (they need a different audio protocol).
+
 ## Why it finds devices the built-in Cast menu misses
 
 The system Cast menu relies on a single discovery method (multicast DNS). That method often breaks with mesh Wi-Fi, some routers, or a phone that is aggressively saving power. CastApp combines five methods:
 
 1. **Android's own discovery** (NsdManager)
-2. **Its own mDNS browser.** Devices answer it directly by unicast, so this works even when multicast replies get dropped.
-3. **DLNA/UPnP search (SSDP).** This finds smart TVs without Chromecast.
+2. **Its own mDNS browser.** Devices answer it directly by unicast, so this works even when multicast replies get dropped. It also finds Apple TVs and other AirPlay receivers.
+3. **DLNA/UPnP search (SSDP).** This finds smart TVs without Chromecast, CastApp TV receivers, Kodi and Rokus.
 4. **Network scan.** It checks every address on your Wi-Fi for a Cast device and asks each one for its name. If nothing turns up within 4 seconds, the scan starts automatically.
 5. **Add by IP.** You type the address yourself.
 
@@ -82,9 +99,9 @@ Any device you've cast to once is **remembered**. If its IP address changes, Cas
 
 ## Install
 
-**Download a ready-made APK:** open the repository's **Actions** tab, select the latest **Build APK** run and download the **CastApp** artifact. It's a zip containing `CastApp.apk`. If you push a tag such as `v3.0.0`, the APK is also attached to a GitHub Release.
+**Download a ready-made APK:** open the repository's **Actions** tab, select the latest **Build APK** run and download the **CastApp** artifact. It's a zip containing `CastApp.apk`. If you push a tag such as `v3.1.0`, the APK is also attached to a GitHub Release.
 
-The APK is about 10 MB, most of it the offline speech recognition. To install, open the APK on your phone and allow "Install unknown apps" for your browser or file manager when Android asks.
+The APK is about 11 MB, most of it the offline speech recognition. The same APK runs on phones (Android 7.1 and newer) and on TVs. To install, open the APK on your phone and allow "Install unknown apps" for your browser or file manager when Android asks.
 
 **Build it yourself:**
 
@@ -122,6 +139,45 @@ To add the tile, pull down Quick Settings, tap the pencil (edit) icon and drag *
 
 **Can I cast from Firefox and leave it playing?** Not by mirroring Firefox: as soon as you leave it or lock the phone, the video pauses. Instead, share the page from Firefox to **Cast to TV** (or open it in CastApp's browser) and cast the video it finds. The TV then plays it on its own, like YouTube's Cast button.
 
+## CastApp TV: the receiver for Fire TV and Android TV
+
+The same APK installed on a Fire TV (Fire OS 6 or newer), an Android TV / Google TV box or an Android projector turns it into a receiver. On a TV it opens **CastApp TV** instead of the phone screens:
+
+<p><img src="docs/tv_home.png" width="560" alt="CastApp TV on a Fire TV"></p>
+
+- It shows up on the phone with a **CastApp TV** label, and plays everything: screen mirroring with low delay (it plays the phone's stream with almost no buffer and speeds up slightly when it falls behind), videos with subtitles, music, photos, TV channels, network files and web videos.
+- It is a standard DLNA renderer, so other DLNA apps (BubbleUPnP, Web Video Caster, NAS apps) can cast to it too.
+- **Start with the TV** keeps it ready after a restart. **Rename** sets the name phones see (by default the TV's own name).
+
+**Installing on a Fire TV:**
+
+1. On the Fire TV: **Settings → My Fire TV → Developer options** (on newer models: **About**, then press the select button 7 times on the device name to show Developer options) → **Install unknown apps** (on older models **Apps from Unknown Sources**) → allow the app you'll install with.
+2. Get the APK onto the TV, for example:
+   - With the free **Downloader** app: enter the address of `CastApp.apk`. Push a tag such as `v3.1.0` so the GitHub release holds the APK; on a public repository the address is `https://github.com/<user>/<repo>/releases/latest/download/CastApp.apk`. Downloader can't fetch from a private repository; use one of the other ways then.
+   - With an app like **Send Files to TV** from the phone.
+   - From a computer: turn on **ADB debugging** on the TV and run `adb connect <TV IP>` and `adb install CastApp.apk`.
+3. Open **CastApp** on the TV once. It stays ready in the background.
+
+On Android 10 and newer TVs (Fire OS 8, recent Google TV), the TV only lets CastApp open its player by itself if it may display over other apps. CastApp asks for this; Fire TVs have no setting for it, so either keep CastApp open on the TV while casting, or allow it once from a computer: `adb shell appops set io.github.patschgoo.castapp SYSTEM_ALERT_WINDOW allow`. On Fire OS 6 and 7 (most Fire TV sticks so far) this isn't needed.
+
+## Apple TV and AirPlay
+
+Apple TVs (and Macs and TVs with AirPlay) appear with an **AirPlay** label. The first time, the Apple TV shows a 4-digit code and CastApp asks for it; after that it is remembered (stored encrypted on the phone). If the Apple TV lets anyone on the network cast (Apple TV **Settings → AirPlay and HomeKit → Allow Access**), no code is needed.
+
+- Videos (MP4, MOV, HLS streams), music, web videos and HLS TV channels play on the Apple TV, which fetches them itself.
+- Not over AirPlay: subtitles, photos, and formats Apple TVs don't play (such as MKV).
+- Screen mirroring sends the screen as an HLS stream: it works, with a few seconds of delay. Apple's own low-delay mirroring uses encryption only Apple devices have.
+
+CastApp pairs and talks to Apple TVs the same way the open-source [pyatv](https://pyatv.dev) library does, and was tested against pyatv's own pairing code; it hasn't been tried with a real Apple TV yet.
+
+## Roku (experimental)
+
+Rokus appear with a **Roku** label. CastApp uses Roku's "Play on Roku" link control: videos, music and HLS channels play, but Roku offers no way to jump to a position, and volume only changes on Roku TVs. If the Roku refuses, check **Settings → System → Advanced system settings → Control by mobile apps**: it must be on, with network access set to Default or Permissive.
+
+## Kodi
+
+In Kodi: **Settings → Services → UPnP / DLNA → Enable UPnP support** and **Allow remote control via UPnP**. Kodi then appears with a **Kodi** label and plays like a DLNA TV.
+
 ## Change the quality at any moment
 
 While casting, tap **Quality** on the casting card:
@@ -157,6 +213,16 @@ Tap **Network & cloud** on the main screen.
 - **Phone & cloud** opens Android's file picker, which also shows installed cloud apps (Google Drive, OneDrive, Dropbox, Nextcloud…).
 
 Tapping a file plays the whole folder as a play list, starting with that file; **Play all** starts at the top. Subtitles with the same name as a video (`.srt`, `.vtt`) are picked up automatically. Files on shares and password-protected servers are streamed by the phone (with seeking); media servers are played by the TV directly.
+
+## Using your NAS away from home
+
+**Casting** always happens on the network the TV is on, because the TV fetches the video from the phone (or from where it is stored). **Your network folders** can still be reached from elsewhere, for example from a hotel's or a friend's Wi-Fi with a Chromecast there, or over mobile data to check a folder:
+
+- **Safest: a VPN to your home.** With [Tailscale](https://tailscale.com) (free, works with Synology, QNAP, Unraid, Windows) or the WireGuard VPN many routers have built in (FRITZ!Box, UniFi, ASUS…), the phone behaves as if it were at home. Add the share with the NAS's VPN address (for Tailscale, its 100.x.x.x address or name). Your files never become reachable from the internet.
+- **Nextcloud and other WebDAV servers over https** are made for the internet and work directly. CastApp warns you if a WebDAV address uses unencrypted http.
+- **Never open the Windows/Samba port (445) to the internet**: it's one of the most attacked services. Use a VPN for shares.
+- Media servers found automatically (Plex, Jellyfin) only show up on the home network, because discovery doesn't cross the internet. Over a VPN, add the server's shared folder as a network folder instead, or use the server's own app.
+- Streaming from home is limited by your home internet's upload speed: for full-HD video it should be at least 10 Mbit/s. Choosing a smaller **Quality** while casting helps.
 
 ## Subtitles written by the phone
 
@@ -211,7 +277,8 @@ If the player doesn't start, CastApp falls back to Google's standard player auto
  Sound of a file ─► decode ─► 16 kHz ─► Vosk ─► timed WebVTT/SRT
 
  Control: Cast v2 (TLS :8009) to the Default Media Receiver or our own player,
-          UPnP AVTransport (SOAP) for DLNA TVs
+          UPnP AVTransport (SOAP) for DLNA TVs and CastApp TV,
+          AirPlay (HAP pairing, encrypted HTTP/RTSP) for Apple TV, ECP (HTTP :8060) for Roku
 ```
 
 - **Cast protocol.** CastApp speaks Cast v2 itself (`cast/`): protobuf messages over TLS on port 8009.
@@ -227,6 +294,8 @@ If the player doesn't start, CastApp falls back to Google's standard player auto
 - **Network sources.** SMB 2/3 through [smbj](https://github.com/hierynomus/smbj) (with BouncyCastle for the NTLM log-in, which Android's crypto lacks); WebDAV through `PROPFIND`; media servers through UPnP ContentDirectory `Browse`. Files are read from any position, so seeking works.
 - **IPTV.** The M3U reader understands `#EXTINF` attributes (logo, group), `#EXTGRP`, `#EXTVLCOPT` and Kodi-style header options. HLS master playlists are read so a fixed quality can be chosen; the proxy then hands the TV a playlist with only that level.
 - **Subtitles.** The sound track is decoded with `MediaCodec`, mixed to mono and resampled to 16 kHz for Vosk; the recognised words with their times are grouped into subtitles of up to two lines of 42 characters, split at pauses. A converted video starts its clock at 0, so subtitles are shifted to match.
+- **CastApp TV.** On a TV the app runs a UPnP MediaRenderer (SSDP answers and announcements, device and service descriptions, AVTransport/RenderingControl/ConnectionManager actions) and plays with Media3 ExoPlayer. For CastApp's own screen stream it keeps almost no buffer and plays slightly faster whenever frames pile up.
+- **AirPlay.** HomeKit-style pairing: SRP-6a (3072-bit, SHA-512) with the code on the TV or the transient code, Ed25519 identities, X25519 key exchange, HKDF-SHA512 keys and ChaCha20-Poly1305 encrypted frames (BouncyCastle). For AirPlay 2 receivers an RTSP session is set up, with a timing responder and an event channel, then `/play` with a binary plist and `/playback-info` polling.
 - **Privacy.** Every URL contains a random token, so other devices on your network can't watch. The servers only run while you're casting.
 
 ## Limitations
@@ -238,12 +307,16 @@ If the player doesn't start, CastApp falls back to Google's standard player auto
 - **Writing subtitles** uses the processor and battery while it runs. It needs a file (not live TV or an HLS stream).
 - **IPTV**: no programme guide (EPG) yet, and DRM-protected channels can't be played.
 - **Network folders**: Kerberos-only Windows domains aren't supported (user name and password log-in is).
+- **AirPlay**: no subtitles, photos or formats the Apple TV can't play; mirroring has a few seconds of delay. **Roku**: no seeking.
 - **Untested on real hardware.** Everything is built and unit-tested. The streams were also checked in a real browser player:
   - live MP4 in Chromium;
   - the low-latency player at about 0.35 s of buffer;
   - AAC and MPEG-TS in ffmpeg;
   - file seeking in Chromium;
-  - SMB browsing, reading and log-in against a real Samba server.
+  - SMB browsing, reading and log-in against a real Samba server;
+  - the CastApp TV receiver's DLNA server (discovery, descriptions, all actions) with CastApp's own DLNA client;
+  - AirPlay pairing (code-free and with a code), the encrypted connection and the AirPlay 2 session against a fake Apple TV built from pyatv's pairing code;
+  - Roku control against a fake Roku.
 
   These couldn't be checked without real phones and TVs:
   - the Cast and DLNA handshakes with real devices;
@@ -251,7 +324,8 @@ If the player doesn't start, CastApp falls back to Google's standard player auto
   - hardware encoders and decoders (also used for converting);
   - Dark screen and Turn apps sideways;
   - lock-screen controls;
-  - speech recognition on a phone, real IPTV providers, and Plex/Jellyfin servers.
+  - speech recognition on a phone, real IPTV providers, and Plex/Jellyfin servers;
+  - the TV app's player on a real Fire TV, a real Apple TV, and a real Roku.
 
 ## Troubleshooting
 
@@ -266,6 +340,10 @@ If the player doesn't start, CastApp falls back to Google's standard player auto
 | Choppy picture | Keep **Automatic quality** on, lower the quality to 540p, or move closer to the router. |
 | Lips and sound don't match | Settings → **Sound sync**. |
 | Port conflict | Change **Stream port** in settings. |
+| Fire TV with CastApp TV not listed | Open CastApp on the TV once and check it says "Ready to cast". Phone and TV on the same Wi-Fi. |
+| Casting to CastApp TV only works while the app is open on the TV | See the note about Android 10+ TVs under CastApp TV. |
+| Apple TV asks for a code every time / "That code wasn't right" | Cast again to get a new code and type it within a minute. Check Apple TV **Settings → AirPlay and HomeKit → Allow Access**. |
+| Roku says it blocks control by phones | Roku **Settings → System → Advanced system settings → Control by mobile apps**: turn it on (network access Default or Permissive). |
 | Plex / Jellyfin not under "Media servers" | Turn on DLNA in Plex (Settings → DLNA) or install Jellyfin's DLNA plugin. Phone and server must be on the same network. Or add the server's shared folder as a **network folder**. |
 | A network folder says "Wrong user name or password" / "Access denied" | Use the account of the NAS or PC (for a Microsoft account on Windows, the e-mail address and its password). Check the share name in the NAS's settings. |
 | A TV channel doesn't play | Many free lists contain dead channels; CastApp skips to the next one. For MPEG-TS channels on a Chromecast keep **Convert videos** on Automatic. |
@@ -277,8 +355,10 @@ If the player doesn't start, CastApp falls back to Google's standard player auto
 app/src/main/java/io/github/patschgoo/castapp/
 ├── cast/          Cast v2 protocol (protobuf framing, TLS client)
 ├── dlna/          UPnP/DLNA discovery (SSDP), SOAP control, media-server browsing
+├── airplay/       AirPlay pairing, encryption, binary plists
+├── tv/            CastApp TV: DLNA renderer server, player, TV home screen
 ├── discovery/     NSD, raw mDNS, network scan, remembered devices
-├── render/        "play this URL" for Cast and DLNA devices
+├── render/        "play this URL" for Cast, DLNA, AirPlay and Roku devices
 ├── stream/        MP4/TS/ADTS muxers, stream & media servers, HLS, web proxy, subtitles
 ├── capture/       screen and audio encoders, OpenGL scaler, video converter
 ├── service/       foreground service, screen/sound and media sessions, overlays

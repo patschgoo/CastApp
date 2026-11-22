@@ -8,7 +8,7 @@ import java.net.NetworkInterface
 import java.net.SocketTimeoutException
 
 /**
- * Our own multicast DNS browser for `_googlecast._tcp`. It sends "one-shot"
+ * Our own multicast DNS browser for `_googlecast._tcp` (and `_airplay._tcp`). It sends "one-shot"
  * queries from a random port (devices answer straight back to us by unicast)
  * and also listens on port 5353 for regular multicast answers and announcements.
  * Running this next to Android's NsdManager makes discovery much more robust.
@@ -84,17 +84,19 @@ class MdnsBrowser(private val onDevice: (CastDevice) -> Unit) {
     }
 
     private fun sendQuery(socket: MulticastSocket, ifaces: List<NetworkInterface>) {
-        val packetData = Dns.buildQuery(MdnsCastInfo.SERVICE, Dns.TYPE_PTR, unicastResponse = true)
-        val packet = DatagramPacket(packetData, packetData.size, group, 5353)
-        if (ifaces.size <= 1) {
-            try { socket.send(packet) } catch (_: Exception) {}
-            return
-        }
-        for (iface in ifaces) {
-            try {
-                socket.networkInterface = iface
-                socket.send(packet)
-            } catch (_: Exception) {
+        for (service in listOf(MdnsCastInfo.SERVICE, MdnsAirPlayInfo.SERVICE)) {
+            val packetData = Dns.buildQuery(service, Dns.TYPE_PTR, unicastResponse = true)
+            val packet = DatagramPacket(packetData, packetData.size, group, 5353)
+            if (ifaces.size <= 1) {
+                try { socket.send(packet) } catch (_: Exception) {}
+                continue
+            }
+            for (iface in ifaces) {
+                try {
+                    socket.networkInterface = iface
+                    socket.send(packet)
+                } catch (_: Exception) {
+                }
             }
         }
     }
@@ -108,6 +110,9 @@ class MdnsBrowser(private val onDevice: (CastDevice) -> Unit) {
                 val records = Dns.parse(buf, packet.length)
                 if (records.isEmpty()) continue
                 for (info in MdnsCastInfo.fromRecords(records, packet.address)) {
+                    info.toDevice()?.let(onDevice)
+                }
+                for (info in MdnsAirPlayInfo.fromRecords(records, packet.address)) {
                     info.toDevice()?.let(onDevice)
                 }
             } catch (_: SocketTimeoutException) {

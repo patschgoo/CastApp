@@ -6,8 +6,14 @@ enum class DeviceKind {
     /** Google Cast: Chromecast, Google TV, NVIDIA Shield, Nest speakers, TVs with Chromecast built in. */
     CAST,
 
-    /** UPnP/DLNA media renderer: most Samsung, LG, Sony, Philips smart TVs. */
+    /** UPnP/DLNA media renderer: most Samsung, LG, Sony, Philips smart TVs, Kodi, and CastApp TV on Fire TV / Android TV. */
     DLNA,
+
+    /** Apple TV, and TVs with AirPlay built in. */
+    AIRPLAY,
+
+    /** Roku players and Roku TVs (their own "play this link" control). */
+    ROKU,
 }
 
 /** A TV or speaker on the local network. */
@@ -28,8 +34,32 @@ data class CastDevice(
     /** DLNA: control URLs of the AVTransport and RenderingControl services. */
     val avTransportUrl: String? = null,
     val renderingControlUrl: String? = null,
+    /** AirPlay: the "features" value it announces (which protocol and pairing it uses). */
+    val airplayFeatures: String? = null,
 ) {
     val isDlna: Boolean get() = kind == DeviceKind.DLNA
+
+    /** CastApp's own receiver on a Fire TV / Android TV box: fast mirroring, everything else too. */
+    val isCastAppTv: Boolean get() = kind == DeviceKind.DLNA && model?.contains("CastApp TV") == true
+
+    /** Plays by URL (DLNA, AirPlay, Roku) instead of Google Cast. */
+    val isUrlRenderer: Boolean get() = kind != DeviceKind.CAST
+
+    /** Short label shown next to the name; null for Chromecasts. */
+    val kindLabel: String?
+        get() = when (kind) {
+            DeviceKind.CAST -> null
+            DeviceKind.DLNA -> when {
+                isCastAppTv -> "CastApp TV"
+                model?.contains("Kodi", ignoreCase = true) == true -> "Kodi"
+                else -> "DLNA"
+            }
+            DeviceKind.AIRPLAY -> "AirPlay"
+            DeviceKind.ROKU -> "Roku"
+        }
+
+    /** Screen mirroring goes through a buffering player here: a few seconds of delay. */
+    val slowMirroring: Boolean get() = isUrlRenderer && !isCastAppTv
 
     fun toJson(): JSONObject = JSONObject()
         .put("id", id)
@@ -42,6 +72,7 @@ data class CastDevice(
         .put("group", group)
         .put("avt", avTransportUrl ?: "")
         .put("rc", renderingControlUrl ?: "")
+        .put("apf", airplayFeatures ?: "")
 
     companion object {
         fun fromJson(o: JSONObject): CastDevice? {
@@ -57,6 +88,7 @@ data class CastDevice(
                 group = o.optBoolean("group", false),
                 avTransportUrl = o.optString("avt").ifEmpty { null },
                 renderingControlUrl = o.optString("rc").ifEmpty { null },
+                airplayFeatures = o.optString("apf").ifEmpty { null },
             )
         }
     }

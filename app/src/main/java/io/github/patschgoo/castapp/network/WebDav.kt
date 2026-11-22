@@ -3,7 +3,7 @@ package io.github.patschgoo.castapp.network
 import java.io.IOException
 import java.net.URI
 import java.net.URLDecoder
-import java.util.Base64
+import kotlin.io.encoding.Base64
 
 /** A file or folder on a network share or cloud drive. */
 data class RemoteEntry(
@@ -27,7 +27,7 @@ object WebDav {
 
     fun authHeader(user: String, password: String): Map<String, String> =
         if (user.isEmpty()) emptyMap()
-        else mapOf("Authorization" to "Basic " + Base64.getEncoder().encodeToString("$user:$password".toByteArray()))
+        else mapOf("Authorization" to "Basic " + Base64.Default.encode("$user:$password".toByteArray()))
 
     fun list(folderUrl: String, user: String, password: String, trustAll: Boolean): List<RemoteEntry> {
         val url = if (folderUrl.endsWith("/")) folderUrl else "$folderUrl/"
