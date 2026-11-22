@@ -71,4 +71,7 @@
     <string name="remote_keyboard">Keyboard</string>
     <string name="remote_vol">VOL</string>
     <string name="remote_ch">CH</string>
+    <string name="remote_open">Remote control</string>
+    <string name="remote_open_short">Remote</string>
+    <string name="remote_open_hint">Control the TV with this phone: over Wi-Fi, Bluetooth or infrared</string>
 </resources>

@@ -116,6 +116,7 @@ import androidx.compose.material.icons.rounded.HighQuality
 import androidx.compose.material.icons.rounded.Lan
 import androidx.compose.material.icons.rounded.LiveTv
 import androidx.compose.material.icons.rounded.Subtitles
+import androidx.compose.material.icons.rounded.SettingsRemote
 import androidx.compose.material.icons.rounded.SwapHoriz
 import androidx.compose.material3.AssistChip
 import androidx.compose.material3.DropdownMenu
@@ -156,6 +157,8 @@ class DevicesActions(
     /** Mirroring to a CastApp TV: let the TV mirror to this phone instead. */
     val onSwap: () -> Unit = {},
     val onStopReceiving: () -> Unit = {},
+    /** Opens the remote control, for [CastDevice] if one is given. */
+    val onOpenRemote: (CastDevice?) -> Unit = {},
 )
 
 @Composable
@@ -226,6 +229,11 @@ fun DevicesScreen(
                 }
             },
             onStopReceiving = { io.github.patschgoo.castapp.tv.TvReceiverService.stop(context) },
+            onOpenRemote = { device ->
+                context.startActivity(
+                    io.github.patschgoo.castapp.RemoteActivity.intent(context, device?.let(io.github.patschgoo.castapp.remote.RemoteTargets::idFor)),
+                )
+            },
         )
     }
     DevicesContent(devices, scanning, castState as? CastState.Active, snackbar, actions, audioMode)
@@ -249,6 +257,9 @@ fun DevicesContent(
             TopAppBar(
                 title = { Text(stringResource(R.string.app_name), fontWeight = FontWeight.SemiBold) },
                 actions = {
+                    IconButton(onClick = { actions.onOpenRemote(null) }) {
+                        Icon(Icons.Rounded.SettingsRemote, contentDescription = stringResource(R.string.remote_open))
+                    }
                     IconButton(onClick = actions.onOpenBrowser) {
                         Icon(Icons.Rounded.Public, contentDescription = stringResource(R.string.web_video))
                     }
@@ -362,6 +373,7 @@ fun DevicesContent(
             onCastApp = { sheetFor = null; actions.onCastApp(entry.device) },
             onCastFile = { sheetFor = null; actions.onCastFiles(entry.device) },
             onForget = { sheetFor = null; actions.onForget(entry.device) },
+            onRemote = { sheetFor = null; actions.onOpenRemote(entry.device) },
         )
     }
 
@@ -577,7 +589,7 @@ private fun ExtrasRow(state: CastState.Active, actions: DevicesActions) {
     val mirroring = state.kind != CastKind.FILE && !state.audioOnly
     val showQuality = state.qualityOptions.isNotEmpty()
     val writing = state.subtitleProgress >= 0
-    if (!showQuality && !state.canCreateSubtitles && !writing && !mirroring) return
+    if (!showQuality && !state.canCreateSubtitles && !writing && !mirroring && !state.device.video) return
     Column(Modifier.padding(top = 10.dp)) {
         Row(
             Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
@@ -614,6 +626,13 @@ private fun ExtrasRow(state: CastState.Active, actions: DevicesActions) {
                     onClick = actions.onCreateSubtitles,
                     label = { Text("Write subtitles") },
                     leadingIcon = { Icon(Icons.Rounded.Subtitles, contentDescription = null, modifier = Modifier.size(18.dp)) },
+                )
+            }
+            if (state.device.video) {
+                AssistChip(
+                    onClick = { actions.onOpenRemote(state.device) },
+                    label = { Text(stringResource(R.string.remote_open_short)) },
+                    leadingIcon = { Icon(Icons.Rounded.SettingsRemote, contentDescription = null, modifier = Modifier.size(18.dp)) },
                 )
             }
             if (mirroring && state.device.isCastAppTv) {
@@ -859,6 +878,7 @@ private fun DeviceSheet(
     onCastApp: () -> Unit,
     onCastFile: () -> Unit,
     onForget: () -> Unit,
+    onRemote: () -> Unit = {},
 ) {
     ModalBottomSheet(onDismissRequest = onDismiss) {
         Column(Modifier.padding(bottom = 24.dp)) {
@@ -894,6 +914,7 @@ private fun DeviceSheet(
                 SheetAction(Icons.Rounded.VideoFile, stringResource(R.string.cast_file), stringResource(R.string.cast_file_hint), onCastFile)
                 SheetAction(Icons.Rounded.Public, stringResource(R.string.web_video), stringResource(R.string.web_video_hint), onOpenBrowser)
                 SheetAction(Icons.Rounded.Speaker, stringResource(R.string.cast_sound), stringResource(R.string.cast_sound_hint_tv), onCastSound)
+                SheetAction(Icons.Rounded.SettingsRemote, stringResource(R.string.remote_open), stringResource(R.string.remote_open_hint), onRemote)
             }
             if (entry.saved) {
                 HorizontalDivider(Modifier.padding(vertical = 8.dp))
