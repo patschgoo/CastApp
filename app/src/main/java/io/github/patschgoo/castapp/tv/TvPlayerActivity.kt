@@ -278,6 +278,11 @@ class TvPlayerActivity : ComponentActivity() {
         exo?.volume = if (s.muted) 0f else s.volume / 100f
     }
 
+    /** Stops playing but keeps the screen: the phone usually sends the next address right after Stop. */
+    fun stopPlayback() {
+        exo?.stop()
+    }
+
     fun stopAndClose() {
         closing = true
         exo?.stop()
