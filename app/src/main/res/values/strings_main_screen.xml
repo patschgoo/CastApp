@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="main_video">Video</string>
+    <string name="main_slideshow_paused">Slideshow paused</string>
+    <string name="main_paused_on">Paused on %1$s</string>
+    <string name="main_on_device_screen_off">On %1$s · screen can be off</string>
+    <string name="main_queue_position">%1$d of %2$d</string>
+    <string name="main_converted_on_phone">converted on the phone</string>
+    <string name="main_phone_sound">phone sound</string>
+    <string name="main_bitrate">%1$.1f Mbit/s</string>
+    <string name="main_audio_on">Audio on</string>
+    <string name="main_audio_off">No audio</string>
+    <string name="main_low_latency">Low-latency player</string>
+    <string name="main_compatible_mode">Compatible mode</string>
+    <string name="main_previous_channel">Previous channel</string>
+    <string name="main_next_channel">Next channel</string>
+    <string name="main_quality">Quality: %1$s</string>
+    <string name="main_write_subtitles">Write subtitles</string>
+    <string name="main_live_caption">Live Caption</string>
+    <string name="main_writing_subtitles">Writing subtitles from the speech… %1$d%%</string>
+    <string name="main_quality_original">Original (no conversion)</string>
+    <string name="main_quality_auto">Auto (the TV adapts)</string>
+    <string name="main_quality_4k">4K (2160p)</string>
+    <string name="main_quality_converted">%1$s (converted on the phone)</string>
+    <string name="main_web_videos">Web videos</string>
+    <string name="main_muted">Muted</string>
+    <string name="main_casting_now">Casting now</string>
+    <string name="main_not_found">Not found right now</string>
+    <string name="main_speaker_group">Speaker group</string>
+</resources>
