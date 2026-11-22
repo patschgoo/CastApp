@@ -319,6 +319,10 @@ fun DevicesContent(
                 ReceivingCard(actions)
             }
 
+            item(key = "continue") {
+                ContinueWatchingRow()
+            }
+
             item(key = "header") {
                 Text(
                     stringResource(if (audioMode) R.string.devices_header_audio else R.string.devices_header),
@@ -453,6 +457,7 @@ private fun CastingCard(state: CastState.Active, actions: DevicesActions) {
             if (file && state.isPhoto) PhotoControls(state, actions)
             else if (file) PlaybackControls(state, actions)
             ExtrasRow(state, actions)
+            PlaybackExtras(state)
             Spacer(Modifier.height(12.dp))
             Row(verticalAlignment = Alignment.CenterVertically) {
                 VolumeControls(state, actions)

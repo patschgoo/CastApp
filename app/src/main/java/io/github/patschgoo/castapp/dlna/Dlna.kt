@@ -18,6 +18,12 @@ object Dlna {
     const val CONTENT_DIRECTORY = "urn:schemas-upnp-org:service:ContentDirectory:1"
     const val SSDP_ADDRESS = "239.255.255.250"
     const val SSDP_PORT = 1900
+    /** Marker of the subtitle look in the metadata CastApp sends to CastApp TV receivers. */
+    const val SUBTITLE_STYLE_PREFIX = "castapp:substyle:"
+
+    /** The subtitle look in DIDL-Lite metadata from CastApp, or null. */
+    fun subtitleStyleIn(metadata: String): String? =
+        Regex(Regex.escape(SUBTITLE_STYLE_PREFIX) + "([^<]*)").find(metadata)?.groupValues?.get(1)?.let(::unescape)?.trim()
 
     fun searchMessage(target: String = MEDIA_RENDERER): String =
         "M-SEARCH * HTTP/1.1\r\n" +
@@ -91,7 +97,16 @@ object Dlna {
      * DIDL-Lite metadata describing what to play. Samsung TVs pick up SRT
      * subtitles from the sec:CaptionInfoEx element.
      */
-    fun didl(title: String, url: String, mimeType: String, live: Boolean, srtUrl: String? = null, lowLatency: Boolean = false): String {
+    fun didl(
+        title: String,
+        url: String,
+        mimeType: String,
+        live: Boolean,
+        srtUrl: String? = null,
+        lowLatency: Boolean = false,
+        /** CastApp TV receivers: how subtitles should look ([io.github.patschgoo.castapp.subtitles.SubtitleStyle.encode]). */
+        subtitleStyle: String? = null,
+    ): String {
         val upnpClass = when {
             mimeType.startsWith("audio/") -> "object.item.audioItem.musicTrack"
             mimeType.startsWith("image/") -> "object.item.imageItem.photo"
@@ -116,6 +131,9 @@ object Dlna {
             }
             // CastApp TV receivers play the screen stream with minimal buffering when they see this.
             if (lowLatency) append("<desc id=\"castapp\" nameSpace=\"urn:castapp\">castapp:lowlatency</desc>")
+            if (subtitleStyle != null && srtUrl != null) {
+                append("<desc id=\"castapp-subtitles\" nameSpace=\"urn:castapp\">").append(SUBTITLE_STYLE_PREFIX).append(escape(subtitleStyle)).append("</desc>")
+            }
             append("</item></DIDL-Lite>")
         }
     }

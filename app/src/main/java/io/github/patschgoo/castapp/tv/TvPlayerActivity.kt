@@ -32,7 +32,9 @@ import androidx.media3.datasource.DefaultHttpDataSource
 import androidx.media3.exoplayer.DefaultLoadControl
 import androidx.media3.exoplayer.ExoPlayer
 import androidx.media3.exoplayer.source.DefaultMediaSourceFactory
+import androidx.media3.ui.CaptionStyleCompat
 import androidx.media3.ui.PlayerView
+import androidx.media3.ui.SubtitleView
 import java.net.HttpURLConnection
 import java.net.URL
 
@@ -198,6 +200,7 @@ class TvPlayerActivity : ComponentActivity() {
                 ),
             )
         }
+        applySubtitleStyle(io.github.patschgoo.castapp.subtitles.SubtitleStyle.decode(media.subtitleStyle))
         if (media.kind == TvMediaKind.AUDIO) {
             infoView.text = getString(io.github.patschgoo.castapp.R.string.tv_now_playing_audio, media.title)
             infoView.visibility = View.VISIBLE
@@ -208,6 +211,23 @@ class TvPlayerActivity : ComponentActivity() {
         player.prepare()
         player.playWhenReady = autoPlay
         applyVolume()
+    }
+
+    /** The subtitle look chosen on the phone (size, colour, background); the TV's own when none came. */
+    private fun applySubtitleStyle(style: io.github.patschgoo.castapp.subtitles.SubtitleStyle?) {
+        val view = playerView.subtitleView ?: return
+        if (style == null) {
+            view.setUserDefaultStyle()
+            view.setUserDefaultTextSize()
+            return
+        }
+        val edge = if (style.background == io.github.patschgoo.castapp.subtitles.SubtitleBackground.SHADOW) {
+            CaptionStyleCompat.EDGE_TYPE_DROP_SHADOW
+        } else {
+            CaptionStyleCompat.EDGE_TYPE_NONE
+        }
+        view.setStyle(CaptionStyleCompat(style.foregroundArgb, style.backgroundArgb, Color.TRANSPARENT, edge, Color.BLACK, null))
+        view.setFractionalTextSize(SubtitleView.DEFAULT_TEXT_SIZE_FRACTION * style.size.scale)
     }
 
     fun resume() {
