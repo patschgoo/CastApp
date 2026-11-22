@@ -173,6 +173,22 @@ class HandOverTest {
         val withSubs = HandOverOffer.portable(listOf(web.copy(subtitleUri = "content://x/1.srt"), nas.copy(subtitleUri = "http://192.168.1.5/1.srt")))
         assertNull(withSubs[0].subtitleUri)
         assertEquals("http://192.168.1.5/1.srt", withSubs[1].subtitleUri)
+        // Of several subtitle files only those the other device can read go along, the first of them shown.
+        val many = HandOverOffer.portable(
+            listOf(
+                share.copy(subtitleUri = "smb://src1/Movies/film.English.srt", moreSubtitles = listOf("smb://src1/Movies/film.German.srt")),
+                nas.copy(subtitleUri = "content://x/1.srt", moreSubtitles = listOf("http://192.168.1.5/1.de.srt", "content://x/1.fr.srt", "https://nas.local/1.es.ass")),
+                nas.copy(subtitleUri = "http://192.168.1.5/2.srt", moreSubtitles = listOf("http://192.168.1.5/2.de.srt")),
+            ),
+        )
+        assertNull(many[0].subtitleUri)
+        assertEquals(emptyList<String>(), many[0].moreSubtitles)
+        assertEquals("http://192.168.1.5/1.de.srt", many[1].subtitleUri)
+        assertEquals(listOf("https://nas.local/1.es.ass"), many[1].moreSubtitles)
+        assertEquals(listOf("http://192.168.1.5/2.srt", "http://192.168.1.5/2.de.srt"), many[2].subtitleFiles)
+        // And they travel in the offer.
+        val offered = offer().copy(items = many)
+        assertEquals(many, HandOverOffer.fromJson(offered.toJson())!!.items)
     }
 
     @Test

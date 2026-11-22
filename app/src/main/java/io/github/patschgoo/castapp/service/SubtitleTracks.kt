@@ -7,7 +7,7 @@ import java.util.concurrent.ConcurrentHashMap
 /** Where the subtitles on the TV come from. */
 enum class SubtitleKind {
     OFF,
-    /** The .srt/.vtt file picked or found next to the video. */
+    /** A subtitle file (.srt/.vtt/.ass) picked or found next to the video. */
     FILE,
     /** A text track inside the video file (MKV/MP4). */
     EMBEDDED,
@@ -17,13 +17,16 @@ enum class SubtitleKind {
     ONLINE,
 }
 
-/** One choice in the subtitle picker; [track] is the embedded track's ordinal. */
+/**
+ * One choice in the subtitle picker; [track] is the embedded track's ordinal, or for a file which
+ * of [MediaItem.subtitleFiles] (0 = [MediaItem.subtitleUri]).
+ */
 data class SubtitleChoice(val kind: SubtitleKind, val track: Int = 0) {
-    /** Short form used in addresses and intents: off, file, emb2, written, online. */
+    /** Short form used in addresses and intents: off, file, file3, emb2, written, online. */
     val key: String
         get() = when (kind) {
             SubtitleKind.OFF -> "off"
-            SubtitleKind.FILE -> "file"
+            SubtitleKind.FILE -> if (track == 0) "file" else "file$track"
             SubtitleKind.EMBEDDED -> "emb$track"
             SubtitleKind.WRITTEN -> "written"
             SubtitleKind.ONLINE -> "online"
@@ -31,11 +34,15 @@ data class SubtitleChoice(val kind: SubtitleKind, val track: Int = 0) {
 
     companion object {
         val OFF = SubtitleChoice(SubtitleKind.OFF)
+        /** The video's first subtitle file ([MediaItem.subtitleUri]). */
         val FILE = SubtitleChoice(SubtitleKind.FILE)
         val WRITTEN = SubtitleChoice(SubtitleKind.WRITTEN)
         val ONLINE = SubtitleChoice(SubtitleKind.ONLINE)
 
         fun embedded(track: Int) = SubtitleChoice(SubtitleKind.EMBEDDED, track)
+
+        /** Subtitle file [index] of [MediaItem.subtitleFiles]. */
+        fun file(index: Int) = SubtitleChoice(SubtitleKind.FILE, index)
 
         fun fromKey(key: String?): SubtitleChoice? = when {
             key == null -> null
@@ -43,12 +50,13 @@ data class SubtitleChoice(val kind: SubtitleKind, val track: Int = 0) {
             key == "file" -> FILE
             key == "written" -> WRITTEN
             key == "online" -> ONLINE
+            key.startsWith("file") -> key.removePrefix("file").toIntOrNull()?.takeIf { it >= 0 }?.let { file(it) }
             key.startsWith("emb") -> key.removePrefix("emb").toIntOrNull()?.takeIf { it >= 0 }?.let { embedded(it) }
             else -> null
         }
 
         /**
-         * What plays when the viewer hasn't picked anything: the subtitle file that
+         * What plays when the viewer hasn't picked anything: the (first) subtitle file that
          * came with the video, else ones found online, else written ones, else none.
          * Tracks inside the file are only used when picked (reading them out takes a while).
          */
@@ -69,7 +77,7 @@ class SubtitleTracks {
     private val offsets = ConcurrentHashMap<String, Long>()
     private val online = ConcurrentHashMap<String, Pair<String, List<Cue>>>()
     private val embedded = ConcurrentHashMap<String, ConcurrentHashMap<Int, List<Cue>>>()
-    private val fileCues = ConcurrentHashMap<String, List<Cue>>()
+    private val fileCues = ConcurrentHashMap<String, ConcurrentHashMap<Int, List<Cue>>>()
 
     fun choose(uri: String, choice: SubtitleChoice) {
         chosen[uri] = choice
@@ -109,16 +117,17 @@ class SubtitleTracks {
 
     fun embeddedCues(uri: String, track: Int): List<Cue>? = embedded[uri]?.get(track)
 
-    fun setFileCues(uri: String, cues: List<Cue>) {
-        fileCues[uri] = cues
+    /** The cues read from subtitle file [index] of the video [uri] ([MediaItem.subtitleFiles]). */
+    fun setFileCues(uri: String, index: Int, cues: List<Cue>) {
+        fileCues.getOrPut(uri) { ConcurrentHashMap() }[index] = cues
     }
 
-    fun fileCues(uri: String): List<Cue>? = fileCues[uri]
+    fun fileCues(uri: String, index: Int): List<Cue>? = fileCues[uri]?.get(index)
 
     /** The stored cues of [choice] (written ones come from [written]), or null when there are none (yet). */
     fun cuesFor(uri: String, choice: SubtitleChoice, written: List<Cue>?): List<Cue>? = when (choice.kind) {
         SubtitleKind.OFF -> null
-        SubtitleKind.FILE -> fileCues[uri]
+        SubtitleKind.FILE -> fileCues(uri, choice.track)
         SubtitleKind.EMBEDDED -> embeddedCues(uri, choice.track)
         SubtitleKind.WRITTEN -> written
         SubtitleKind.ONLINE -> online[uri]?.second

@@ -37,7 +37,7 @@
     <string name="subsrc_password">Passwort (optional)</string>
     <string name="subsrc_remove">Entfernen</string>
     <string name="subsrc_search_languages">Untertitelsprachen</string>
-    <string name="subsrc_search_languages_hint">Sprachcodes, z. B. en, de</string>
+    <string name="subsrc_search_languages_hint">Sprachcodes, die liebste zuerst, z. B. en, de. Bestimmt auch, welche Untertiteldatei neben einem Video gezeigt wird.</string>
     <string name="subsrc_search_languages_default">%1$s (Sprache des Handys)</string>
 
     <!-- While casting -->

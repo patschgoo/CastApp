@@ -10,9 +10,10 @@ object Subtitles {
     private val BOM = Char(0xFEFF)
     private val SRT_TIME = Regex("""(\d{1,2}:\d{2}:\d{2}),(\d{1,3})""")
 
+    /** SRT, WebVTT and ASS/SSA files (the TV gets them all as WebVTT or SRT). */
     fun isSubtitleFile(name: String): Boolean {
         val n = name.lowercase()
-        return n.endsWith(".srt") || n.endsWith(".vtt")
+        return n.endsWith(".srt") || n.endsWith(".vtt") || n.endsWith(".ass") || n.endsWith(".ssa")
     }
 
     /** Decodes subtitle bytes: UTF-8/UTF-16 with BOM, UTF-8, else Windows-1252 (old SRTs with umlauts). */

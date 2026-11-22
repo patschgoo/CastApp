@@ -60,6 +60,7 @@ import io.github.patschgoo.castapp.settings.SubtitleStyleSettings
 import io.github.patschgoo.castapp.stream.HlsConversions
 import io.github.patschgoo.castapp.subtitles.CueParser
 import io.github.patschgoo.castapp.subtitles.EmbeddedSubtitles
+import io.github.patschgoo.castapp.subtitles.Sidecars
 import io.github.patschgoo.castapp.subtitles.SubtitleImport
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CompletableDeferred
@@ -414,8 +415,9 @@ class MediaCastSession(
         }
     }
 
-    private fun subtitleText(item: MediaItem): String? {
-        val uri = item.subtitleUri ?: return null
+    /** The text of subtitle file [index] of [item] ([MediaItem.subtitleFiles]). */
+    private fun subtitleText(item: MediaItem, index: Int): String? {
+        val uri = item.subtitleFiles.getOrNull(index) ?: return null
         val bytes = when {
             uri.startsWith("http") -> HttpMediaSource(uri, item.headers, item.trustAll).open(0).use { HttpMediaSource.readUpTo(it, MAX_SUBTITLE_BYTES) }
             uri.startsWith("smb://") -> smbLocation(uri).let { (source, path) ->
@@ -428,8 +430,8 @@ class MediaCastSession(
 
     /** The cues of [choice] for [item], reading the subtitle file the first time. */
     private fun cuesFor(item: MediaItem, choice: SubtitleChoice): List<Cue>? {
-        if (choice.kind == SubtitleKind.FILE && subtitleTracks.fileCues(item.uri) == null) {
-            subtitleText(item)?.let { subtitleTracks.setFileCues(item.uri, CueParser.parse(it)) }
+        if (choice.kind == SubtitleKind.FILE && subtitleTracks.fileCues(item.uri, choice.track) == null) {
+            subtitleText(item, choice.track)?.let { subtitleTracks.setFileCues(item.uri, choice.track, CueParser.parse(it)) }
         }
         return subtitleTracks.cuesFor(item.uri, choice, generated[item.uri])
     }
@@ -1122,7 +1124,7 @@ class MediaCastSession(
 
     /** The subtitle sources this file has (or can have). */
     private fun subtitleChoices(item: MediaItem): List<SubtitleChoice> = buildList {
-        if (item.subtitleUri != null) add(SubtitleChoice.FILE)
+        item.subtitleFiles.indices.forEach { add(SubtitleChoice.file(it)) }
         trackCache[item.uri]?.textSupported?.forEach { add(SubtitleChoice.embedded(it.ordinal)) }
         if (subtitleTracks.hasOnline(item.uri)) add(SubtitleChoice.ONLINE)
         if (!generated[item.uri].isNullOrEmpty()) add(SubtitleChoice.WRITTEN)
@@ -1268,9 +1270,12 @@ class MediaCastSession(
             options += SubtitleOptionView(choice.key, label, detail, choice == active)
         }
         add(SubtitleChoice.OFF, context.getString(R.string.subs_off), null)
-        if (item.subtitleUri != null) {
-            val name = item.subtitleUri.substringBefore('?').substringAfterLast('/').substringAfterLast("%2F")
-            add(SubtitleChoice.FILE, context.getString(R.string.subs_file), name.takeIf { it.isNotBlank() })
+        // Each subtitle file by its language ("English", from "Film.English.srt"), else by what its name adds.
+        val display = context.resources.configuration.locales[0]
+        item.subtitleFiles.forEachIndexed { i, uri ->
+            val name = Sidecars.fileName(uri)
+            val label = Sidecars.label(item.title, name, display) ?: context.getString(R.string.subs_file)
+            add(SubtitleChoice.file(i), label, name.takeIf { it.isNotBlank() })
         }
         tracks?.textSupported?.forEach { add(SubtitleChoice.embedded(it.ordinal), it.describe(), context.getString(R.string.subs_in_file)) }
         subtitleTracks.onlineLabel(item.uri)?.takeIf { subtitleTracks.hasOnline(item.uri) }?.let { add(SubtitleChoice.ONLINE, it, context.getString(R.string.subs_online)) }

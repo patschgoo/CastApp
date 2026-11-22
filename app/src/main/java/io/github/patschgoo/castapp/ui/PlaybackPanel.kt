@@ -20,6 +20,7 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.selection.selectable
 import androidx.compose.foundation.selection.selectableGroup
 import androidx.compose.material.icons.Icons
@@ -268,7 +269,8 @@ private fun ChoiceRow(label: String, selected: Boolean, detail: String? = null, 
 @Composable
 private fun SubtitleSheet(tracks: TracksView, onDismiss: () -> Unit) {
     ModalBottomSheet(onDismissRequest = onDismiss) {
-        Column(Modifier.padding(start = 24.dp, end = 24.dp, bottom = 24.dp).selectableGroup()) {
+        // A video can come with a subtitle file for each of dozens of languages.
+        Column(Modifier.verticalScroll(rememberScrollState()).padding(start = 24.dp, end = 24.dp, bottom = 24.dp).selectableGroup()) {
             Text(stringResource(R.string.subs_title), style = MaterialTheme.typography.titleLarge)
             Spacer(Modifier.height(8.dp))
             for (option in tracks.subtitleOptions) {

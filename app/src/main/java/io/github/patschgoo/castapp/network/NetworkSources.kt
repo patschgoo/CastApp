@@ -8,6 +8,9 @@ import androidx.core.content.edit
 import io.github.patschgoo.castapp.dlna.Dlna
 import io.github.patschgoo.castapp.dlna.SsdpBrowser
 import io.github.patschgoo.castapp.service.MediaItem
+import io.github.patschgoo.castapp.settings.SubtitleSourceSettings
+import io.github.patschgoo.castapp.stream.Subtitles
+import io.github.patschgoo.castapp.subtitles.Sidecars
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -16,6 +19,7 @@ import kotlinx.coroutines.withContext
 import org.json.JSONArray
 import org.json.JSONObject
 import java.net.NetworkInterface
+import java.util.Locale
 import java.util.UUID
 import java.util.concurrent.ConcurrentHashMap
 
@@ -90,7 +94,8 @@ data class MediaServerInfo(val id: String, val name: String, val contentDirector
 
 /** Saved shares (passwords encrypted), discovered media servers, and browsing for both. */
 class NetworkSources(context: Context) {
-    private val prefs = context.applicationContext.getSharedPreferences("network_sources", Context.MODE_PRIVATE)
+    private val app = context.applicationContext
+    private val prefs = app.getSharedPreferences("network_sources", Context.MODE_PRIVATE)
     private val _sources = MutableStateFlow(load())
     val sources: StateFlow<List<NetworkSource>> = _sources.asStateFlow()
 
@@ -170,34 +175,44 @@ class NetworkSources(context: Context) {
         Unit
     }
 
-    /** Media items for the playable files of a folder listing. */
-    fun itemsFor(source: NetworkSource, entries: List<RemoteEntry>): List<MediaItem> {
+    /**
+     * Media items for the playable files of a folder listing. Each video gets the subtitle files
+     * named after it ([Sidecars]), the one in the first of [languages] it has first.
+     */
+    fun itemsFor(source: NetworkSource, entries: List<RemoteEntry>, languages: List<String> = preferredLanguages()): List<MediaItem> {
         val files = entries.filter { !it.isFolder }
-        val subtitles = files.filter { io.github.patschgoo.castapp.stream.Subtitles.isSubtitleFile(it.name) }
-        return files.mapNotNull { e ->
-            val mime = e.mimeType?.takeIf { it.startsWith("video/") || it.startsWith("audio/") || it.startsWith("image/") }
-                ?: MediaItem.mimeForUrl(e.name).takeIf { isMediaName(e.name) }
-                ?: return@mapNotNull null
-            val base = e.name.substringBeforeLast('.')
-            val sub = if (mime.startsWith("video/")) subtitles.firstOrNull { it.name.substringBeforeLast('.').startsWith(base, true) } else null
+        val subtitles = files.filter { Subtitles.isSubtitleFile(it.name) }
+        val media = files.mapNotNull { e -> mimeOf(e)?.let { e to it } }
+        val videos = media.filter { (_, mime) -> mime.startsWith("video/") }.map { it.first }
+        val owned = Sidecars.assign(videos.map { it.name }, subtitles.map { it.name })
+        val videoIndex = videos.withIndex().associate { it.value to it.index }
+        fun address(e: RemoteEntry) = if (source.kind == SourceKind.SMB) "smb://${source.id}/${e.path}" else e.path
+        return media.map { (e, mime) ->
+            val subs = videoIndex[e]?.let { v -> Sidecars.ranked(e.name, owned[v].map { subtitles[it] }, languages) { it.name }.map(::address) }.orEmpty()
             when (source.kind) {
                 SourceKind.SMB -> MediaItem(
                     title = e.name,
-                    uri = "smb://${source.id}/${e.path}",
+                    uri = address(e),
                     mimeType = mime,
-                    subtitleUri = sub?.let { "smb://${source.id}/${it.path}" },
+                    subtitleUri = subs.firstOrNull(),
+                    moreSubtitles = subs.drop(1),
                 )
                 SourceKind.WEBDAV -> MediaItem(
                     title = e.name,
                     uri = e.path,
                     mimeType = mime,
-                    subtitleUri = sub?.path,
+                    subtitleUri = subs.firstOrNull(),
                     headers = WebDav.authHeader(source.user, source.password),
                     trustAll = source.trustAll,
+                    moreSubtitles = subs.drop(1),
                 )
             }
         }
     }
+
+    /** The subtitle languages to prefer: those of the online search setting, else the phone's, then English. */
+    private fun preferredLanguages(): List<String> =
+        Sidecars.preferredLanguages(SubtitleSourceSettings.get(app).current.searchLanguages, Locale.getDefault())
 
     // ---- DLNA media servers ----------------------------------------------------------------------
 
@@ -220,11 +235,16 @@ class NetworkSources(context: Context) {
 
     companion object {
         private val MEDIA_EXT = listOf(
-            "mp4", "m4v", "mkv", "webm", "mov", "avi", "ts", "m2ts", "mpg", "mpeg", "wmv", "3gp",
+            "mp4", "m4v", "mkv", "webm", "mov", "avi", "divx", "ts", "m2ts", "mpg", "mpeg", "wmv", "3gp",
             "mp3", "m4a", "aac", "flac", "ogg", "opus", "wav", "wma",
             "jpg", "jpeg", "png", "webp", "heic", "gif",
         )
 
         fun isMediaName(name: String): Boolean = name.substringAfterLast('.', "").lowercase() in MEDIA_EXT
+
+        /** The type of a listed file: the server's (WebDAV) if it names one, else from the file name ("Show #9.mkv"). */
+        fun mimeOf(e: RemoteEntry): String? =
+            e.mimeType?.takeIf { it.startsWith("video/") || it.startsWith("audio/") || it.startsWith("image/") }
+                ?: MediaItem.mimeForName(e.name).takeIf { isMediaName(e.name) }
     }
 }

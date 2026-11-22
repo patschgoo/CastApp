@@ -64,7 +64,7 @@ object WebDav {
                 size = tag(block, "getcontentlength")?.toLongOrNull(),
             )
         }
-        return out.sortedWith(compareByDescending<RemoteEntry> { it.isFolder }.thenBy { it.name.lowercase() })
+        return out.sortedWith(NaturalOrder.entries)
     }
 
     private fun tag(xml: String, name: String): String? =

@@ -482,7 +482,7 @@ class CastService : Service() {
                 pendingItems[key] = items
                 intent.putExtra(EXTRA_ITEMS_KEY, key)
             }
-            val localUris = items.flatMap { listOfNotNull(it.uri, it.subtitleUri) }.filter { it.startsWith("content:") }.map(Uri::parse)
+            val localUris = items.flatMap { listOf(it.uri) + it.subtitleFiles }.filter { it.startsWith("content:") }.map(Uri::parse)
             if (localUris.isNotEmpty()) {
                 val clip = android.content.ClipData.newRawUri("media", localUris.first())
                 localUris.drop(1).forEach { clip.addItem(android.content.ClipData.Item(it)) }

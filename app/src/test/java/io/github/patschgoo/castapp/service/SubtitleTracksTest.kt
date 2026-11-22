@@ -21,6 +21,33 @@ class SubtitleTracksTest {
     }
 
     @Test
+    fun eachSubtitleFileIsAChoice() {
+        // The first file keeps the old key, so a "file" pick still means the shown one.
+        assertEquals("file", SubtitleChoice.file(0).key)
+        assertEquals(SubtitleChoice.FILE, SubtitleChoice.file(0))
+        assertEquals(SubtitleChoice.FILE, SubtitleChoice.fromKey("file0"))
+        assertEquals("file12", SubtitleChoice.file(12).key)
+        assertEquals(SubtitleChoice.file(12), SubtitleChoice.fromKey("file12"))
+        assertNull(SubtitleChoice.fromKey("file-1"))
+        assertNull(SubtitleChoice.fromKey("filex"))
+        // Without a pick the first file plays, a picked other one while it is there.
+        val t = SubtitleTracks()
+        val available = listOf(SubtitleChoice.file(0), SubtitleChoice.file(1), SubtitleChoice.file(2))
+        assertEquals(SubtitleChoice.FILE, t.effective(uri, available))
+        t.choose(uri, SubtitleChoice.file(2))
+        assertEquals(SubtitleChoice.file(2), t.effective(uri, available))
+        assertEquals(SubtitleChoice.FILE, t.effective(uri, available.take(2)))
+        // Each file's cues are kept apart.
+        val other = listOf(Cue(1.0, 2.0, "Hallo"))
+        t.setFileCues(uri, 0, cues)
+        t.setFileCues(uri, 2, other)
+        assertEquals(cues, t.cuesFor(uri, SubtitleChoice.FILE, written = null))
+        assertEquals(other, t.cuesFor(uri, SubtitleChoice.file(2), written = null))
+        assertNull(t.cuesFor(uri, SubtitleChoice.file(1), written = null))
+        assertNull(t.fileCues("content://media/other", 0))
+    }
+
+    @Test
     fun defaultPrefersTheFileThenOnlineThenWritten() {
         assertEquals(SubtitleChoice.OFF, SubtitleChoice.default(emptyList()))
         assertEquals(SubtitleChoice.OFF, SubtitleChoice.default(listOf(SubtitleChoice.embedded(0)))) // only when picked
