@@ -72,6 +72,7 @@ fun LazyListScope.supportSettingsSection() {
     item { SupportTitle(stringResource(R.string.support_section)) }
     item { SendLogItem() }
     item { NetworkCheckItem() }
+    item { SelfTestItem() }
     item { BatteryItem() }
     item { UpdateItems() }
     item { DoNotDisturbItem() }

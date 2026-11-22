@@ -1,0 +1,3 @@
+• Dieses Handy testen: ein Selbsttest unter Einstellungen → Hilfe & Support
+• Releases werden mit einem privaten Schlüssel signiert und mit Release-Notes veröffentlicht
+• Viele Korrekturen und Verbesserungen bei Übertragung, Untertiteln und TV-Fernbedienung
