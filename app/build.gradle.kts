@@ -1,3 +1,5 @@
+import java.util.Base64
+
 plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.compose)
@@ -26,14 +28,38 @@ android {
     }
 
     signingConfigs {
-        // A fixed key that lives in the repo so every build (local or CI) can be
-        // installed over the previous one. Replace it with your own key if you
-        // ever publish the app anywhere.
+        // The key that lives in the repo, so every build (local or CI) can be installed
+        // over the previous one. It is public: use your own key for anything you publish.
         create("shared") {
             storeFile = file("castapp.keystore")
             storePassword = "castapp"
             keyAlias = "castapp"
             keyPassword = "castapp"
+        }
+        // Your own release key, used only when it is configured (see "Signing key" in the
+        // README): CI secrets as environment variables, or gradle properties on your PC.
+        //   CASTAPP_KEYSTORE_FILE or CASTAPP_KEYSTORE_BASE64, CASTAPP_KEYSTORE_PASSWORD,
+        //   CASTAPP_KEY_ALIAS, CASTAPP_KEY_PASSWORD (key password defaults to the store password)
+        fun setting(name: String): String? =
+            (System.getenv(name) ?: providers.gradleProperty(name).orNull)?.trim()?.takeIf { it.isNotEmpty() }
+        val keystoreFile: File? = setting("CASTAPP_KEYSTORE_FILE")?.let { file(it) }
+            ?: setting("CASTAPP_KEYSTORE_BASE64")?.let { b64 ->
+                layout.buildDirectory.file("signing/release.jks").get().asFile.also {
+                    it.parentFile.mkdirs()
+                    it.writeBytes(Base64.getMimeDecoder().decode(b64))
+                }
+            }
+        val storePass = setting("CASTAPP_KEYSTORE_PASSWORD")
+        val alias = setting("CASTAPP_KEY_ALIAS")
+        if (keystoreFile != null && storePass != null && alias != null) {
+            create("own") {
+                storeFile = keystoreFile
+                storePassword = storePass
+                keyAlias = alias
+                keyPassword = setting("CASTAPP_KEY_PASSWORD") ?: storePass
+            }
+        } else if (keystoreFile != null || storePass != null || alias != null) {
+            logger.warn("CastApp: incomplete own signing key (need keystore, CASTAPP_KEYSTORE_PASSWORD and CASTAPP_KEY_ALIAS); using the committed key.")
         }
     }
 
@@ -45,7 +71,8 @@ android {
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro",
             )
-            signingConfig = signingConfigs.getByName("shared")
+            // Own key when configured, else the committed one.
+            signingConfig = signingConfigs.findByName("own") ?: signingConfigs.getByName("shared")
         }
         debug {
             applicationIdSuffix = ".debug"

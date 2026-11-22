@@ -332,6 +332,7 @@ In **Settings → Help & support**:
 
 - **Send debug log** opens the share sheet. Nothing is sent automatically.
 - **Why can't I find my TV?** checks your network and explains what is wrong.
+- **Test this phone** checks encoders (H.264, HEVC, AAC), screen and app-sound capture, notifications, battery optimization, infrared, Bluetooth keyboard mode, Wi-Fi/VPN, multicast, the receiver port and speech models, explains each result in plain words and adds it to the debug log. See [TESTING.md](TESTING.md) for a real-device test checklist.
 - **Battery optimization**: CastApp asks to be left alone and shows tips for your phone's brand.
 - **Check for updates** looks at the GitHub releases. For a private repository it only shows a message.
 - **Do Not Disturb while mirroring** and **Wake-on-LAN** for remembered TVs (the Samsung MAC address is filled in automatically).
@@ -478,7 +479,57 @@ receiver/          optional low-latency TV player (web app for Cast devices)
 
 ## Signing key
 
-`app/castapp.keystore` (password `castapp`) is committed on purpose. Every build, on your PC or in CI, is signed with the same key, so a new APK installs over the old one. This is fine for personal use. If you ever publish the app, replace the key with your own private one.
+By default `app/castapp.keystore` (password `castapp`) is used. It is committed on purpose, so every build, on your PC or in CI, is signed with the same key and a new APK installs over the old one. **Anyone can sign an APK with this key**, so it is fine for personal use only. For releases other people install, use your own private key. The build picks it up automatically when it is configured and otherwise falls back to the committed key.
+
+**Create your key once** (keep the file and passwords safe and backed up; if you lose them you can never publish an update that installs over the old one):
+
+```bash
+keytool -genkeypair -v -keystore castapp-release.jks -alias castapp \
+  -keyalg RSA -keysize 4096 -validity 10000
+```
+
+**Use it in GitHub Actions**: in the repository go to *Settings → Secrets and variables → Actions* and add these secrets:
+
+| Secret | Value |
+| --- | --- |
+| `CASTAPP_KEYSTORE_BASE64` | the key file as text: `base64 -w0 castapp-release.jks` (macOS: `base64 -i castapp-release.jks`) |
+| `CASTAPP_KEYSTORE_PASSWORD` | the keystore password |
+| `CASTAPP_KEY_ALIAS` | `castapp` (the alias from above) |
+| `CASTAPP_KEY_PASSWORD` | the key password (optional; defaults to the keystore password) |
+
+The workflow decodes the key only when the secret exists. Without it, it signs with the committed key.
+
+**Use it on your PC**: put the same names into `~/.gradle/gradle.properties` (never into the project), with `CASTAPP_KEYSTORE_FILE=/path/to/castapp-release.jks` instead of the base64 text:
+
+```properties
+CASTAPP_KEYSTORE_FILE=/home/me/keys/castapp-release.jks
+CASTAPP_KEYSTORE_PASSWORD=...
+CASTAPP_KEY_ALIAS=castapp
+```
+
+Environment variables with the same names work too. Never commit a real key.
+
+**Switching keys:** Android refuses to install an APK over an app with a different signature. When you move from the committed key to your own, **uninstall the old CastApp once** (its settings and remembered devices are lost) and install the new one. After that, updates install normally. Debug builds keep using the committed key.
+
+## How to release
+
+1. Bump `versionCode` (a whole number, always higher) and `versionName` in `app/build.gradle.kts`, and add `fastlane/metadata/android/en-US/changelogs/<versionCode>.txt` and the German one.
+2. Commit and push to the main branch, and wait for the *Build APK* run to pass.
+3. Tag and push: `git tag v<versionName> && git push origin v<versionName>`. For `versionName = "4.0.0"` the tag is `v4.0.0`.
+
+On a `v*` tag the workflow first checks that the tag matches `versionName` (and fails if it doesn't), runs the tests, builds the release APK and publishes a GitHub release with generated release notes and `CastApp.apk` attached. The app's **Check for updates** reads exactly these releases.
+
+## Testing
+
+Unit tests run with `./gradlew testDebugUnitTest`. Before a release, or when something doesn't work on a real device, go through the [real-device checklist](TESTING.md). Each phone can run **Settings → Help & support → Test this phone** and send the debug log.
+
+## Store metadata and distribution
+
+`fastlane/metadata/android/` (English and German) holds title, descriptions, changelogs and screenshots in the layout that F-Droid, IzzyOnDroid and Fastlane read.
+
+- **GitHub Releases** (what you have now): the signed `CastApp.apk`, plus the in-app update check.
+- **IzzyOnDroid**: the easiest store. It accepts the APK from a GitHub release as it is, reads the Fastlane metadata, and needs an open-source license in the repository (see below). Request inclusion on its issue tracker once a release is out. Keep your own signing key stable: IzzyOnDroid serves your signed APK.
+- **F-Droid main repository**: F-Droid builds the app from source with its own build server and signs it with its own key, and it does not accept prebuilt native binaries. CastApp does not meet this yet because **Vosk ships prebuilt `.so` libraries** (`vosk-android` and the JNA AAR). To qualify, either drop Vosk and keep only the Whisper engine (whisper.cpp is vendored and built from source with CMake), or build Vosk's native libraries from source in the F-Droid recipe. The speech models are downloaded at run time, which is fine. An F-Droid build would also be signed with a different key than your GitHub releases, so users cannot switch between them without reinstalling. (Or use F-Droid's reproducible-build route, which needs deterministic builds and your own signature.)
 
 ## License
 
