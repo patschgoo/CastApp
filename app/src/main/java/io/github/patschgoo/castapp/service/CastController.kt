@@ -122,6 +122,9 @@ object CastController {
     /** The session that currently owns the state; updates from older sessions are ignored. */
     @Volatile private var owner: Any? = null
 
+    /** The running cast, for screens that talk to it directly (e.g. to hand it subtitles). */
+    val activeCast: ActiveCast? get() = owner as? ActiveCast
+
     @Synchronized
     internal fun begin(owner: Any, state: CastState.Active) {
         this.owner = owner

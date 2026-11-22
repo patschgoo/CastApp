@@ -596,7 +596,8 @@ private fun ExtrasRow(state: CastState.Active, actions: DevicesActions) {
     val mirroring = state.kind != CastKind.FILE && !state.audioOnly
     val showQuality = state.qualityOptions.isNotEmpty()
     val writing = state.subtitleProgress >= 0
-    if (!showQuality && !state.canCreateSubtitles && !writing && !mirroring && !state.device.video) return
+    val findSubtitles = canFindSubtitles(state)
+    if (!showQuality && !state.canCreateSubtitles && !writing && !mirroring && !findSubtitles && !state.device.video) return
     Column(Modifier.padding(top = 10.dp)) {
         Row(
             Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
@@ -635,6 +636,7 @@ private fun ExtrasRow(state: CastState.Active, actions: DevicesActions) {
                     leadingIcon = { Icon(Icons.Rounded.Subtitles, contentDescription = null, modifier = Modifier.size(18.dp)) },
                 )
             }
+            if (findSubtitles) FindSubtitlesChip()
             if (state.device.video) {
                 AssistChip(
                     onClick = { actions.onOpenRemote(state.device) },
