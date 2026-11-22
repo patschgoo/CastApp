@@ -43,6 +43,13 @@ import io.github.patschgoo.castapp.subtitles.Cue
 import io.github.patschgoo.castapp.subtitles.CueBuilder
 import io.github.patschgoo.castapp.subtitles.SubtitleGenerator
 import io.github.patschgoo.castapp.subtitles.VoskModels
+import io.github.patschgoo.castapp.capture.TrackProbe
+import io.github.patschgoo.castapp.capture.startHlsTranscode
+import io.github.patschgoo.castapp.discovery.DeviceKind
+import io.github.patschgoo.castapp.settings.SubtitleStyleSettings
+import io.github.patschgoo.castapp.stream.HlsConversions
+import io.github.patschgoo.castapp.subtitles.CueParser
+import io.github.patschgoo.castapp.subtitles.EmbeddedSubtitles
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.CoroutineScope
@@ -109,8 +116,22 @@ class MediaCastSession(
     private lateinit var server: MediaServer
     private lateinit var proxy: WebProxy
 
-    /** The play list; replaced as a whole when something else is cast to the same TV. */
-    @Volatile private var items: List<MediaItem> = initialItems
+    /** The play list, editable while playing; replaced as a whole when something else is cast to the same TV. */
+    private val queue = PlayQueue(initialItems, startIndex)
+    private val items: List<MediaItem> get() = queue.items
+
+    /** Which subtitles go to the TV (file, inside the file, written, found online) and their timing. */
+    private val subtitleTracks = SubtitleTracks()
+    private val history = WatchHistory.get(context)
+    /** Apple TV / Roku: conversions served as HLS. */
+    private val hls = HlsConversions(File(context.cacheDir, "hls-convert"))
+    private val trackCache = ConcurrentHashMap<String, TrackList>()
+    /** Sound track picked per file (its place among the file's sound tracks). */
+    private val audioChoice = ConcurrentHashMap<String, Int>()
+    @Volatile private var probingFor: String? = null
+    @Volatile private var extractJob: Job? = null
+    @Volatile private var extractProgress = -1
+    @Volatile private var offsetReload: Job? = null
 
     // Caches by item address, so they stay right when the play list is replaced.
     private val photoCache = ConcurrentHashMap<String, ByteArray>()
@@ -121,7 +142,12 @@ class MediaCastSession(
     /** Channel addresses already checked and found not to be HLS. */
     private val notHls: MutableSet<String> = ConcurrentHashMap.newKeySet()
 
-    @Volatile private var index = startIndex.coerceIn(0, (items.size - 1).coerceAtLeast(0))
+    /** Position of the playing item; the queue keeps it right when the order changes. */
+    private var index: Int
+        get() = queue.index
+        set(value) {
+            queue.index = value
+        }
     @Volatile private var delivery = Delivery.SERVE
     @Volatile private var convertStartMs = 0L
     @Volatile private var outcome: CompletableDeferred<Boolean>? = null
@@ -147,6 +173,8 @@ class MediaCastSession(
     @Volatile private var subtitleJob: Job? = null
     @Volatile private var subtitleFor: String? = null
     @Volatile private var subtitleProgress = -1
+    /** The running subtitle job writes ahead for a later file. */
+    @Volatile private var writingAhead = false
 
     var mediaSession: MediaSession? = null
         private set
@@ -156,6 +184,8 @@ class MediaCastSession(
 
     fun start() {
         CastController.begin(this, baseState(CastPhase.CONNECTING))
+        PlaybackHub.attach(this)
+        publishQueue()
         createMediaSession()
         scope.launch { run() }
     }
@@ -176,8 +206,9 @@ class MediaCastSession(
     /** Fills in quality and subtitle details of the current item. */
     private fun CastState.Active.withExtras(): CastState.Active {
         val item = current
+        publishTracks(item)
         return copy(
-            hasSubtitles = item.subtitleUri != null || !generated[item.uri].isNullOrEmpty(),
+            hasSubtitles = subtitlesReady(item),
             canCreateSubtitles = canCreateSubtitles(item),
             subtitleProgress = if (subtitleFor == item.uri) subtitleProgress else -1,
             qualityOptions = qualityOptions(item),
@@ -206,11 +237,13 @@ class MediaCastSession(
             registerRoutes()
             server.start()
             connect()
-            playIndex(index, 0)
+            playIndex(index, 0, resume = true)
             // The TV reports changes only; refresh the position now and then.
             while (!ended.get()) {
                 delay(5000)
                 if (!reconnecting) try { renderer?.refresh() } catch (_: Exception) {}
+                recordPosition()
+                hls.sweep()
             }
         } catch (e: CancellationException) {
             throw e
@@ -232,12 +265,13 @@ class MediaCastSession(
         if (newItems.isEmpty() || ended.get() || renderer == null) return false
         scope.launch {
             playMutex.withLock {
-                items = newItems
-                index = startIndex.coerceIn(newItems.indices)
+                recordPosition(force = true)
+                queue.replaceAll(newItems, startIndex.coerceIn(newItems.indices))
                 direction = 1
                 skipped = 0
             }
-            playIndex(index, 0)
+            publishQueue()
+            playIndex(index, 0, resume = true)
         }
         return true
     }
@@ -266,8 +300,9 @@ class MediaCastSession(
     // ---- what the phone serves ----------------------------------------------------------
 
     private fun registerRoutes() {
-        // Paths: file/<i>/<name>, photo/<i>.jpg, sub/<i>/<offsetMs>.vtt|srt,
-        // gen/<i>/<offsetMs>.vtt|srt (written subtitles), tx/<i>/<startMs>/<height>.mp4 (converted).
+        // Paths use the queue entry id, which stays the same when the play list is edited:
+        // file/<id>/<name>, photo/<id>.jpg, st/<id>/<choice>/<streamStartMs>/<offsetMs>.vtt|srt (subtitles),
+        // tx/<id>/<startMs>/<height>/<audio>.mp4 (converted), hx/<id>/<startMs>/<height>/<audio>/… (converted, HLS).
         server.addPrefixRoute("file/") { request, socket, out ->
             val item = itemAt(request.path, "file/")?.takeIf { !it.isWeb } ?: return@addPrefixRoute notFound(out)
             val source = try { sourceFor(item) } catch (_: IOException) { return@addPrefixRoute notFound(out) }
@@ -277,42 +312,72 @@ class MediaCastSession(
             val item = itemAt(request.path, "photo/") ?: return@addPrefixRoute notFound(out)
             server.bytes("image/jpeg") { photo(item) }.handle(request, socket, out)
         }
-        server.addPrefixRoute("sub/") { request, socket, out ->
-            val item = itemAt(request.path, "sub/") ?: return@addPrefixRoute notFound(out)
-            val offset = offsetIn(request.path)
-            if (request.path.endsWith(".srt")) {
-                server.bytes("application/x-subrip") { subtitleText(item)?.let { Subtitles.shift(it, offset).toByteArray() } }
-            } else {
-                server.bytes("text/vtt") { subtitleText(item)?.let { Subtitles.shift(Subtitles.toWebVtt(it), offset).toByteArray() } }
-            }.handle(request, socket, out)
-        }
-        server.addPrefixRoute("gen/") { request, socket, out ->
-            val item = itemAt(request.path, "gen/") ?: return@addPrefixRoute notFound(out)
-            val cues = generated[item.uri] ?: return@addPrefixRoute notFound(out)
-            val shifted = CueBuilder.shift(cues, offsetIn(request.path) / 1000.0)
-            if (request.path.endsWith(".srt")) {
-                server.bytes("application/x-subrip") { CueBuilder.toSrt(shifted).toByteArray() }
-            } else {
-                server.bytes("text/vtt") { CueBuilder.toWebVtt(shifted).toByteArray() }
+        server.addPrefixRoute("st/") { request, socket, out ->
+            val parts = request.path.substringAfter("/st/").split('/')
+            val item = parts.getOrNull(0)?.toLongOrNull()?.let { queue.itemById(it) } ?: return@addPrefixRoute notFound(out)
+            val choice = SubtitleChoice.fromKey(parts.getOrNull(1)) ?: return@addPrefixRoute notFound(out)
+            val streamStart = parts.getOrNull(2)?.toLongOrNull() ?: 0
+            val last = parts.getOrNull(3).orEmpty()
+            val userOffset = last.substringBefore('.').toLongOrNull() ?: 0
+            val srt = last.endsWith(".srt")
+            server.bytes(if (srt) "application/x-subrip" else "text/vtt") {
+                val cues = cuesFor(item, choice) ?: return@bytes null
+                val timed = SubtitleTracks.timed(cues, streamStart, userOffset)
+                (if (srt) CueBuilder.toSrt(timed) else CueBuilder.toWebVtt(timed)).toByteArray()
             }.handle(request, socket, out)
         }
         // A new conversion per request.
         server.addPrefixRoute("tx/") { request, socket, out ->
             val parts = request.path.substringAfter("/tx/").removeSuffix(".mp4").split('/')
-            val item = parts.getOrNull(0)?.toIntOrNull()?.let { items.getOrNull(it) } ?: return@addPrefixRoute notFound(out)
+            val item = parts.getOrNull(0)?.toLongOrNull()?.let { queue.itemById(it) } ?: return@addPrefixRoute notFound(out)
             val startMs = parts.getOrNull(1)?.toLongOrNull() ?: 0
             val height = parts.getOrNull(2)?.toIntOrNull() ?: 1080
-            serveConverted(item, startMs, height, request, socket, out)
+            val audio = parts.getOrNull(3)?.toIntOrNull() ?: 0
+            serveConverted(item, startMs, height, audio, request, socket, out)
         }
+        // One conversion that lives across the TV's playlist and segment requests.
+        server.addPrefixRoute("hx/") { request, socket, out -> serveHls(request, socket, out) }
     }
 
     private fun notFound(out: OutputStream) = server.writeResponseHead(out, 404, "Not Found", "text/plain", 0, emptyMap())
 
     private fun itemAt(path: String, prefix: String): MediaItem? =
-        path.substringAfter("/$prefix").substringBefore('/').substringBefore('.').toIntOrNull()?.let { items.getOrNull(it) }
+        path.substringAfter("/$prefix").substringBefore('/').substringBefore('.').toLongOrNull()?.let { queue.itemById(it) }
 
-    /** The <offsetMs> part of sub/<i>/<offsetMs>.vtt. */
-    private fun offsetIn(path: String): Long = path.substringAfterLast('/').substringBefore('.').toLongOrNull() ?: 0
+    private fun serveHls(request: TokenHttpServer.Request, socket: Socket, out: OutputStream) {
+        val parts = request.path.substringAfter("/hx/").split('/')
+        if (parts.size < 5) return notFound(out)
+        val item = parts[0].toLongOrNull()?.let { queue.itemById(it) } ?: return notFound(out)
+        val startMs = parts[1].toLongOrNull() ?: 0
+        val height = parts[2].toIntOrNull() ?: 1080
+        val audio = parts[3].toIntOrNull() ?: 0
+        val key = parts.take(4).joinToString("/")
+        val file = parts[4]
+        when {
+            file == "index.m3u8" -> {
+                val conversion = try {
+                    hls.obtain(key) { c -> startHlsTranscode(context, inputFor(item), startMs, height, audio, c) }
+                } catch (e: Exception) {
+                    Log.w(TAG, "Can't convert ${item.title}", e)
+                    return server.writeResponseHead(out, 500, "Conversion failed", "text/plain", 0, emptyMap())
+                }
+                val playlist = conversion.store.playlist(minSegments = 2, timeoutMs = 40_000)
+                    ?: return server.writeResponseHead(out, 503, "Converting", "text/plain", 0, emptyMap())
+                server.bytes("application/vnd.apple.mpegurl") { playlist.toByteArray() }.handle(request, socket, out)
+            }
+            file == "init.mp4" -> {
+                val init = hls.find(key)?.store?.init ?: return notFound(out)
+                server.bytes("video/mp4") { init }.handle(request, socket, out)
+            }
+            file.startsWith("seg") && file.endsWith(".m4s") -> {
+                val n = file.removePrefix("seg").removeSuffix(".m4s").toIntOrNull() ?: return notFound(out)
+                val conversion = hls.find(key) ?: return notFound(out)
+                val data = conversion.store.segment(n, timeoutMs = 30_000) ?: return notFound(out)
+                server.bytes("video/mp4") { data }.handle(request, socket, out)
+            }
+            else -> notFound(out)
+        }
+    }
 
     private fun photo(item: MediaItem): ByteArray? = photoCache[item.uri] ?: run {
         val jpeg = if (item.isSmb) {
@@ -338,10 +403,18 @@ class MediaCastSession(
         return Subtitles.decode(bytes)
     }
 
-    private fun serveConverted(item: MediaItem, startMs: Long, height: Int, request: TokenHttpServer.Request, socket: Socket, out: OutputStream) {
+    /** The cues of [choice] for [item], reading the subtitle file the first time. */
+    private fun cuesFor(item: MediaItem, choice: SubtitleChoice): List<Cue>? {
+        if (choice.kind == SubtitleKind.FILE && subtitleTracks.fileCues(item.uri) == null) {
+            subtitleText(item)?.let { subtitleTracks.setFileCues(item.uri, CueParser.parse(it)) }
+        }
+        return subtitleTracks.cuesFor(item.uri, choice, generated[item.uri])
+    }
+
+    private fun serveConverted(item: MediaItem, startMs: Long, height: Int, audio: Int, request: TokenHttpServer.Request, socket: Socket, out: OutputStream) {
         val queue = InterleavingQueue(setOf(FragmentedMp4.VIDEO_TRACK_ID, FragmentedMp4.AUDIO_TRACK_ID))
         val transcoder = try {
-            Transcoder(context, inputFor(item), startMs * 1000, queue, maxHeight = height)
+            Transcoder(context, inputFor(item), startMs * 1000, queue, maxHeight = height, audioTrackOrdinal = audio)
         } catch (_: IOException) {
             server.writeResponseHead(out, 500, "Conversion failed", "text/plain", 0, emptyMap())
             return
@@ -473,7 +546,7 @@ class MediaCastSession(
             return item
         }
         val resolved = item.copy(mimeType = "application/x-mpegurl")
-        items = items.toMutableList().also { if (it.getOrNull(i) == item) it[i] = resolved }
+        queue.replaceItem(i, item, resolved)
         return resolved
     }
 
@@ -494,14 +567,41 @@ class MediaCastSession(
         val item = current
         if (!canCreateSubtitles(item)) return
         if (subtitleJob?.isActive == true) {
-            if (!auto) CastController.message("Still writing subtitles for another file")
-            return
+            if (writingAhead && subtitleFor != item.uri) {
+                // Only writing ahead for a later file: the one playing now goes first.
+                subtitleJob?.cancel()
+            } else {
+                if (!auto) CastController.message(context.getString(R.string.subtitles_busy))
+                return
+            }
         }
         val lang = VoskModels.byCode(settings.subtitleLanguage)?.takeIf { VoskModels.isInstalled(context, it) }
         if (lang == null) {
             if (!auto) CastController.message("Choose and download the spoken language in Settings → Subtitles first")
             return
         }
+        startSubtitleJob(item, lang, ahead = false)
+    }
+
+    /**
+     * "Write subtitles automatically": once the file playing now has its subtitles,
+     * write them for the next files in the queue, so they're ready when those start.
+     */
+    private fun writeAhead() {
+        if (!settings.autoSubtitles || ended.get() || subtitleJob?.isActive == true) return
+        if (canCreateSubtitles(current)) return
+        val lang = VoskModels.byCode(settings.subtitleLanguage)?.takeIf { VoskModels.isInstalled(context, it) } ?: return
+        val next = queue.upcoming(WRITE_AHEAD).map { it.item }.firstOrNull { item ->
+            if (!subtitlesPossible(item) || item.uri in generatedDone) return@firstOrNull false
+            loadCachedSubtitles(item)
+            item.uri !in generatedDone
+        } ?: return
+        Log.i(TAG, "Writing subtitles ahead for ${next.title}")
+        startSubtitleJob(next, lang, ahead = true)
+    }
+
+    private fun startSubtitleJob(item: MediaItem, lang: VoskModels.Language, ahead: Boolean) {
+        writingAhead = ahead
         subtitleFor = item.uri
         subtitleProgress = 0
         refreshExtras()
@@ -512,7 +612,7 @@ class MediaCastSession(
                 val cues = SubtitleGenerator(context).generate(inputFor(item), lang) { fraction, partial ->
                     subtitleProgress = (fraction * 100).toInt().coerceIn(0, 99)
                     if (partial.isNotEmpty()) generated[item.uri] = partial
-                    refreshExtras()
+                    if (current.uri == item.uri) refreshExtras()
                     // Hand the TV what we have when it covers a good stretch ahead of the viewer.
                     val covered = partial.lastOrNull()?.end ?: 0.0
                     val s = CastController.state.value as? CastState.Active
@@ -532,12 +632,20 @@ class MediaCastSession(
                 subtitleFor = null
                 subtitleProgress = -1
                 refreshExtras()
-                if (cues.isEmpty()) CastController.message("No speech found in \"${item.title}\"")
-                else {
+                val playingNow = current.uri == item.uri
+                if (cues.isEmpty()) {
+                    if (playingNow) CastController.message("No speech found in \"${item.title}\"")
+                } else if (playingNow) {
                     if (!subtitlesOn) toggleSubtitles()
                     reloadForSubtitles(item)
                 }
+                writeAhead()
             } catch (e: CancellationException) {
+                if (item.uri !in generatedDone) generated.remove(item.uri)
+                if (subtitleFor == item.uri) {
+                    subtitleFor = null
+                    subtitleProgress = -1
+                }
                 throw e
             } catch (e: Exception) {
                 Log.w(TAG, "Writing subtitles failed", e)
@@ -545,7 +653,7 @@ class MediaCastSession(
                 subtitleFor = null
                 subtitleProgress = -1
                 refreshExtras()
-                CastController.message("Couldn't write subtitles: ${e.message ?: "unknown error"}")
+                if (current.uri == item.uri) CastController.message("Couldn't write subtitles: ${e.message ?: "unknown error"}")
             }
         }
     }
@@ -610,76 +718,96 @@ class MediaCastSession(
                 ConvertMode.AUTO -> listOf(Delivery.SERVE, Delivery.CONVERT)
             }
         }
-        // A quality picked by hand: convert to it (the original is the fallback).
-        return if (convertHeight > 0 && item.type == MediaType.VIDEO && !item.isHls) {
+        // A quality or sound track picked by hand: convert to it (the original is the fallback).
+        val picked = convertHeight > 0 || (audioChoice[item.uri] ?: 0) > 0
+        return if (picked && item.type == MediaType.VIDEO && !item.isHls) {
             listOf(Delivery.CONVERT) + base.filter { it != Delivery.CONVERT }
         } else {
             base
         }
     }
 
+    /** Apple TV and Roku can't play an endless MP4: they get converted videos as HLS. */
+    private val convertsToHls: Boolean get() = device.kind == DeviceKind.AIRPLAY || device.kind == DeviceKind.ROKU
+
     private fun mediaFor(i: Int, d: Delivery, startMs: Long): RendererMedia {
         val item = items[i]
+        val id = queue.idAt(i)
         val local = renderer?.localAddress ?: throw CastException("No network path to the TV")
         val t = server.token
+        val audio = audioChoice[item.uri] ?: 0
         val url = when (d) {
             Delivery.DIRECT -> item.uri
             Delivery.PROXY -> server.urlFor(local, proxy.pathFor(item.uri))
             Delivery.SERVE -> server.urlFor(
                 local,
-                if (item.type == MediaType.PHOTO) "/$t/photo/$i.jpg" else "/$t/file/$i/" + MediaServer.safeName(item.title),
+                if (item.type == MediaType.PHOTO) "/$t/photo/$id.jpg" else "/$t/file/$id/" + MediaServer.safeName(item.title),
             )
-            Delivery.CONVERT -> server.urlFor(local, "/$t/tx/$i/$startMs/${convertHeightNow()}.mp4")
+            Delivery.CONVERT -> if (convertsToHls) {
+                server.urlFor(local, "/$t/hx/$id/$startMs/${convertHeightNow()}/$audio/index.m3u8")
+            } else {
+                server.urlFor(local, "/$t/tx/$id/$startMs/${convertHeightNow()}/$audio.mp4")
+            }
         }
         val mime = when {
-            d == Delivery.CONVERT -> "video/mp4"
+            d == Delivery.CONVERT -> if (convertsToHls) "application/x-mpegurl" else "video/mp4"
             item.type == MediaType.PHOTO -> if (d == Delivery.SERVE) "image/jpeg" else item.mimeType
             item.isHls -> "application/x-mpegurl"
             else -> CastService.normalizeMime(item.mimeType)
         }
-        // A converted video starts its clock at 0: move the subtitles along.
-        val offset = if (d == Delivery.CONVERT) startMs else 0
-        val ownSubs = item.subtitleUri != null
-        val written = !ownSubs && !generated[item.uri].isNullOrEmpty()
-        val vtt = when {
-            ownSubs -> server.urlFor(local, "/$t/sub/$i/$offset.vtt")
-            written -> server.urlFor(local, "/$t/gen/$i/$offset.vtt")
-            else -> null
-        }
-        val srt = when {
-            ownSubs && item.subtitleUri.lowercase().substringBefore('?').endsWith(".srt") -> server.urlFor(local, "/$t/sub/$i/$offset.srt")
-            written -> server.urlFor(local, "/$t/gen/$i/$offset.srt")
-            else -> null
-        }
+        // A converted video starts its clock at 0: move the subtitles along (and by the timing correction).
+        val streamStart = if (d == Delivery.CONVERT) startMs else 0
+        val choice = activeSubtitle(item)
+        val subtitlePath = if (subtitlesReady(item)) "/$t/st/$id/${choice.key}/$streamStart/${subtitleTracks.offsetMs(item.uri)}" else null
         return RendererMedia(
             url = url,
             mimeType = mime,
             title = item.title,
             subtitle = device.name,
             live = item.live || d == Delivery.CONVERT,
-            subtitleUrl = vtt,
-            subtitleSrtUrl = srt,
+            subtitleUrl = subtitlePath?.let { server.urlFor(local, "$it.vtt") },
+            subtitleSrtUrl = subtitlePath?.let { server.urlFor(local, "$it.srt") },
             subtitlesOn = subtitlesOn,
             startMs = if (d == Delivery.CONVERT || item.live) 0 else startMs,
+            subtitleStyle = SubtitleStyleSettings.get(context).current,
         )
     }
 
-    /** Plays item [i] from [startMs], trying each way of delivering it until the TV accepts one. */
-    private suspend fun playIndex(i: Int, startMs: Long, onlyFrom: Delivery? = null): Unit = playMutex.withLock {
+    /**
+     * Plays item [i] from [startMs], trying each way of delivering it until the TV accepts one.
+     * [resume]: a fresh start of the item, which continues where it was left last time.
+     */
+    private suspend fun playIndex(i: Int, startMs: Long, onlyFrom: Delivery? = null, resume: Boolean = false): Unit = playMutex.withLock {
         if (ended.get() || i !in items.indices) return
         slideshow?.cancel()
-        if (i != index) liveRetries = 0
+        if (i != index) {
+            liveRetries = 0
+            recordPosition(force = true)
+        }
         index = i
         var item = current
+        var start = startMs
+        if (resume && onlyFrom == null && startMs == 0L) {
+            val at = history.resumePosition(item)
+            if (at != null) {
+                start = at
+                PlaybackHub.resumeFlow.value = ResumeNotice(item.uri, at)
+            } else {
+                PlaybackHub.resumeFlow.value = null
+            }
+        } else if (PlaybackHub.resumeFlow.value?.uri != item.uri) {
+            PlaybackHub.resumeFlow.value = null
+        }
         started = false
         CastController.update(this) {
             baseState(CastPhase.BUFFERING).copy(
                 volume = volume?.toFloat(),
                 muted = muted,
-                positionMs = if (item.live) 0 else startMs,
+                positionMs = if (item.live) 0 else start,
                 positionAt = SystemClock.elapsedRealtime(),
             )
         }
+        publishQueue()
         mainHandler.post { publishMediaSessionState() }
 
         if (item.live && item.isWeb && !item.isHls) item = runInterruptible { resolveLiveType(i) }
@@ -702,7 +830,7 @@ class MediaCastSession(
             val r = renderer ?: return
             try {
                 delivery = d
-                convertStartMs = if (d == Delivery.CONVERT) startMs else 0
+                convertStartMs = if (d == Delivery.CONVERT) start else 0
                 if (d == Delivery.CONVERT) {
                     if (!item.live) durationCache.getOrPut(item.uri) { runInterruptible { Transcoder.probeDurationMs(context, inputFor(item)) } }
                     update { it.copy(phase = CastPhase.CONVERTING, converting = true).withExtras() }
@@ -711,7 +839,7 @@ class MediaCastSession(
                 }
                 val waiter = CompletableDeferred<Boolean>()
                 outcome = waiter
-                val status = r.load(mediaFor(i, d, startMs))
+                val status = r.load(mediaFor(i, d, start))
                 onStatus(r, status)
                 if (item.type == MediaType.PHOTO) {
                     started = true
@@ -726,10 +854,11 @@ class MediaCastSession(
                     started = true
                     skipped = 0
                     refreshExtras()
-                    if (d == Delivery.CONVERT && convertHeight == 0) {
+                    if (d == Delivery.CONVERT && convertHeight == 0 && (audioChoice[item.uri] ?: 0) == 0) {
                         CastController.message("Converting \"${item.title}\" on the phone so the TV can play it")
                     }
-                    if (settings.autoSubtitles && canCreateSubtitles(item)) createSubtitles(auto = true)
+                    if (settings.autoSubtitles && canCreateSubtitles(item)) createSubtitles(auto = true) else writeAhead()
+                    probeTracks(item)
                     return
                 }
                 Log.i(TAG, "${item.title}: $d didn't play, trying the next way")
@@ -754,7 +883,8 @@ class MediaCastSession(
 
     private fun scheduleSlideshow() {
         slideshow?.cancel()
-        if (slideshowPaused || index + 1 >= items.size || items[index + 1].type != MediaType.PHOTO) return
+        val following = queue.nextIndex(auto = false) ?: return
+        if (slideshowPaused || following == index || items.getOrNull(following)?.type != MediaType.PHOTO) return
         slideshow = scope.launch {
             delay(settings.slideshowSeconds * 1000L)
             next()
@@ -800,26 +930,288 @@ class MediaCastSession(
 
     fun next() {
         direction = 1
-        if (index + 1 < items.size) scope.launch { playIndex(index + 1, 0) }
+        queue.nextIndex(auto = false)?.let { n -> scope.launch { playIndex(n, 0, resume = true) } }
     }
 
     fun previous() {
         direction = -1
         val s = CastController.state.value as? CastState.Active
         if (s != null && !s.isPhoto && !current.live && s.positionNow(SystemClock.elapsedRealtime()) > 5000) seekTo(0)
-        else if (index > 0) scope.launch { playIndex(index - 1, 0) }
+        else queue.previousIndex()?.let { p -> scope.launch { playIndex(p, 0, resume = true) } }
     }
 
     /** Jumps to item [i] of the play list (e.g. a TV channel picked from the list). */
     fun playAt(i: Int) {
         direction = 1
-        if (i in items.indices) scope.launch { playIndex(i, 0) }
+        if (i in items.indices) scope.launch { playIndex(i, 0, resume = true) }
     }
 
     fun toggleSubtitles() {
         subtitlesOn = !subtitlesOn
         update { it.copy(subtitlesOn = subtitlesOn) }
         control { it.setSubtitlesVisible(subtitlesOn) }
+    }
+
+    /** "Start over" after a resume. */
+    fun startOver() {
+        PlaybackHub.resumeFlow.value = null
+        seekTo(0)
+    }
+
+    // ---- editing the queue ------------------------------------------------------------------------
+
+    /** Plays the queue entry [id] now. */
+    fun queueJump(id: Long) {
+        direction = 1
+        val i = queue.indexOf(id)
+        if (i >= 0) scope.launch { playIndex(i, 0, resume = true) }
+    }
+
+    fun queueMove(id: Long, delta: Int) {
+        if (queue.moveBy(id, delta)) onQueueChanged()
+    }
+
+    fun queueRemove(id: Long) {
+        if (id == queue.currentEntryId) recordPosition(force = true)
+        when (val r = queue.remove(id)) {
+            PlayQueue.Removal.None -> Unit
+            PlayQueue.Removal.Other -> onQueueChanged()
+            is PlayQueue.Removal.Current -> if (r.index < 0) {
+                finish(context.getString(R.string.queue_empty))
+            } else {
+                onQueueChanged()
+                scope.launch { playIndex(r.index, 0, resume = true) }
+            }
+        }
+    }
+
+    /** Adds files (or web videos) at the end of the queue. */
+    fun queueAdd(newItems: List<MediaItem>) {
+        if (newItems.isEmpty()) return
+        queue.add(newItems)
+        onQueueChanged()
+    }
+
+    fun setShuffle(on: Boolean) {
+        queue.setShuffle(on)
+        onQueueChanged()
+    }
+
+    fun cycleRepeat() {
+        queue.repeat = queue.repeat.cycle()
+        onQueueChanged()
+    }
+
+    private fun onQueueChanged() {
+        update { it.copy(queueIndex = index, queueSize = items.size) }
+        publishQueue()
+        mainHandler.post { publishMediaSessionState() }
+        if (current.type == MediaType.PHOTO && started) scheduleSlideshow()
+        writeAhead()
+    }
+
+    private fun publishQueue() {
+        val entries = queue.entries
+        PlaybackHub.queueFlow.value = QueueView(
+            entries = entries.map { QueueEntryView(it.id, it.item.title, it.item.type, it.item.live) },
+            currentId = queue.currentEntryId,
+            repeat = queue.repeat,
+            shuffled = queue.shuffled,
+            editable = entries.none { it.item.live },
+        )
+    }
+
+    // ---- subtitle and sound tracks ----------------------------------------------------------------
+
+    /** The subtitle sources this file has (or can have). */
+    private fun subtitleChoices(item: MediaItem): List<SubtitleChoice> = buildList {
+        if (item.subtitleUri != null) add(SubtitleChoice.FILE)
+        trackCache[item.uri]?.textSupported?.forEach { add(SubtitleChoice.embedded(it.ordinal)) }
+        if (subtitleTracks.hasOnline(item.uri)) add(SubtitleChoice.ONLINE)
+        if (!generated[item.uri].isNullOrEmpty()) add(SubtitleChoice.WRITTEN)
+    }
+
+    private fun activeSubtitle(item: MediaItem): SubtitleChoice = subtitleTracks.effective(item.uri, subtitleChoices(item))
+
+    /** Subtitles go to the TV with this file (the file's own are read when the TV asks). */
+    private fun subtitlesReady(item: MediaItem): Boolean {
+        val choice = activeSubtitle(item)
+        return when (choice.kind) {
+            SubtitleKind.OFF -> false
+            SubtitleKind.FILE -> true
+            else -> subtitleTracks.cuesFor(item.uri, choice, generated[item.uri]) != null
+        }
+    }
+
+    /** Picks the subtitles by [key] (see [SubtitleChoice.key]) and reloads the TV where it is. */
+    fun chooseSubtitles(key: String) {
+        val choice = SubtitleChoice.fromKey(key) ?: return
+        val item = current
+        subtitleTracks.choose(item.uri, choice)
+        when {
+            choice.kind == SubtitleKind.EMBEDDED && subtitleTracks.embeddedCues(item.uri, choice.track) == null -> {
+                extractEmbedded(item, choice.track)
+                refreshExtras()
+                return
+            }
+            choice.kind == SubtitleKind.WRITTEN && generated[item.uri].isNullOrEmpty() -> {
+                createSubtitles()
+                refreshExtras()
+                return
+            }
+        }
+        if (choice != SubtitleChoice.OFF && !subtitlesOn) {
+            subtitlesOn = true
+            update { it.copy(subtitlesOn = true) }
+        }
+        refreshExtras()
+        scope.launch { reloadForSubtitles(item) }
+    }
+
+    /**
+     * Subtitles found online, or from any other source, for the file playing now:
+     * they become one more choice of the subtitle picker and are shown right away.
+     */
+    fun showOnlineSubtitles(text: String, label: String = context.getString(R.string.subs_online)) {
+        val item = current
+        val cues = CueParser.parse(text)
+        if (cues.isEmpty()) return
+        subtitleTracks.setOnline(item.uri, label, cues)
+        chooseSubtitles(SubtitleChoice.ONLINE.key)
+    }
+
+    /** Moves the subtitles [deltaMs] later (positive) or earlier; the TV reloads shortly after the last tap. */
+    fun shiftSubtitles(deltaMs: Long) {
+        val item = current
+        subtitleTracks.adjustOffset(item.uri, deltaMs)
+        refreshExtras()
+        offsetReload?.cancel()
+        offsetReload = scope.launch {
+            delay(1200)
+            reloadForSubtitles(item)
+        }
+    }
+
+    /** Plays sound track [ordinal]; anything but the first is converted on the phone. */
+    fun chooseAudioTrack(ordinal: Int) {
+        val item = current
+        if (item.type != MediaType.VIDEO || item.live || ended.get()) return
+        if ((audioChoice[item.uri] ?: 0) == ordinal) return
+        if (ordinal <= 0) audioChoice.remove(item.uri) else audioChoice[item.uri] = ordinal
+        val s = CastController.state.value as? CastState.Active ?: return
+        val position = s.positionNow(SystemClock.elapsedRealtime())
+        val wasPaused = s.paused
+        refreshExtras()
+        scope.launch {
+            playIndex(index, position, onlyFrom = if (ordinal > 0) Delivery.CONVERT else null)
+            if (wasPaused) pause()
+        }
+    }
+
+    /** Looks for sound and subtitle tracks inside the file (in the background, once per file). */
+    private fun probeTracks(item: MediaItem) {
+        if (item.type != MediaType.VIDEO || item.live || item.isHls || trackCache.containsKey(item.uri) || probingFor == item.uri) return
+        probingFor = item.uri
+        refreshExtras()
+        scope.launch {
+            val source = try { sourceFor(item) } catch (_: Exception) { null }
+            trackCache[item.uri] = try { TrackProbe.probe(context, inputFor(item), source) } catch (_: Exception) { TrackList() }
+            probingFor = null
+            refreshExtras()
+        }
+    }
+
+    /** Reads a subtitle track out of the file, then shows it. */
+    private fun extractEmbedded(item: MediaItem, track: Int) {
+        extractJob?.cancel()
+        extractProgress = 0
+        extractJob = scope.launch {
+            val job = coroutineContext[Job]
+            try {
+                var shown = 0
+                val cues = EmbeddedSubtitles.extract(sourceFor(item), track, cancelled = { job?.isActive != true }) { p ->
+                    val percent = (p * 100).toInt()
+                    if (percent != shown) {
+                        shown = percent
+                        extractProgress = percent
+                        refreshExtras()
+                    }
+                }
+                if (job?.isActive != true) return@launch
+                subtitleTracks.setEmbedded(item.uri, track, cues)
+                extractProgress = -1
+                refreshExtras()
+                if (cues.isEmpty()) {
+                    CastController.message(context.getString(R.string.subs_track_empty))
+                } else if (current.uri == item.uri && subtitleTracks.chosen(item.uri) == SubtitleChoice.embedded(track)) {
+                    if (!subtitlesOn) {
+                        subtitlesOn = true
+                        update { it.copy(subtitlesOn = true) }
+                    }
+                    reloadForSubtitles(item)
+                }
+            } catch (e: CancellationException) {
+                extractProgress = -1
+                throw e
+            } catch (e: Exception) {
+                Log.w(TAG, "Reading the subtitle track failed", e)
+                extractProgress = -1
+                refreshExtras()
+                CastController.message(context.getString(R.string.subs_track_failed))
+            }
+        }
+    }
+
+    private fun publishTracks(item: MediaItem) {
+        val tracks = trackCache[item.uri]
+        val active = activeSubtitle(item)
+        val media = (item.type == MediaType.VIDEO || item.type == MediaType.AUDIO) && !item.live && !item.isHls
+        val options = ArrayList<SubtitleOptionView>()
+        fun add(choice: SubtitleChoice, label: String, detail: String?) {
+            options += SubtitleOptionView(choice.key, label, detail, choice == active)
+        }
+        add(SubtitleChoice.OFF, context.getString(R.string.subs_off), null)
+        if (item.subtitleUri != null) {
+            val name = item.subtitleUri.substringBefore('?').substringAfterLast('/').substringAfterLast("%2F")
+            add(SubtitleChoice.FILE, context.getString(R.string.subs_file), name.takeIf { it.isNotBlank() })
+        }
+        tracks?.textSupported?.forEach { add(SubtitleChoice.embedded(it.ordinal), it.describe(), context.getString(R.string.subs_in_file)) }
+        subtitleTracks.onlineLabel(item.uri)?.takeIf { subtitleTracks.hasOnline(item.uri) }?.let { add(SubtitleChoice.ONLINE, it, context.getString(R.string.subs_online)) }
+        val written = !generated[item.uri].isNullOrEmpty()
+        if (written || canCreateSubtitles(item) || subtitleFor == item.uri) {
+            add(
+                SubtitleChoice.WRITTEN,
+                context.getString(R.string.subs_written),
+                when {
+                    subtitleFor == item.uri -> context.getString(R.string.subs_writing, subtitleProgress.coerceAtLeast(0))
+                    item.uri in generatedDone -> null
+                    written -> context.getString(R.string.subs_partly_written)
+                    else -> context.getString(R.string.subs_write_hint)
+                },
+            )
+        }
+        val audioPick = audioChoice[item.uri] ?: 0
+        val audio = tracks?.audio.orEmpty().takeIf { it.size > 1 && item.type == MediaType.VIDEO }.orEmpty()
+        PlaybackHub.tracksFlow.value = TracksView(
+            subtitleOptions = if (media) options else emptyList(),
+            audioOptions = audio.map { AudioOptionView(it.ordinal, it.describe(), it.ordinal == audioPick) },
+            subtitlesActive = media && subtitlesReady(item),
+            offsetMs = subtitleTracks.offsetMs(item.uri),
+            extractProgress = extractProgress,
+            probing = probingFor == item.uri,
+            pictureSubtitles = tracks?.pictureSubtitles ?: 0,
+            canPickSubtitles = media && options.size > 1,
+        )
+    }
+
+    /** Notes how far the file playing now got, for "Continue watching". */
+    private fun recordPosition(force: Boolean = false) {
+        if (!started || ended.get() && !force) return
+        val s = CastController.state.value as? CastState.Active ?: return
+        if (s.kind != CastKind.FILE || s.isPhoto) return
+        val item = current
+        if (item.live) return
+        history.record(item, s.positionNow(SystemClock.elapsedRealtime()), s.durationMs, force)
     }
 
     private fun control(action: suspend (MediaRenderer) -> Unit) {
@@ -884,10 +1276,16 @@ class MediaCastSession(
                 else if (started && current.type != MediaType.PHOTO) scope.launch { recoverFromError() }
             }
             PlayState.FINISHED -> if (started && current.type != MediaType.PHOTO && waiter == null) {
+                if (!current.live) history.markFinished(current, (CastController.state.value as? CastState.Active)?.durationMs ?: 0)
+                val following = queue.nextIndex(auto = true)
                 when {
                     // A TV channel doesn't end: it dropped out, so tune in again.
                     current.live -> scope.launch { restartLive() }
-                    index + 1 < items.size -> next()
+                    SleepTimer.takeItemEnd() -> finish(context.getString(R.string.sleep_stopped))
+                    following != null -> {
+                        direction = 1
+                        scope.launch { playIndex(following, 0, resume = following != index) }
+                    }
                     else -> finish("Finished playing")
                 }
             }
@@ -912,9 +1310,9 @@ class MediaCastSession(
         val position = s?.positionNow(SystemClock.elapsedRealtime()) ?: 0
         if (current.type == MediaType.VIDEO && !current.isHls && delivery != Delivery.CONVERT && settings.convert != ConvertMode.OFF) {
             playIndex(index, position, onlyFrom = Delivery.CONVERT)
-        } else if (index + 1 < items.size) {
+        } else if (queue.nextIndex(auto = false)?.takeIf { it != index } != null) {
             CastController.message("${device.name} couldn't play \"${current.title}\"")
-            playIndex(index + 1, 0)
+            playIndex(queue.nextIndex(auto = false) ?: return, 0)
         } else {
             finish("${device.name} couldn't play \"${current.title}\"")
         }
@@ -1015,7 +1413,7 @@ class MediaCastSession(
         val live = current.live
         var actions = PlaybackState.ACTION_PLAY or PlaybackState.ACTION_PAUSE or PlaybackState.ACTION_PLAY_PAUSE or PlaybackState.ACTION_STOP
         if (!live) actions = actions or PlaybackState.ACTION_SEEK_TO or PlaybackState.ACTION_FAST_FORWARD or PlaybackState.ACTION_REWIND
-        if (items.size > 1) actions = actions or PlaybackState.ACTION_SKIP_TO_NEXT or PlaybackState.ACTION_SKIP_TO_PREVIOUS
+        if (items.size > 1 || queue.hasNext) actions = actions or PlaybackState.ACTION_SKIP_TO_NEXT or PlaybackState.ACTION_SKIP_TO_PREVIOUS
         val builder = PlaybackState.Builder()
             .setActions(actions)
             .setState(state, s?.positionMs ?: 0, if (state == PlaybackState.STATE_PLAYING) 1f else 0f, s?.positionAt ?: SystemClock.elapsedRealtime())
@@ -1043,6 +1441,10 @@ class MediaCastSession(
 
     private fun teardown(message: String?, stopReceiver: Boolean) {
         slideshow?.cancel()
+        recordPosition(force = true)
+        history.flush()
+        hls.stopAll()
+        PlaybackHub.detach(this)
         val r = renderer
         if (stopReceiver && r != null) {
             try { runBlocking { withTimeoutOrNull(2500) { r.stop() } } } catch (_: Exception) {}
@@ -1074,6 +1476,8 @@ class MediaCastSession(
         private const val MAX_LIVE_RETRIES = 4
         private const val MAX_PHOTO_BYTES = 80 * 1024 * 1024
         private const val MAX_SUBTITLE_BYTES = 8 * 1024 * 1024
+        /** How many of the next files get subtitles written ahead. */
+        private const val WRITE_AHEAD = 2
         const val ORIGINAL = "Original"
         const val AUTO = "Auto"
         val FILE_QUALITIES = listOf(ORIGINAL, "1080p", "720p", "480p")

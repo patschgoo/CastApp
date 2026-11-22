@@ -157,13 +157,14 @@ fun SettingsScreen(
                 ListItem(
                     onClick = { settings.update { it.copy(autoSubtitles = !it.autoSubtitles) } },
                     supportingContent = {
-                        Text("For videos and music without subtitles, start writing them as soon as they play. Otherwise use \"Write subtitles\" while casting.")
+                        Text("For videos and music without subtitles, start writing them as soon as they play, and for the next files in the queue ahead of time. Otherwise use \"Write subtitles\" while casting.")
                     },
                     trailingContent = {
                         Switch(checked = s.autoSubtitles, onCheckedChange = { c -> settings.update { it.copy(autoSubtitles = c) } })
                     },
                 ) { Text("Write subtitles automatically") }
             }
+            item { SubtitleStyleItems() }
             item {
                 val context = LocalContext.current
                 SettingItem(

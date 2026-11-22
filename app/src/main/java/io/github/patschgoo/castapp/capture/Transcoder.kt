@@ -32,6 +32,8 @@ class Transcoder(
     /** Height limit of the output (1080 = Full HD; 720, 480 for weaker Wi-Fi). */
     private val maxHeight: Int = 1080,
     val hub: StreamHub = StreamHub(),
+    /** Which sound track to use: its place among the file's sound tracks (0 = the first). */
+    private val audioTrackOrdinal: Int = 0,
 ) {
     @Volatile private var running = false
     private val threads = ArrayList<Thread>()
@@ -46,10 +48,15 @@ class Transcoder(
         val probe = newExtractor()
         var videoTrack = -1
         var audioTrack = -1
+        var audioSeen = 0
         for (i in 0 until probe.trackCount) {
             val mime = probe.getTrackFormat(i).getString(MediaFormat.KEY_MIME) ?: continue
             if (mime.startsWith("video/") && videoTrack < 0) videoTrack = i
-            if (mime.startsWith("audio/") && audioTrack < 0) audioTrack = i
+            if (mime.startsWith("audio/")) {
+                // The chosen sound track, or the first one if the file has fewer.
+                if (audioTrack < 0 || audioSeen == audioTrackOrdinal) audioTrack = i
+                audioSeen++
+            }
         }
         val videoFormat = if (videoTrack >= 0) probe.getTrackFormat(videoTrack) else null
         val audioFormat = if (audioTrack >= 0) probe.getTrackFormat(audioTrack) else null
@@ -120,7 +127,16 @@ class Transcoder(
             val encSurface = enc.createInputSurface()
             enc.start()
             encoder = enc
-            drain = Thread({ drainVideoEncoder(enc, outW, outH) }, "transcode-venc").apply { start() }
+            // HLS output cuts segments at key frames and asks for one when a segment gets long.
+            hub.keyFrameRequester = {
+                if (running) {
+                    try {
+                        enc.setParameters(android.os.Bundle().apply { putInt(MediaCodec.PARAMETER_KEY_REQUEST_SYNC_FRAME, 0) })
+                    } catch (_: Exception) {
+                    }
+                }
+            }
+            drain =Thread({ drainVideoEncoder(enc, outW, outH) }, "transcode-venc").apply { start() }
 
             val gl = GlScaler(encSurface, outW, outH, fill = false)
             val decSurface = gl.start(dispW, dispH)
@@ -168,6 +184,7 @@ class Transcoder(
             Log.w(TAG, "Video conversion failed", e)
             error = e
         } finally {
+            hub.keyFrameRequester = null
             queue.endTrack(FragmentedMp4.VIDEO_TRACK_ID)
             running = false
             drain?.interrupt()
