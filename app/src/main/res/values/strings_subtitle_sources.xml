@@ -1,0 +1,62 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Settings → Subtitles: speech engine -->
+    <string name="subsrc_engine">Speech engine</string>
+    <string name="subsrc_engine_vosk">Fast (Vosk)</string>
+    <string name="subsrc_engine_vosk_text">Quick and light. Needs the spoken language chosen and downloaded above.</string>
+    <string name="subsrc_engine_whisper">Accurate (Whisper)</string>
+    <string name="subsrc_engine_whisper_text">Fewer mistakes, detects the language and can translate into English. Slower.</string>
+    <string name="subsrc_model_tiny">Tiny — quickest, makes more mistakes</string>
+    <string name="subsrc_model_base">Base — good balance (recommended)</string>
+    <string name="subsrc_model_small">Small — most accurate, slow on older phones</string>
+    <string name="subsrc_whisper_model">Whisper model</string>
+    <string name="subsrc_whisper_model_none">Choose a model (downloaded once, then works offline)</string>
+    <string name="subsrc_whisper_model_ready">%1$s — ready, works offline</string>
+    <string name="subsrc_whisper_model_missing">%1$s — needs to be downloaded (%2$d MB)</string>
+    <string name="subsrc_whisper_hint">Whisper makes fewer mistakes than the fast engine, understands about 100 languages and can translate them into English. It takes longer to write subtitles, especially with the Small model. Models are downloaded once from the whisper.cpp project on Hugging Face.</string>
+    <string name="subsrc_model_download">%1$d MB download</string>
+    <string name="subsrc_model_downloading">Downloading… %1$d%%</string>
+    <string name="subsrc_model_downloaded">Downloaded</string>
+    <string name="subsrc_delete_model">Delete %1$s</string>
+    <string name="subsrc_whisper_language">Language Whisper listens for</string>
+    <string name="subsrc_detect_language">Detect automatically</string>
+    <string name="subsrc_translate">Translate to English</string>
+    <string name="subsrc_translate_on">Whisper writes English subtitles whatever language is spoken</string>
+    <string name="subsrc_translate_needs_whisper">Needs the Accurate (Whisper) speech engine</string>
+    <string name="subsrc_done">Done</string>
+
+    <!-- Settings → Subtitles: OpenSubtitles.com -->
+    <string name="subsrc_online_title">Subtitles from the internet</string>
+    <string name="subsrc_account">OpenSubtitles.com</string>
+    <string name="subsrc_account_off">Off. Enter your own free API key to look for subtitles while casting a video.</string>
+    <string name="subsrc_account_on">On — tap \"Find subtitles\" while casting a video</string>
+    <string name="subsrc_account_on_user">On, logged in as %1$s — tap \"Find subtitles\" while casting a video</string>
+    <string name="subsrc_account_text">Get a free API key on opensubtitles.com (your profile → API consumers). Nothing is sent until you tap \"Find subtitles\" while casting. Then the video\'s file name and its OpenSubtitles fingerprint (a hash of its size and of two small pieces of the file) go to OpenSubtitles.com. Username and password are optional and give you more downloads per day. Everything is stored encrypted on this phone.</string>
+    <string name="subsrc_api_key">API key</string>
+    <string name="subsrc_username">Username (optional)</string>
+    <string name="subsrc_password">Password (optional)</string>
+    <string name="subsrc_remove">Remove</string>
+    <string name="subsrc_search_languages">Subtitle languages</string>
+    <string name="subsrc_search_languages_hint">Language codes, e.g. en, de</string>
+    <string name="subsrc_search_languages_default">%1$s (the phone\'s language)</string>
+
+    <!-- While casting -->
+    <string name="subsrc_find">Find subtitles</string>
+    <string name="subsrc_searching">Searching OpenSubtitles.com…</string>
+    <string name="subsrc_downloading">Downloading the subtitles…</string>
+    <string name="subsrc_searched_for">Searched for \"%1$s\" in %2$s</string>
+    <string name="subsrc_searched_hash">Results marked \"Matches your file\" were made for exactly this file.</string>
+    <string name="subsrc_hash_match">Matches your file</string>
+    <string name="subsrc_downloads">%1$s downloads</string>
+    <string name="subsrc_hearing_impaired">for the hearing impaired</string>
+    <string name="subsrc_machine_translated">machine translated</string>
+    <string name="subsrc_not_video">Subtitles can only be looked for while a video file is casting.</string>
+    <string name="subsrc_search_again">Search again</string>
+    <string name="subsrc_close">Close</string>
+    <string name="subsrc_using">Subtitles from OpenSubtitles.com are on the TV</string>
+    <plurals name="subsrc_using_remaining">
+        <item quantity="one">Subtitles from OpenSubtitles.com are on the TV (%1$d download left today)</item>
+        <item quantity="other">Subtitles from OpenSubtitles.com are on the TV (%1$d downloads left today)</item>
+    </plurals>
+    <string name="subsrc_empty_file">That file holds no subtitles. Try another one.</string>
+</resources>

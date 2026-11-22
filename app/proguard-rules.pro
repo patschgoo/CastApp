@@ -11,3 +11,8 @@
 -keep class * implements com.sun.jna.** { *; }
 -keep class org.vosk.** { *; }
 -dontwarn java.awt.**
+
+# Whisper speech engine: JNI functions are looked up by class and method name, and the
+# native code calls back into WhisperNative.Progress.onProgress.
+-keep class io.github.patschgoo.castapp.subtitles.WhisperNative { native <methods>; }
+-keep interface io.github.patschgoo.castapp.subtitles.WhisperNative$Progress { void onProgress(int); }

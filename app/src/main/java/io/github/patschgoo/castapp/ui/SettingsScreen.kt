@@ -177,6 +177,8 @@ fun SettingsScreen(
                 }
             }
 
+            item { SubtitleSourcesSection() }
+
             item { SectionTitle("Connection") }
             item { SettingItem("Stream mode", s.streamMode.label + " — " + s.streamMode.description) { dialog = SettingDialog.MODE } }
             item { SettingItem("Stream port", "${s.port} (only change if something else uses it)") { dialog = SettingDialog.PORT } }

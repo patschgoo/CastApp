@@ -41,8 +41,9 @@ import io.github.patschgoo.castapp.stream.TokenHttpServer
 import io.github.patschgoo.castapp.stream.WebProxy
 import io.github.patschgoo.castapp.subtitles.Cue
 import io.github.patschgoo.castapp.subtitles.CueBuilder
+import io.github.patschgoo.castapp.subtitles.SpeechEngines
 import io.github.patschgoo.castapp.subtitles.SubtitleGenerator
-import io.github.patschgoo.castapp.subtitles.VoskModels
+import io.github.patschgoo.castapp.subtitles.SubtitleImport
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.CoroutineScope
@@ -118,6 +119,8 @@ class MediaCastSession(
     private val variantCache = ConcurrentHashMap<String, List<HlsVariant>>()
     private val generated = ConcurrentHashMap<String, List<Cue>>()
     private val generatedDone: MutableSet<String> = ConcurrentHashMap.newKeySet()
+    /** Items whose subtitles were picked online: they win over the file's own subtitles. */
+    private val downloadedSubs: MutableSet<String> = ConcurrentHashMap.newKeySet()
     /** Channel addresses already checked and found not to be HLS. */
     private val notHls: MutableSet<String> = ConcurrentHashMap.newKeySet()
 
@@ -497,9 +500,9 @@ class MediaCastSession(
             if (!auto) CastController.message("Still writing subtitles for another file")
             return
         }
-        val lang = VoskModels.byCode(settings.subtitleLanguage)?.takeIf { VoskModels.isInstalled(context, it) }
-        if (lang == null) {
-            if (!auto) CastController.message("Choose and download the spoken language in Settings → Subtitles first")
+        val (setup, missing) = SpeechEngines.ready(context, settings.subtitleLanguage)
+        if (setup == null) {
+            if (!auto) CastController.message(missing ?: "Choose the spoken language in Settings → Subtitles first")
             return
         }
         subtitleFor = item.uri
@@ -509,9 +512,9 @@ class MediaCastSession(
             var servedUntil = 0.0
             var lastReload = 0L
             try {
-                val cues = SubtitleGenerator(context).generate(inputFor(item), lang) { fraction, partial ->
+                val cues = SubtitleGenerator(context).generate(inputFor(item), setup) { fraction, partial ->
                     subtitleProgress = (fraction * 100).toInt().coerceIn(0, 99)
-                    if (partial.isNotEmpty()) generated[item.uri] = partial
+                    if (partial.isNotEmpty() && item.uri !in downloadedSubs) generated[item.uri] = partial
                     refreshExtras()
                     // Hand the TV what we have when it covers a good stretch ahead of the viewer.
                     val covered = partial.lastOrNull()?.end ?: 0.0
@@ -528,7 +531,7 @@ class MediaCastSession(
                 }
                 generated[item.uri] = cues
                 generatedDone += item.uri
-                saveCachedSubtitles(item, lang, cues)
+                saveCachedSubtitles(item, setup.cacheKey, cues)
                 subtitleFor = null
                 subtitleProgress = -1
                 refreshExtras()
@@ -550,6 +553,43 @@ class MediaCastSession(
         }
     }
 
+    // ---- subtitles found online ---------------------------------------------------------------
+
+    /** The video now playing and a way to read it, for finding subtitles online (null: not a video file). */
+    fun subtitleSearchFile(): Pair<MediaItem, MediaSource?>? {
+        val item = current
+        if (item.type != MediaType.VIDEO || item.live || item.isHls) return null
+        val source = if (item.isWeb) null else try { sourceFor(item) } catch (_: IOException) { null }
+        return item to source
+    }
+
+    /**
+     * Shows [text] (SRT or WebVTT) as the subtitles of the current video, instead of any it
+     * had, and reloads it on the TV like written subtitles. False if it holds no subtitles.
+     */
+    fun useSubtitles(text: String): Boolean {
+        val item = current
+        if (item.type == MediaType.PHOTO || item.live) return false
+        val cues = SubtitleImport.parse(text)
+        if (cues.isEmpty()) return false
+        downloadedSubs += item.uri
+        generated[item.uri] = cues
+        generatedDone += item.uri
+        if (subtitleFor == item.uri) {
+            // Found ones replace the ones being written.
+            subtitleJob?.cancel()
+            subtitleFor = null
+            subtitleProgress = -1
+        }
+        saveCachedSubtitles(item, DOWNLOADED_KEY, cues)
+        refreshExtras()
+        scope.launch {
+            if (!subtitlesOn) toggleSubtitles()
+            reloadForSubtitles(item)
+        }
+        return true
+    }
+
     /** Reloads the item on the TV where it is, so the TV picks up the newest subtitles. */
     private suspend fun reloadForSubtitles(item: MediaItem) {
         if (ended.get() || reconnecting || current.uri != item.uri || !started) return
@@ -559,16 +599,16 @@ class MediaCastSession(
         if (s.paused) pause()
     }
 
-    private fun cacheFile(item: MediaItem, lang: VoskModels.Language): File {
-        val digest = MessageDigest.getInstance("SHA-1").digest("${item.uri}|${lang.code}".toByteArray())
+    /** [key]: the speech setup's cache key, or [DOWNLOADED_KEY] for subtitles found online. */
+    private fun cacheFile(item: MediaItem, key: String): File {
+        val digest = MessageDigest.getInstance("SHA-1").digest("${item.uri}|$key".toByteArray())
         return File(File(context.filesDir, "subtitles"), digest.joinToString("") { "%02x".format(java.util.Locale.ROOT, it) } + ".json")
     }
 
     private fun loadCachedSubtitles(item: MediaItem) {
         if (!subtitlesPossible(item) || item.uri in generatedDone) return
-        val lang = VoskModels.byCode(settings.subtitleLanguage) ?: return
-        val file = cacheFile(item, lang)
-        if (!file.exists()) return
+        val keys = listOfNotNull(DOWNLOADED_KEY, SpeechEngines.chosen(context, settings.subtitleLanguage)?.cacheKey)
+        val file = keys.map { cacheFile(item, it) }.firstOrNull { it.exists() } ?: return
         try {
             generated[item.uri] = CueBuilder.fromJson(file.readText())
             generatedDone += item.uri
@@ -577,9 +617,9 @@ class MediaCastSession(
         }
     }
 
-    private fun saveCachedSubtitles(item: MediaItem, lang: VoskModels.Language, cues: List<Cue>) {
+    private fun saveCachedSubtitles(item: MediaItem, key: String, cues: List<Cue>) {
         try {
-            val file = cacheFile(item, lang)
+            val file = cacheFile(item, key)
             file.parentFile?.mkdirs()
             file.writeText(CueBuilder.toJson(cues))
         } catch (e: Exception) {
@@ -639,7 +679,7 @@ class MediaCastSession(
         }
         // A converted video starts its clock at 0: move the subtitles along.
         val offset = if (d == Delivery.CONVERT) startMs else 0
-        val ownSubs = item.subtitleUri != null
+        val ownSubs = item.subtitleUri != null && item.uri !in downloadedSubs
         val written = !ownSubs && !generated[item.uri].isNullOrEmpty()
         val vtt = when {
             ownSubs -> server.urlFor(local, "/$t/sub/$i/$offset.vtt")
@@ -1074,6 +1114,7 @@ class MediaCastSession(
         private const val MAX_LIVE_RETRIES = 4
         private const val MAX_PHOTO_BYTES = 80 * 1024 * 1024
         private const val MAX_SUBTITLE_BYTES = 8 * 1024 * 1024
+        private const val DOWNLOADED_KEY = "downloaded"
         const val ORIGINAL = "Original"
         const val AUTO = "Auto"
         val FILE_QUALITIES = listOf(ORIGINAL, "1080p", "720p", "480p")
