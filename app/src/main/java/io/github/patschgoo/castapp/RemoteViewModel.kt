@@ -4,13 +4,17 @@ import android.app.Application
 import androidx.core.content.edit
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
+import io.github.patschgoo.castapp.remote.MicrophoneException
 import io.github.patschgoo.castapp.remote.RemoteKey
+import io.github.patschgoo.castapp.remote.VoiceCapture
 import io.github.patschgoo.castapp.remote.RemoteProviders
 import io.github.patschgoo.castapp.remote.RemoteSession
 import io.github.patschgoo.castapp.remote.RemoteTarget
 import io.github.patschgoo.castapp.remote.RemoteUi
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CompletableDeferred
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -20,6 +24,7 @@ import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeoutOrNull
 
 /** What the remote screen shows. */
@@ -33,6 +38,21 @@ data class RemoteUiState(
     /** What went wrong, in plain words; the screen offers to try again. */
     val error: String? = null,
 )
+
+/** Voice search on the remote screen. */
+data class VoiceUiState(
+    /** Waiting for the TV to open its voice session. */
+    val starting: Boolean = false,
+    val listening: Boolean = false,
+    /** Loudness 0..1 for the listening indicator. */
+    val level: Float = 0f,
+    /** Why voice search didn't work, in plain words. */
+    val message: String? = null,
+    /** The message is about the microphone permission (offer the app's settings). */
+    val needsPermission: Boolean = false,
+) {
+    val active: Boolean get() = starting || listening
+}
 
 /** A code the TV shows that the user has to type in. */
 class CodeRequest(val title: String, val message: String, val answer: CompletableDeferred<String?>)
@@ -54,6 +74,11 @@ class RemoteViewModel(app: Application) : AndroidViewModel(app) {
     /** Set while looking for the TV used last time; shown in the list. */
     private val _searchingFor = MutableStateFlow<String?>(null)
     val searchingFor: StateFlow<String?> = _searchingFor.asStateFlow()
+
+    private val _voice = MutableStateFlow(VoiceUiState())
+    val voice: StateFlow<VoiceUiState> = _voice.asStateFlow()
+    private var voiceJob: Job? = null
+    @Volatile private var voiceStop = false
 
     private val actions = Channel<suspend () -> Unit>(capacity = 12)
     private var connectJob: Job? = null
@@ -120,6 +145,8 @@ class RemoteViewModel(app: Application) : AndroidViewModel(app) {
         connectJob?.cancel()
         _searchingFor.value = null
         _showList.value = false
+        voiceStop = true
+        _voice.value = VoiceUiState()
         closeSession()
         prefs.edit { putString(KEY_LAST, target.id).putString(KEY_LAST_NAME, target.name) }
         _state.value = RemoteUiState(target = target, connecting = true, message = context.getString(R.string.remote_connecting, target.name))
@@ -137,6 +164,59 @@ class RemoteViewModel(app: Application) : AndroidViewModel(app) {
                 _state.value = RemoteUiState(target = target, error = describe(e, target))
             }
         }
+    }
+
+    /** Starts listening and streams the speech to the TV until [stopVoice] (or 15 seconds). */
+    fun startVoice() {
+        if (voiceJob?.isActive == true) return
+        val current = _state.value
+        val session = current.session ?: return
+        val target = current.target ?: return
+        val context = getApplication<Application>()
+        voiceStop = false
+        _voice.value = VoiceUiState(starting = true)
+        voiceJob = viewModelScope.launch(Dispatchers.IO) {
+            try {
+                val voice = session.startVoice()
+                if (voice == null) {
+                    _voice.value = VoiceUiState(message = context.getString(R.string.remote_voice_unsupported, target.name))
+                    return@launch
+                }
+                _voice.value = VoiceUiState(listening = true)
+                try {
+                    VoiceCapture(context, voice.sampleRate).record(
+                        stop = { voiceStop },
+                        maxMs = 15_000,
+                        onLevel = { l -> _voice.update { it.copy(level = l) } },
+                    ) { pcm, n -> voice.send(pcm, n) }
+                } finally {
+                    withContext(NonCancellable) { try { voice.end() } catch (_: Exception) {} }
+                }
+                _voice.value = VoiceUiState()
+            } catch (e: CancellationException) {
+                _voice.value = VoiceUiState()
+                throw e
+            } catch (_: SecurityException) {
+                _voice.value = VoiceUiState(message = context.getString(R.string.remote_voice_permission), needsPermission = true)
+            } catch (_: MicrophoneException) {
+                _voice.value = VoiceUiState(message = context.getString(R.string.remote_voice_mic_failed))
+            } catch (_: Exception) {
+                _voice.value = VoiceUiState(message = context.getString(R.string.remote_voice_lost, target.name))
+            }
+        }
+    }
+
+    fun stopVoice() {
+        voiceStop = true
+    }
+
+    /** The microphone permission was refused. */
+    fun voicePermissionDenied() {
+        _voice.value = VoiceUiState(message = getApplication<Application>().getString(R.string.remote_voice_permission), needsPermission = true)
+    }
+
+    fun dismissVoiceMessage() {
+        if (!_voice.value.active) _voice.value = VoiceUiState()
     }
 
     fun retry() {
@@ -203,6 +283,7 @@ class RemoteViewModel(app: Application) : AndroidViewModel(app) {
     }
 
     override fun onCleared() {
+        voiceStop = true
         _codeRequest.value?.answer?.complete(null)
         closeSession()
         actions.close()
