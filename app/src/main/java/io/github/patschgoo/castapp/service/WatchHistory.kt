@@ -1,6 +1,7 @@
 package io.github.patschgoo.castapp.service
 
 import android.content.Context
+import io.github.patschgoo.castapp.network.Secrets
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -195,15 +196,35 @@ class WatchHistory(
         }
     }
 
+    /**
+     * The history file, encrypted with the app's Keystore key: saved items can carry
+     * server tokens (Plex, Jellyfin) and sign-in headers. Older plain files are still
+     * read and get encrypted with the next save.
+     */
     class FileStore(private val file: File) : Store {
-        override fun read(): String? = if (file.exists()) file.readText() else null
+        override fun read(): String? {
+            if (!file.exists()) return null
+            val text = file.readText()
+            return if (text.startsWith(ENCRYPTED)) Secrets.decrypt(text.removePrefix(ENCRYPTED)) else text
+        }
+
         override fun write(text: String) {
+            // A phone whose Keystore doesn't work keeps a plain file rather than no history.
+            val stored = try { ENCRYPTED + Secrets.encrypt(text) } catch (_: Exception) { text }
+            writeFile(stored)
+        }
+
+        private fun writeFile(text: String) {
             val tmp = File(file.parentFile, file.name + ".tmp")
             tmp.writeText(text)
             if (!tmp.renameTo(file)) {
                 file.writeText(text)
                 tmp.delete()
             }
+        }
+
+        private companion object {
+            const val ENCRYPTED = "castapp-enc1:"
         }
     }
 }
