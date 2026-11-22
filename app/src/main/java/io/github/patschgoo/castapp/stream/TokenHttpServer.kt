@@ -1,5 +1,7 @@
 package io.github.patschgoo.castapp.stream
 
+import io.github.patschgoo.castapp.Txt
+import io.github.patschgoo.castapp.R
 import java.io.BufferedOutputStream
 import java.io.IOException
 import java.io.InputStream
@@ -58,7 +60,7 @@ abstract class TokenHttpServer(private val preferredPort: Int, threadName: Strin
                 lastError = e
             }
         }
-        val ss = serverSocket ?: throw lastError ?: IOException("Could not open a server port")
+        val ss = serverSocket ?: throw lastError ?: IOException(Txt.s(R.string.err_no_server_port))
         running = true
         executor.execute { acceptLoop(ss) }
         return port

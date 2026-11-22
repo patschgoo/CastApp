@@ -1,5 +1,8 @@
 package io.github.patschgoo.castapp.browser
 
+import io.github.patschgoo.castapp.Txt
+import io.github.patschgoo.castapp.R
+import androidx.annotation.StringRes
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -12,7 +15,14 @@ data class FoundVideo(
     val pageUrl: String,
     val pageTitle: String,
 ) {
-    enum class Kind(val label: String) { HLS("Stream (HLS)"), DASH("Stream (DASH)"), FILE("Video file"), AUDIO("Audio") }
+    enum class Kind(@StringRes val labelRes: Int) {
+        HLS(R.string.kind_stream_hls),
+        DASH(R.string.kind_stream_dash),
+        FILE(R.string.kind_video_file),
+        AUDIO(R.string.kind_audio);
+
+        val label: String get() = Txt.s(labelRes)
+    }
 
     val host: String get() = try { URI(url).host ?: "" } catch (_: Exception) { "" }
 
