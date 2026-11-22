@@ -90,7 +90,10 @@ class DeviceRepository(context: Context) {
         val ifaces = NetworkScanner.localNetworks().map { it.iface }.distinct()
         mdns = MdnsBrowser(onDevice).also { it.start(ifaces) }
         nsd = NsdBrowser(appContext, onDevice).also { it.start() }
+        // When this phone receives casts itself, don't list it as a TV.
+        val ownUdn = "uuid:" + io.github.patschgoo.castapp.tv.TvReceiver.uuid(appContext)
         ssdp = io.github.patschgoo.castapp.dlna.SsdpBrowser { location, d ->
+            if (d.udn == ownUdn) return@SsdpBrowser
             io.github.patschgoo.castapp.dlna.SsdpBrowser.rendererDevice(location, d)?.let(onDevice)
         }.also { it.start(ifaces) }
         roku = io.github.patschgoo.castapp.dlna.SsdpBrowser(io.github.patschgoo.castapp.render.RokuRenderer.SSDP_TARGET) { location, _ ->

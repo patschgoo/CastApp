@@ -83,6 +83,7 @@ class CastService : Service() {
             ACTION_NEXT -> (session as? MediaCastSession)?.next()
             ACTION_PREVIOUS -> (session as? MediaCastSession)?.previous()
             ACTION_SUBTITLES -> (session as? MediaCastSession)?.toggleSubtitles()
+            ACTION_SWAP -> (session as? CastSession)?.device?.takeIf { it.isCastAppTv }?.let { SwapDirection.toPhone(this, it) }
             ACTION_CREATE_SUBTITLES -> (session as? MediaCastSession)?.createSubtitles()
             ACTION_PLAY_INDEX -> (session as? MediaCastSession)?.playAt(intent.getIntExtra(EXTRA_INDEX, 0))
             ACTION_QUALITY -> intent.getStringExtra(EXTRA_QUALITY)?.let { q ->
@@ -313,6 +314,9 @@ class CastService : Service() {
                 getString(if (state.darkScreen) R.string.action_wake_screen else R.string.action_dark_screen),
                 action(ACTION_DARK_SCREEN, 4) { it.putExtra(EXTRA_ON, !state.darkScreen) },
             )
+        } else if (state.device.isCastAppTv && !state.audioOnly && state.kind == CastKind.SCREEN) {
+            // Mirroring to a CastApp TV: offer swapping the direction instead of Volume −.
+            builder.addAction(R.drawable.ic_cast, getString(R.string.swap_action), action(ACTION_SWAP, 10))
         } else {
             builder.addAction(R.drawable.ic_volume_down, getString(R.string.action_volume_down), action(ACTION_VOLUME_DOWN, 1))
         }
@@ -389,6 +393,8 @@ class CastService : Service() {
         const val ACTION_NEXT = "io.github.patschgoo.castapp.action.NEXT"
         const val ACTION_PREVIOUS = "io.github.patschgoo.castapp.action.PREVIOUS"
         const val ACTION_SUBTITLES = "io.github.patschgoo.castapp.action.SUBTITLES"
+        /** Mirroring to a CastApp TV: let the TV mirror to this phone instead. */
+        const val ACTION_SWAP = "io.github.patschgoo.castapp.action.SWAP"
         const val ACTION_CREATE_SUBTITLES = "io.github.patschgoo.castapp.action.CREATE_SUBTITLES"
         const val ACTION_PLAY_INDEX = "io.github.patschgoo.castapp.action.PLAY_INDEX"
         const val ACTION_QUALITY = "io.github.patschgoo.castapp.action.QUALITY"

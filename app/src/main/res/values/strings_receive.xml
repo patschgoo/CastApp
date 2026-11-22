@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Receive on this phone -->
+    <string name="receive_title">Receive on this phone</string>
+    <string name="receive_summary_off">Let other phones (and DLNA apps) cast to this phone, like to a TV</string>
+    <string name="receive_summary_on">On: this phone shows up as \"%1$s\" on other phones</string>
+    <string name="receive_notification_title">Receiving casts</string>
+    <string name="receive_stop">Stop receiving</string>
+    <string name="receive_card">This phone is receiving casts as \"%1$s\"</string>
+
+    <!-- Swap direction -->
+    <string name="swap_action">Swap: TV → phone</string>
+    <string name="swap_back">Swap back</string>
+    <string name="swap_started">%1$s now asks to capture its screen. Confirm \"Start now\" on the TV with its remote; Android asks every time. Apps like Netflix, and HDMI or antenna TV, can\'t be captured and stay black.</string>
+    <string name="swap_error_not_castapp_tv">Only a Fire TV or Android TV with CastApp can send its screen to the phone.</string>
+    <string name="swap_error_old_tv">%1$s has an older CastApp. Update CastApp on the TV to swap.</string>
+    <string name="swap_error_receiver">This phone couldn\'t start receiving.</string>
+    <string name="swap_error_unreachable">Can\'t reach the other device. Are both on the same Wi-Fi?</string>
+    <string name="swap_error_not_receiver">The phone isn\'t ready to receive.</string>
+    <string name="swap_tv_notification_title">Mirror this TV to %1$s</string>
+    <string name="swap_tv_notification_text">Select to start, then confirm the screen capture</string>
+</resources>

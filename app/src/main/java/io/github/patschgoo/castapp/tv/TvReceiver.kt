@@ -21,7 +21,7 @@ import java.util.UUID
  * The TV ("receiver") side of CastApp: bridges the UPnP renderer, which runs on
  * network threads, and the player screen, which runs on the main thread.
  */
-object TvReceiver : RendererBackend {
+object TvReceiver : RendererBackend, CastAppCommands {
     private val main = Handler(Looper.getMainLooper())
     private lateinit var appContext: Context
 
@@ -144,14 +144,52 @@ object TvReceiver : RendererBackend {
         }, 1500)
     }
 
-    private fun showStartNotification(intent: Intent) {
+    // ---- CastAppCommands: a phone asks this device to mirror its screen back ("swap") -------------
+
+    override fun mirrorTo(descriptionUrl: String): String? {
+        val xml = io.github.patschgoo.castapp.dlna.Dlna.fetch(descriptionUrl, 4000)
+            ?: return appContext.getString(R.string.swap_error_unreachable)
+        val description = io.github.patschgoo.castapp.dlna.Dlna.parseDescription(xml, descriptionUrl)
+        val target = io.github.patschgoo.castapp.dlna.SsdpBrowser.rendererDevice(descriptionUrl, description)
+            ?: return appContext.getString(R.string.swap_error_not_receiver)
+        // Whatever plays here now would be captured; close it first.
+        stop()
+        val intent = io.github.patschgoo.castapp.ProjectionActivity.intent(
+            appContext, target, io.github.patschgoo.castapp.ProjectionActivity.MODE_SCREEN,
+        ).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+        main.postDelayed({
+            try {
+                appContext.startActivity(intent)
+            } catch (_: Exception) {
+            }
+            // Android 10+ may block that from the background; the notification lets the viewer start it.
+            if (Build.VERSION.SDK_INT >= 29 && !Settings.canDrawOverlays(appContext)) {
+                showStartNotification(
+                    intent,
+                    appContext.getString(R.string.swap_tv_notification_title, target.name),
+                    appContext.getString(R.string.swap_tv_notification_text),
+                )
+            }
+        }, 600)
+        return null
+    }
+
+    override fun stopMirror() {
+        io.github.patschgoo.castapp.service.CastService.stop(appContext)
+    }
+
+    private fun showStartNotification(
+        intent: Intent,
+        title: String = appContext.getString(R.string.tv_incoming, media?.title ?: ""),
+        text: String = appContext.getString(R.string.tv_incoming_hint),
+    ) {
         val nm = appContext.getSystemService(NotificationManager::class.java) ?: return
         TvReceiverService.createChannels(appContext)
         val pending = PendingIntent.getActivity(appContext, 2, intent, PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT)
         val n = NotificationCompat.Builder(appContext, TvReceiverService.CHANNEL_PLAY)
             .setSmallIcon(R.drawable.ic_cast)
-            .setContentTitle(appContext.getString(R.string.tv_incoming, media?.title ?: ""))
-            .setContentText(appContext.getString(R.string.tv_incoming_hint))
+            .setContentTitle(title)
+            .setContentText(text)
             .setPriority(NotificationCompat.PRIORITY_HIGH)
             .setCategory(NotificationCompat.CATEGORY_CALL)
             .setContentIntent(pending)

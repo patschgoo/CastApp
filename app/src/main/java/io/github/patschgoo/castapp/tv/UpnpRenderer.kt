@@ -48,6 +48,18 @@ data class TvSnapshot(
     val muted: Boolean = false,
 )
 
+/**
+ * CastApp's own extras on top of DLNA (only between CastApp devices): a phone
+ * asks a CastApp TV to mirror its screen back to it ("swap direction").
+ */
+interface CastAppCommands {
+    /** Mirror this device's screen to the receiver described at [descriptionUrl]; returns null, or what went wrong. */
+    fun mirrorTo(descriptionUrl: String): String?
+
+    /** Stop mirroring this device's screen. */
+    fun stopMirror()
+}
+
 /** The TV side of the renderer: called from network threads, must not block. */
 interface RendererBackend {
     fun setMedia(media: TvMedia)
@@ -74,6 +86,9 @@ class UpnpRenderer(
 ) {
     @Volatile var port = 0
         private set
+
+    /** Handles CastApp's swap-direction requests; null = not offered. */
+    @Volatile var commands: CastAppCommands? = null
     @Volatile private var running = false
     @Volatile private var media: TvMedia? = null
     private var server: ServerSocket? = null
@@ -132,7 +147,7 @@ class UpnpRenderer(
                 s.soTimeout = 10_000
                 val input = BufferedInputStream(s.getInputStream())
                 val request = readRequest(input) ?: return
-                val response = handle(request, s.localAddress)
+                val response = handle(request, s.localAddress, s.inetAddress)
                 val out = s.getOutputStream()
                 val head = StringBuilder()
                     .append("HTTP/1.1 ").append(response.code).append(' ').append(response.reason).append("\r\n")
@@ -193,7 +208,7 @@ class UpnpRenderer(
         }
     }
 
-    internal fun handle(request: Request, local: InetAddress?): Response {
+    internal fun handle(request: Request, local: InetAddress?, remote: InetAddress? = null): Response {
         val path = request.path.substringBefore('?')
         return when {
             request.method == "GET" || request.method == "HEAD" -> when (path) {
@@ -204,6 +219,7 @@ class UpnpRenderer(
                 else -> Response(404, "Not Found", "text/plain", ByteArray(0))
             }
             request.method == "POST" && path.startsWith("/control/") -> soap(path.removePrefix("/control/"), request)
+            request.method == "POST" && path.startsWith("/castapp/") -> castApp(path.removePrefix("/castapp/"), request, remote)
             request.method == "SUBSCRIBE" -> Response(
                 200, "OK", "text/plain", ByteArray(0),
                 mapOf("SID" to (request.headers["sid"] ?: "uuid:" + java.util.UUID.randomUUID()), "TIMEOUT" to "Second-1800"),
@@ -212,6 +228,32 @@ class UpnpRenderer(
             else -> Response(405, "Method Not Allowed", "text/plain", ByteArray(0))
         }
     }
+
+    /** POST /castapp/mirror {"description": "http://<requester>/description.xml"} and POST /castapp/stop-mirror. */
+    private fun castApp(command: String, request: Request, remote: InetAddress?): Response {
+        val c = commands ?: return plain(404, "Not Found", "Not supported here")
+        if (!isLocal(remote)) return plain(403, "Forbidden", "Only devices on the local network may ask that")
+        return when (command) {
+            "mirror" -> {
+                val description = try {
+                    org.json.JSONObject(request.body).optString("description")
+                } catch (_: Exception) {
+                    ""
+                }
+                if (!mirrorAllowed(remote, description)) return plain(403, "Forbidden", "A device can only ask to receive the screen itself")
+                val error = c.mirrorTo(description)
+                if (error == null) plain(200, "OK", "OK") else plain(409, "Conflict", error)
+            }
+            "stop-mirror" -> {
+                c.stopMirror()
+                plain(200, "OK", "OK")
+            }
+            else -> plain(404, "Not Found", "Unknown command")
+        }
+    }
+
+    private fun plain(code: Int, reason: String, text: String) =
+        Response(code, reason, "text/plain; charset=utf-8", text.toByteArray(Charsets.UTF_8))
 
     private fun xml(text: String) = Response(200, "OK", "text/xml; charset=\"utf-8\"", text.toByteArray(Charsets.UTF_8))
 
@@ -520,6 +562,19 @@ class UpnpRenderer(
 
     companion object {
         const val MODEL_NAME = "CastApp TV"
+
+        /** Requests from this home network only (private, link-local or loopback addresses). */
+        fun isLocal(remote: InetAddress?): Boolean =
+            remote != null && (remote.isSiteLocalAddress || remote.isLinkLocalAddress || remote.isLoopbackAddress)
+
+        /** A device may only ask to receive the screen itself: the receiver must be at the requester's address. */
+        fun mirrorAllowed(remote: InetAddress?, descriptionUrl: String): Boolean {
+            if (remote == null || !isLocal(remote)) return false
+            val uri = try { java.net.URI(descriptionUrl) } catch (_: Exception) { return false }
+            if (uri.scheme != "http" || uri.port !in 1..65535) return false
+            val host = uri.host?.trim('[', ']') ?: return false
+            return host == remote.hostAddress || (remote.isLoopbackAddress && (host == "localhost" || host.startsWith("127.")))
+        }
         const val CONNECTION_MANAGER = "urn:schemas-upnp-org:service:ConnectionManager:1"
         private const val SERVER = "Android/1 UPnP/1.0 CastApp/1.0"
         private const val MAX_BODY = 512 * 1024

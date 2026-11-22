@@ -55,16 +55,25 @@ class TvReceiverService : Service() {
         } catch (_: Exception) {
         }
         val r = UpnpRenderer(TvReceiver.deviceName(this), TvReceiver.uuid(this), TvReceiver, BuildConfig.VERSION_NAME)
+        r.commands = TvReceiver
         r.start(PORT, ssdp = true, interfaces = interfaces())
         renderer = r
+        _port.value = r.port
         _address.value = NetworkScanner.localNetworks().firstOrNull()?.address?.hostAddress?.let { "$it:${r.port}" }
         _running.value = true
         watchNetwork()
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
-        if (intent?.action == ACTION_RENAME) renderer?.friendlyName = TvReceiver.deviceName(this)
-        return START_STICKY
+        when (intent?.action) {
+            ACTION_RENAME -> renderer?.friendlyName = TvReceiver.deviceName(this)
+            ACTION_STOP -> {
+                stopSelf()
+                return START_NOT_STICKY
+            }
+        }
+        // On a phone the receiver only runs when asked for; don't bring it back by itself.
+        return if (TvReceiver.isTv(this)) START_STICKY else START_NOT_STICKY
     }
 
     override fun onDestroy() {
@@ -75,6 +84,7 @@ class TvReceiverService : Service() {
         renderer = null
         try { multicastLock?.release() } catch (_: Exception) {}
         _running.value = false
+        _port.value = 0
         super.onDestroy()
     }
 
@@ -100,18 +110,27 @@ class TvReceiverService : Service() {
     }
 
     private fun notification(): Notification {
+        val tv = TvReceiver.isTv(this)
+        val home = if (tv) TvHomeActivity::class.java else io.github.patschgoo.castapp.MainActivity::class.java
         val open = PendingIntent.getActivity(
-            this, 1, Intent(this, TvHomeActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK),
+            this, 1, Intent(this, home).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK),
             PendingIntent.FLAG_IMMUTABLE,
         )
-        return NotificationCompat.Builder(this, CHANNEL_RECEIVER)
+        val builder = NotificationCompat.Builder(this, CHANNEL_RECEIVER)
             .setSmallIcon(R.drawable.ic_cast)
-            .setContentTitle(getString(R.string.tv_ready))
+            .setContentTitle(getString(if (tv) R.string.tv_ready else R.string.receive_notification_title))
             .setContentText(getString(R.string.tv_ready_hint, TvReceiver.deviceName(this)))
             .setOngoing(true)
             .setContentIntent(open)
             .setPriority(NotificationCompat.PRIORITY_LOW)
-            .build()
+        if (!tv) {
+            val stop = PendingIntent.getService(
+                this, 2, Intent(this, TvReceiverService::class.java).setAction(ACTION_STOP),
+                PendingIntent.FLAG_IMMUTABLE,
+            )
+            builder.addAction(R.drawable.ic_stop, getString(R.string.receive_stop), stop)
+        }
+        return builder.build()
     }
 
     companion object {
@@ -121,9 +140,14 @@ class TvReceiverService : Service() {
         const val CHANNEL_PLAY = "tv_play"
         private const val NOTIFICATION_ID = 40
         private const val ACTION_RENAME = "io.github.patschgoo.castapp.action.TV_RENAME"
+        private const val ACTION_STOP = "io.github.patschgoo.castapp.action.RECEIVER_STOP"
 
         private val _running = MutableStateFlow(false)
         val running: StateFlow<Boolean> = _running.asStateFlow()
+
+        private val _port = MutableStateFlow(0)
+        /** The renderer's HTTP port while running, else 0. */
+        val port: StateFlow<Int> = _port.asStateFlow()
 
         private val _address = MutableStateFlow<String?>(null)
         /** "192.168.1.23:49595" while running. */
