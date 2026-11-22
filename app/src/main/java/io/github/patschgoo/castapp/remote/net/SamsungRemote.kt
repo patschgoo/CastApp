@@ -112,14 +112,20 @@ class SamsungRemoteClient(
      * Connects; the TV may ask "Allow this device?" first, then [onPrompt] is called.
      * [token] is the one saved from last time; the connection's [SamsungConnection.token] is the one to save now.
      */
-    suspend fun connect(token: String?, onPrompt: () -> Unit, answerTimeoutMs: Int = 45_000): SamsungConnection = withContext(Dispatchers.IO) {
+    suspend fun connect(
+        token: String?,
+        onPrompt: () -> Unit,
+        answerTimeoutMs: Int = 45_000,
+        /** Silence after which we assume the TV shows its "Allow?" question. */
+        promptAfterMs: Int = 2500,
+    ): SamsungConnection = withContext(Dispatchers.IO) {
         val first = securePort
         val ws = try {
-            WebSocket.connect(urlFor(first, token), connectTimeoutMs = 4000, readTimeoutMs = 2500)
+            WebSocket.connect(urlFor(first, token), connectTimeoutMs = 4000, readTimeoutMs = promptAfterMs)
         } catch (e: IOException) {
             if (!first) throw e
             // Older Tizen TVs (2016/2017) have no secure port.
-            WebSocket.connect(urlFor(false, null), connectTimeoutMs = 4000, readTimeoutMs = 2500)
+            WebSocket.connect(urlFor(false, null), connectTimeoutMs = 4000, readTimeoutMs = promptAfterMs)
         }
         try {
             var prompted = false

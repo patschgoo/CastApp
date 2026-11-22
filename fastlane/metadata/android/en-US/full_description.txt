@@ -1,0 +1,18 @@
+CastApp casts to a Chromecast, NVIDIA Shield, Google TV, Google and Nest speakers, DLNA smart TVs (Samsung, LG, Sony), Fire TV and other Android TV boxes (with the included CastApp TV app), Kodi, Apple TV (AirPlay) and Roku (experimental). It talks to your devices directly over your Wi-Fi. No Google Play Services, no account, no ads, no tracking.
+
+<b>What it does</b>
+• Mirror your whole screen or a single app, and change the picture quality at any moment
+• Play the phone's sound on a TV or speaker (Android 10 and newer)
+• Play videos, music and photos from the phone, a NAS, a PC's shared folder, a media server such as Plex or Jellyfin, or a cloud folder
+• Play TV channels and radio from IPTV / M3U lists, with a programme guide
+• Play videos found on websites
+• Write subtitles for videos that have none, on the phone and offline, or find them online
+• Use the phone as a TV remote over the network, Bluetooth or infrared
+• Receive a cast on the phone itself, and swap the direction
+• Resume where you stopped, edit the queue, set a sleep timer, pick audio and subtitle tracks
+• Send YouTube links to the YouTube app on the TV
+
+<b>Help when something doesn't work</b>
+Settings → Help &amp; support has a network check ("Why can't I find my TV?"), a "Test this phone" self-test, battery tips for your phone brand and a debug log you can send, only when you choose to.
+
+The app is available in English and German. The source code is open.
