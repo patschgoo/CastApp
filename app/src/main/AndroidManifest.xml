@@ -273,6 +273,95 @@
             </intent-filter>
         </service>
 
+        <!-- Automation API (Tasker, MacroDroid, Home Assistant, adb): see AUTOMATION.md. Off until the
+             user switches it on in Settings; every call is checked against that switch and the secret. -->
+        <activity
+            android:name=".automation.AutomationActivity"
+            android:excludeFromRecents="true"
+            android:exported="true"
+            android:noHistory="true"
+            android:taskAffinity=""
+            android:theme="@style/Theme.CastApp.Transparent">
+            <intent-filter>
+                <action android:name="io.github.patschgoo.castapp.automation.MIRROR" />
+                <action android:name="io.github.patschgoo.castapp.automation.CAST_URL" />
+                <action android:name="io.github.patschgoo.castapp.automation.CAST_FILE" />
+                <action android:name="io.github.patschgoo.castapp.automation.STOP" />
+                <action android:name="io.github.patschgoo.castapp.automation.PLAY_PAUSE" />
+                <action android:name="io.github.patschgoo.castapp.automation.PLAY" />
+                <action android:name="io.github.patschgoo.castapp.automation.PAUSE" />
+                <action android:name="io.github.patschgoo.castapp.automation.NEXT" />
+                <action android:name="io.github.patschgoo.castapp.automation.PREVIOUS" />
+                <action android:name="io.github.patschgoo.castapp.automation.VOLUME_SET" />
+                <action android:name="io.github.patschgoo.castapp.automation.VOLUME_UP" />
+                <action android:name="io.github.patschgoo.castapp.automation.VOLUME_DOWN" />
+                <action android:name="io.github.patschgoo.castapp.automation.MUTE" />
+                <action android:name="io.github.patschgoo.castapp.automation.QUALITY" />
+                <action android:name="io.github.patschgoo.castapp.automation.RECEIVE" />
+                <action android:name="io.github.patschgoo.castapp.automation.OPEN_REMOTE" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <data android:scheme="content" />
+                <data android:scheme="http" />
+                <data android:scheme="https" />
+            </intent-filter>
+            <intent-filter>
+                <action android:name="io.github.patschgoo.castapp.automation.MIRROR" />
+                <action android:name="io.github.patschgoo.castapp.automation.CAST_URL" />
+                <action android:name="io.github.patschgoo.castapp.automation.CAST_FILE" />
+                <action android:name="io.github.patschgoo.castapp.automation.STOP" />
+                <action android:name="io.github.patschgoo.castapp.automation.PLAY_PAUSE" />
+                <action android:name="io.github.patschgoo.castapp.automation.PLAY" />
+                <action android:name="io.github.patschgoo.castapp.automation.PAUSE" />
+                <action android:name="io.github.patschgoo.castapp.automation.NEXT" />
+                <action android:name="io.github.patschgoo.castapp.automation.PREVIOUS" />
+                <action android:name="io.github.patschgoo.castapp.automation.VOLUME_SET" />
+                <action android:name="io.github.patschgoo.castapp.automation.VOLUME_UP" />
+                <action android:name="io.github.patschgoo.castapp.automation.VOLUME_DOWN" />
+                <action android:name="io.github.patschgoo.castapp.automation.MUTE" />
+                <action android:name="io.github.patschgoo.castapp.automation.QUALITY" />
+                <action android:name="io.github.patschgoo.castapp.automation.RECEIVE" />
+                <action android:name="io.github.patschgoo.castapp.automation.OPEN_REMOTE" />
+                <category android:name="android.intent.category.DEFAULT" />
+            </intent-filter>
+        </activity>
+
+        <receiver
+            android:name=".automation.AutomationReceiver"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="io.github.patschgoo.castapp.automation.MIRROR" />
+                <action android:name="io.github.patschgoo.castapp.automation.CAST_URL" />
+                <action android:name="io.github.patschgoo.castapp.automation.CAST_FILE" />
+                <action android:name="io.github.patschgoo.castapp.automation.STOP" />
+                <action android:name="io.github.patschgoo.castapp.automation.PLAY_PAUSE" />
+                <action android:name="io.github.patschgoo.castapp.automation.PLAY" />
+                <action android:name="io.github.patschgoo.castapp.automation.PAUSE" />
+                <action android:name="io.github.patschgoo.castapp.automation.NEXT" />
+                <action android:name="io.github.patschgoo.castapp.automation.PREVIOUS" />
+                <action android:name="io.github.patschgoo.castapp.automation.VOLUME_SET" />
+                <action android:name="io.github.patschgoo.castapp.automation.VOLUME_UP" />
+                <action android:name="io.github.patschgoo.castapp.automation.VOLUME_DOWN" />
+                <action android:name="io.github.patschgoo.castapp.automation.MUTE" />
+                <action android:name="io.github.patschgoo.castapp.automation.QUALITY" />
+                <action android:name="io.github.patschgoo.castapp.automation.RECEIVE" />
+                <action android:name="io.github.patschgoo.castapp.automation.OPEN_REMOTE" />
+            </intent-filter>
+        </receiver>
+
+        <!-- The Wear OS remote: commands and "what is playing?" from a paired watch (Wear Data Layer).
+             Play services starts it only when a watch sends something. -->
+        <service
+            android:name=".wear.WearListenerService"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="com.google.android.gms.wearable.MESSAGE_RECEIVED" />
+                <data
+                    android:host="*"
+                    android:pathPrefix="/castapp/"
+                    android:scheme="wear" />
+            </intent-filter>
+        </service>
+
         <service
             android:name=".tile.CastTileService"
             android:exported="true"
