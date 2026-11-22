@@ -164,7 +164,11 @@ class PlexClient(
                 if (method == PlayMethod.DIRECT) {
                     MediaItem(title, urls.direct(partKey!!), PlaybackPlanner.mimeForVideo(media), subtitleUri = subtitle, serverRef = ref(method), trustAll = account.trustAll)
                 } else {
-                    MediaItem(title, urls.hls(item.id), "application/x-mpegurl", subtitleUri = subtitle, serverRef = ref(method), trustAll = account.trustAll)
+                    MediaItem(
+                        title, urls.hls(item.id), "application/x-mpegurl", subtitleUri = subtitle, serverRef = ref(method), trustAll = account.trustAll,
+                        // CastApp TV receivers try the file itself first (no converting on the server).
+                        original = partKey?.let { urls.direct(it) }, originalMime = partKey?.let { PlaybackPlanner.mimeForVideo(media) },
+                    )
                 }
             }
         }

@@ -31,6 +31,13 @@ data class MediaItem(
     val trustAll: Boolean = false,
     /** Plex / Jellyfin: which server item this is ([io.github.patschgoo.castapp.mediaservers.ItemRef]), so progress can be reported. */
     val serverRef: String? = null,
+    /**
+     * Plex / Jellyfin: the server's file as it is, when [uri] is the server's converted stream.
+     * CastApp TV receivers play far more than a Chromecast (MKV, HEVC 10-bit, ASS subtitles),
+     * so they get this first and the converted stream only if it doesn't play.
+     */
+    val original: String? = null,
+    val originalMime: String? = null,
 ) {
     val type: MediaType
         get() = when {
@@ -53,6 +60,8 @@ data class MediaItem(
         .put("live", live)
         .put("trustAll", trustAll)
         .put("ref", serverRef ?: "")
+        .put("orig", original ?: "")
+        .put("origMime", originalMime ?: "")
 
     companion object {
         fun fromJson(o: JSONObject): MediaItem {
@@ -68,6 +77,8 @@ data class MediaItem(
                 live = o.optBoolean("live"),
                 trustAll = o.optBoolean("trustAll"),
                 serverRef = o.optString("ref").ifEmpty { null },
+                original = o.optString("orig").ifEmpty { null },
+                originalMime = o.optString("origMime").ifEmpty { null },
             )
         }
 

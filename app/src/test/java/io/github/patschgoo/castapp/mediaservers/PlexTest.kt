@@ -203,6 +203,14 @@ class PlexTest {
         assertTrue(hls.item.isHls)
         assertTrue(hls.item.uri.contains("/video/:/transcode/universal/start.m3u8"))
         assertEquals(PlayMethod.TRANSCODE, ItemRef.decode(hls.item.serverRef)!!.method)
+        // CastApp TV receivers get the file itself first; the transcoder is their fallback.
+        assertTrue(hls.item.original!!.contains("/library/parts/"))
+        assertTrue(hls.item.original!!.contains("X-Plex-Token=srvtok"))
+        assertEquals(null, direct.item.original)
+        // Survives the watch history and the saved queue.
+        val back = io.github.patschgoo.castapp.service.MediaItem.fromJson(hls.item.toJson())
+        assertEquals(hls.item.original, back.original)
+        assertEquals(hls.item.originalMime, back.originalMime)
     }
 
     // ---- talking to a server --------------------------------------------------------------------------------------------
