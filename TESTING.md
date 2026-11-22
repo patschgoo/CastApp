@@ -119,6 +119,21 @@ CastApp's AirPlay has only been tested against a reference implementation, so ex
 | Queue | Pick several files | Play list; reorder, remove, shuffle, repeat work | Debug log |
 | Continue watching | Stop a video halfway, open it again | Resumes where you stopped | Debug log |
 
+## NVIDIA Shield as media server and TV (anime library)
+
+For a Shield that holds the drives (Plex Media Server and/or **Transfer files over local network**) and also runs CastApp TV. Only read from the drives; nothing here writes to them.
+
+| Feature | Steps | Expected result | If it fails |
+|---|---|---|---|
+| SMB version | On a Windows PC, check that **SMB 1.0/CIFS Client** is *off* (Windows Features), then open `\\<Shield IP>` in File Explorer | The shares open: the Shield speaks SMB 2/3, which CastApp needs | If it only opens with SMB 1.0 on, CastApp can't read the shares: report it (the Shield's Android version helps) |
+| Paste a share address | In CastApp **Network & cloud → + → Windows / Samba share**, paste the address Explorer shows, e.g. `\\<Shield IP>\External USB drive-XXXX\NVIDIA_SHIELD\Anime`, with the user name and password the Shield shows | Saved as "Anime"; opening it starts in that folder | Debug log + the address shape (hide the IP if you like) |
+| Every drive | Add each drive's share (and `internal`, a memory card) | All list their folders | Debug log + which one fails |
+| Standby | Let the Shield go to standby, then open a share in CastApp | It answers (maybe after a few seconds) | Debug log + how long you waited |
+| Two at once | Play one file on the phone and another on a TV from the same drive | Both play without stutter | Debug log |
+| Anime file from the share | Play an MKV with HEVC 10-bit video and ASS subtitles on a Chromecast | The phone converts it; the subtitles can be picked | Debug log + the file's details (MediaInfo) |
+| Plex on the Shield → CastApp TV on the Shield | Sign in to Plex in CastApp, play an anime episode (MKV/HEVC) on the Shield's CastApp TV | Plays the file itself (no converting on the Shield), with its subtitles; seeking works | Debug log + file details; say if it fell back to the converted stream |
+| Plex on the Shield → Chromecast | The same episode on a Chromecast | Plex converts it; plays | Debug log + whether other converts were running |
+
 ## IPTV and the programme guide
 
 | Feature | Steps | Expected result | If it fails |

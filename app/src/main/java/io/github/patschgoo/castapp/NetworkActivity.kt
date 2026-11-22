@@ -335,7 +335,7 @@ private fun SourceRow(network: NetworkSources, s: NetworkSource, onOpen: (Place)
         leadingContent = { Thumb(null, if (s.kind == SourceKind.SMB) Icons.Rounded.FolderShared else Icons.Rounded.Cloud) },
         supportingContent = {
             Text(
-                if (s.kind == SourceKind.SMB) "\\\\${s.address}\\${s.share}" else s.address,
+                if (s.kind == SourceKind.SMB) "\\\\${s.address}\\${s.share}" + s.folder.takeIf { it.isNotEmpty() }?.let { "\\" + it.replace('/', '\\') }.orEmpty() else s.address,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
             )
@@ -499,12 +499,12 @@ private fun AddSourceDialog(network: NetworkSources, onDismiss: () -> Unit) {
 
     fun build(): NetworkSource? {
         return if (kind == SourceKind.SMB) {
-            // Also understand \\nas\Media, smb://nas/Media and nas/Media.
-            val cleaned = address.trim().removePrefix("smb://").trimStart('\\', '/').replace('\\', '/')
-            val host = cleaned.substringBefore('/')
-            val shareName = share.trim().trim('/', '\\').ifEmpty { cleaned.substringAfter('/', "").substringBefore('/') }
-            if (host.isEmpty() || shareName.isEmpty()) return null
-            NetworkSource("", SourceKind.SMB, name.trim().ifEmpty { Txt.s(R.string.net_default_name, shareName, host) }, host, shareName, user.trim(), password, domain.trim())
+            // Also understand \\nas\Media, smb://nas/Media, nas/Media and a folder inside the share.
+            val a = io.github.patschgoo.castapp.network.SmbAddress.parse(address, share) ?: return null
+            NetworkSource(
+                "", SourceKind.SMB, name.trim().ifEmpty { Txt.s(R.string.net_default_name, a.displayName, a.host) },
+                a.host, a.share, user.trim(), password, domain.trim(), folder = a.folder,
+            )
         } else {
             val url = address.trim().let { if (it.contains("://")) it else "https://$it" }.let { if (it.endsWith("/")) it else "$it/" }
             if (url.length < 12) return null

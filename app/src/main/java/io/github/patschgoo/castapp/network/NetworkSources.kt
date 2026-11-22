@@ -39,6 +39,8 @@ data class NetworkSource(
     val password: String = "",
     val domain: String = "",
     val trustAll: Boolean = false,
+    /** SMB only: the folder inside the share to start in ("NVIDIA_SHIELD/Anime"), empty for the top. */
+    val folder: String = "",
 ) {
     val smbTarget: SmbTarget
         get() = SmbTarget(
@@ -51,7 +53,36 @@ data class NetworkSource(
         )
 
     /** The top folder to start browsing in. */
-    val rootPath: String get() = if (kind == SourceKind.SMB) "" else address
+    val rootPath: String get() = if (kind == SourceKind.SMB) folder else address
+}
+
+/**
+ * A Windows/Samba address as people paste it: `\\nas\Media`, `smb://nas/Media`, `nas/Media`, or
+ * with a folder inside the share, `\\192.168.178.20\External USB drive-1A2B3C4D\NVIDIA_SHIELD\Anime`
+ * (share names may contain spaces). [share] typed separately wins over the one in the address.
+ */
+data class SmbAddress(val host: String, val share: String, val folder: String) {
+    companion object {
+        fun parse(address: String, share: String = ""): SmbAddress? {
+            val cleaned = address.trim().removePrefix("smb://").removePrefix("SMB://").replace('\\', '/').trim('/')
+            val parts = cleaned.split('/').map { it.trim() }.filter { it.isNotEmpty() }
+            val host = parts.firstOrNull() ?: return null
+            val typedShare = share.trim().replace('\\', '/').trim('/')
+            return if (typedShare.isNotEmpty()) {
+                // "Share" field used: it may hold a folder too ("Media/Movies").
+                val s = typedShare.split('/').map { it.trim() }.filter { it.isNotEmpty() }
+                // The same share in the address too ("\\nas\Media\Movies" + "Media"): keep its folder.
+                val folder = s.drop(1).ifEmpty { if (parts.getOrNull(1).equals(s.first(), ignoreCase = true)) parts.drop(2) else emptyList() }
+                SmbAddress(host, s.first(), folder.joinToString("/"))
+            } else {
+                val s = parts.getOrNull(1) ?: return null
+                SmbAddress(host, s, parts.drop(2).joinToString("/"))
+            }
+        }
+    }
+
+    /** A name for the saved folder: its last folder ("Anime"), else the share. */
+    val displayName: String get() = folder.substringAfterLast('/').ifEmpty { share }
 }
 
 /** A DLNA/UPnP media server on the network (Plex, Jellyfin, Emby, a NAS, Windows…). */
@@ -99,6 +130,7 @@ class NetworkSources(context: Context) {
                 password = Secrets.decrypt(o.optString("password")),
                 domain = o.optString("domain"),
                 trustAll = o.optBoolean("trustAll"),
+                folder = o.optString("folder"),
             )
         }
     } catch (_: Exception) {
@@ -111,7 +143,7 @@ class NetworkSources(context: Context) {
             arr.put(
                 JSONObject().put("id", s.id).put("kind", s.kind.name).put("name", s.name).put("address", s.address)
                     .put("share", s.share).put("user", s.user).put("password", Secrets.encrypt(s.password))
-                    .put("domain", s.domain).put("trustAll", s.trustAll),
+                    .put("domain", s.domain).put("trustAll", s.trustAll).put("folder", s.folder),
             )
         }
         prefs.edit { putString("sources", arr.toString()) }
@@ -132,7 +164,7 @@ class NetworkSources(context: Context) {
     /** Checks that a new source works before it is saved. */
     suspend fun test(source: NetworkSource) = withContext(Dispatchers.IO) {
         when (source.kind) {
-            SourceKind.SMB -> SmbConnection(source.smbTarget).use { it.list("") }
+            SourceKind.SMB -> SmbConnection(source.smbTarget).use { it.list(source.folder) }
             SourceKind.WEBDAV -> WebDav.list(source.address, source.user, source.password, source.trustAll)
         }
         Unit
