@@ -89,6 +89,9 @@ class UpnpRenderer(
 
     /** Handles CastApp's swap-direction requests; null = not offered. */
     @Volatile var commands: CastAppCommands? = null
+
+    /** Decides who may cast here (see [ReceiverGuard]); null = anyone on the network. */
+    @Volatile var guard: ReceiverGuard? = null
     @Volatile private var running = false
     @Volatile private var media: TvMedia? = null
     private var server: ServerSocket? = null
@@ -218,7 +221,7 @@ class UpnpRenderer(
                 "/ConnectionManager.xml" -> xml(Scpd.CONNECTION_MANAGER)
                 else -> Response(404, "Not Found", "text/plain", ByteArray(0))
             }
-            request.method == "POST" && path.startsWith("/control/") -> soap(path.removePrefix("/control/"), request)
+            request.method == "POST" && path.startsWith("/control/") -> soap(path.removePrefix("/control/"), request, remote)
             request.method == "POST" && path.startsWith("/castapp/") -> castApp(path.removePrefix("/castapp/"), request, remote)
             request.method == "SUBSCRIBE" -> Response(
                 200, "OK", "text/plain", ByteArray(0),
@@ -229,10 +232,19 @@ class UpnpRenderer(
         }
     }
 
-    /** POST /castapp/mirror {"description": "http://<requester>/description.xml"} and POST /castapp/stop-mirror. */
+    /**
+     * POST /castapp/mirror {"description": "http://<requester>/description.xml"}, POST /castapp/stop-mirror
+     * and POST /castapp/pair {"name": "...", "code": "1234"}.
+     */
     private fun castApp(command: String, request: Request, remote: InetAddress?): Response {
+        if (command == "pair") return pair(request, remote)
         val c = commands ?: return plain(404, "Not Found", "Not supported here")
         if (!isLocal(remote)) return plain(403, "Forbidden", "Only devices on the local network may ask that")
+        val denied = guard?.authorize(senderOf(request, remote), if (command == "mirror") Access.START else Access.CONTROL)
+        if (denied is Verdict.Denied) {
+            val pairing = denied.message == ReceiverGuard.PAIRING_REQUIRED
+            return plain(if (pairing) 401 else 403, if (pairing) "Unauthorized" else "Forbidden", denied.message)
+        }
         return when (command) {
             "mirror" -> {
                 val description = try {
@@ -251,6 +263,38 @@ class UpnpRenderer(
             else -> plain(404, "Not Found", "Unknown command")
         }
     }
+
+    /**
+     * Pairing for "Only paired phones": no code = "do I need one?", with the right code the phone
+     * gets a token that it sends with every later request (header X-CastApp-Token).
+     */
+    private fun pair(request: Request, remote: InetAddress?): Response {
+        val g = guard ?: return plain(404, "Not Found", "Not supported here")
+        if (!isLocal(remote)) return plain(403, "Forbidden", "Only devices on the local network may pair")
+        val json = try { org.json.JSONObject(request.body) } catch (_: Exception) { org.json.JSONObject() }
+        val sender = senderOf(request, remote)
+        fun reply(code: Int, reason: String, vararg fields: Pair<String, Any>): Response {
+            val o = org.json.JSONObject()
+            fields.forEach { (k, v) -> o.put(k, v) }
+            return Response(code, reason, "application/json; charset=utf-8", o.toString().toByteArray(Charsets.UTF_8))
+        }
+        return when (val outcome = g.pair(sender, json.optString("name"), json.optString("code").takeIf { it.isNotBlank() })) {
+            is PairOutcome.NotRequired -> reply(200, "OK", "paired" to false, "mode" to outcome.mode.id)
+            PairOutcome.Paired -> reply(200, "OK", "paired" to true, "mode" to ProtectionMode.PAIRED.id)
+            is PairOutcome.Issued -> reply(200, "OK", "paired" to true, "mode" to ProtectionMode.PAIRED.id, "token" to outcome.token)
+            PairOutcome.CodeRequired -> reply(401, "Unauthorized", "error" to "code_required", "mode" to ProtectionMode.PAIRED.id)
+            is PairOutcome.WrongCode -> reply(403, "Forbidden", "error" to "wrong_code", "attemptsLeft" to outcome.attemptsLeft)
+            is PairOutcome.Locked -> reply(429, "Too Many Requests", "error" to "locked", "retryInSeconds" to outcome.retryInSeconds)
+        }
+    }
+
+    private fun senderOf(request: Request, remote: InetAddress?) = Sender(
+        address = remote?.hostAddress ?: "unknown",
+        userAgent = request.headers["user-agent"].orEmpty().take(200),
+        name = request.headers[ReceiverGuard.NAME_HEADER.lowercase()].orEmpty().take(60),
+        token = request.headers[ReceiverGuard.TOKEN_HEADER.lowercase()],
+        local = isLocal(remote),
+    )
 
     private fun plain(code: Int, reason: String, text: String) =
         Response(code, reason, "text/plain; charset=utf-8", text.toByteArray(Charsets.UTF_8))
@@ -281,7 +325,7 @@ class UpnpRenderer(
 
     // ---- SOAP --------------------------------------------------------------------------------
 
-    private fun soap(serviceName: String, request: Request): Response {
+    private fun soap(serviceName: String, request: Request, remote: InetAddress?): Response {
         val soapAction = request.headers["soapaction"]?.trim('"', ' ') ?: ""
         val service = soapAction.substringBefore('#').ifEmpty { serviceTypeOf(serviceName) }
         val action = soapAction.substringAfter('#', "").ifEmpty {
@@ -290,6 +334,10 @@ class UpnpRenderer(
         val body = request.body
         fun arg(name: String) = Dlna.tag(body, name)?.let(Dlna::unescape)
         return try {
+            guard?.let { g ->
+                val verdict = g.authorize(senderOf(request, remote), ReceiverGuard.accessFor(serviceName, action))
+                if (verdict is Verdict.Denied) throw SoapFault(verdict.code, verdict.message)
+            }
             val out: List<Pair<String, String>> = when (serviceName) {
                 "AVTransport" -> avTransport(action, ::arg)
                 "RenderingControl" -> renderingControl(action, ::arg)

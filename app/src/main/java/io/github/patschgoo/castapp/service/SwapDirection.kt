@@ -5,6 +5,9 @@ import android.content.Intent
 import io.github.patschgoo.castapp.ProjectionActivity
 import io.github.patschgoo.castapp.R
 import io.github.patschgoo.castapp.discovery.CastDevice
+import io.github.patschgoo.castapp.tv.AppPairing
+import io.github.patschgoo.castapp.tv.PairingClient
+import io.github.patschgoo.castapp.tv.TvReceiver
 import io.github.patschgoo.castapp.tv.TvReceiverService
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -48,6 +51,18 @@ object SwapDirection {
         val wasRunning = TvReceiverService.running.value
         TvReceiverService.start(app)
         scope.launch {
+            // A TV that only accepts paired phones: pair first (asks for its code once).
+            val pairing = AppPairing.client
+            try {
+                pairing?.ensure(tv, base)
+            } catch (e: PairingClient.PairingException) {
+                CastController.message(e.message ?: app.getString(R.string.swap_error_unreachable))
+                if (!wasRunning) TvReceiverService.stop(app)
+                return@launch
+            }
+            // The TV's cast back to this phone is what the user just asked for: don't ask again about it.
+            TvReceiver.init(app)
+            TvReceiver.guard.expectSwap(tv.host)
             // Stop mirroring to the TV first: its player would otherwise be in what it captures.
             CastService.stop(app)
             val port = withTimeoutOrNull(8000) { TvReceiverService.port.first { it > 0 } }
@@ -64,7 +79,7 @@ object SwapDirection {
             partner = tv
             startedReceiver = !wasRunning
             val body = JSONObject().put("description", descriptionUrl(local, port)).toString()
-            val (code, text) = post("$base/castapp/mirror", body)
+            val (code, text) = post("$base/castapp/mirror", body, authHeaders(tv))
             when (code) {
                 200 -> CastController.message(app.getString(R.string.swap_started, tv.name))
                 404 -> fail(app, app.getString(R.string.swap_error_old_tv, tv.name))
@@ -80,7 +95,7 @@ object SwapDirection {
         val tv = partner ?: return
         partner = null
         scope.launch {
-            baseUrl(tv)?.let { post("$it/castapp/stop-mirror", "{}") }
+            baseUrl(tv)?.let { post("$it/castapp/stop-mirror", "{}", authHeaders(tv)) }
             if (startedReceiver) {
                 startedReceiver = false
                 delay(800)
@@ -96,7 +111,7 @@ object SwapDirection {
         partner = null
         val app = context.applicationContext
         scope.launch {
-            baseUrl(tv)?.let { post("$it/castapp/stop-mirror", "{}") }
+            baseUrl(tv)?.let { post("$it/castapp/stop-mirror", "{}", authHeaders(tv)) }
             if (startedReceiver) {
                 startedReceiver = false
                 TvReceiverService.stop(app)
@@ -136,8 +151,11 @@ object SwapDirection {
         null
     }
 
+    /** The pairing token / name headers a CastApp TV may want on every request. */
+    private fun authHeaders(tv: CastDevice): Map<String, String> = AppPairing.client?.headersFor(tv) ?: emptyMap()
+
     /** POSTs [json]; returns the status code (-1 if unreachable) and the answer text. */
-    private fun post(url: String, json: String): Pair<Int, String> = try {
+    private fun post(url: String, json: String, headers: Map<String, String> = emptyMap()): Pair<Int, String> = try {
         val conn = URL(url).openConnection() as HttpURLConnection
         try {
             conn.requestMethod = "POST"
@@ -145,9 +163,9 @@ object SwapDirection {
             conn.readTimeout = 8000
             conn.doOutput = true
             conn.setRequestProperty("Content-Type", "application/json")
-            val bytes = json.toByteArray()
-            conn.setFixedLengthStreamingMode(bytes.size)
-            conn.outputStream.use { it.write(bytes) }
+            headers.forEach { (k, v) -> conn.setRequestProperty(k, v) }
+            // (No streaming mode: with it a 401 "pair first" answer would turn into an exception.)
+            conn.outputStream.use { it.write(json.toByteArray()) }
             val code = conn.responseCode
             val text = (if (code >= 400) conn.errorStream else conn.inputStream)?.use { it.readBytes().toString(Charsets.UTF_8) }.orEmpty()
             code to text

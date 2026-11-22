@@ -157,7 +157,15 @@ object Dlna {
     class SoapException(message: String) : IOException(message)
 
     /** Calls [action] on a service and returns the response body. */
-    fun call(controlUrl: String, service: String, action: String, args: List<Pair<String, String>>, timeoutMs: Int = 5000): String {
+    fun call(
+        controlUrl: String,
+        service: String,
+        action: String,
+        args: List<Pair<String, String>>,
+        timeoutMs: Int = 5000,
+        /** Extra request headers (CastApp TVs that only accept paired phones need a token). */
+        headers: Map<String, String> = emptyMap(),
+    ): String {
         val body = soapEnvelope(service, action, args).toByteArray(Charsets.UTF_8)
         val conn = URL(controlUrl).openConnection() as HttpURLConnection
         try {
@@ -168,6 +176,7 @@ object Dlna {
             conn.setRequestProperty("Content-Type", "text/xml; charset=\"utf-8\"")
             conn.setRequestProperty("SOAPACTION", "\"$service#$action\"")
             conn.setRequestProperty("Connection", "close")
+            headers.forEach { (k, v) -> conn.setRequestProperty(k, v) }
             conn.setFixedLengthStreamingMode(body.size)
             conn.outputStream.use { it.write(body) }
             val code = conn.responseCode

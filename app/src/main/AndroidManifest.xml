@@ -207,6 +207,61 @@
                 android:resource="@xml/support_file_paths" />
         </provider>
 
+        <!-- "Allow <phone> to cast?" on the receiver, and the code to type in for "Only paired phones" -->
+        <activity
+            android:name=".tv.ReceiverPromptActivity"
+            android:excludeFromRecents="true"
+            android:exported="false"
+            android:launchMode="singleTop"
+            android:taskAffinity=""
+            android:theme="@style/Theme.CastApp.Transparent" />
+
+        <receiver
+            android:name=".tv.ReceiverPromptReceiver"
+            android:exported="false" />
+
+        <!-- Home-screen widget -->
+        <receiver
+            android:name=".widget.CastWidgetProvider"
+            android:exported="true"
+            android:label="@string/widget_label">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+            </intent-filter>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/cast_widget_info" />
+        </receiver>
+
+        <receiver
+            android:name=".widget.WidgetActionReceiver"
+            android:exported="false" />
+
+        <service
+            android:name=".tile.ReceiveTileService"
+            android:exported="true"
+            android:icon="@drawable/ic_tile_receive"
+            android:label="@string/tile_receive_label"
+            android:permission="android.permission.BIND_QUICK_SETTINGS_TILE">
+            <intent-filter>
+                <action android:name="android.service.quicksettings.action.QS_TILE" />
+            </intent-filter>
+            <meta-data
+                android:name="android.service.quicksettings.TOGGLEABLE_TILE"
+                android:value="true" />
+        </service>
+
+        <service
+            android:name=".tile.RemoteTileService"
+            android:exported="true"
+            android:icon="@drawable/ic_tile_remote"
+            android:label="@string/tile_remote_label"
+            android:permission="android.permission.BIND_QUICK_SETTINGS_TILE">
+            <intent-filter>
+                <action android:name="android.service.quicksettings.action.QS_TILE" />
+            </intent-filter>
+        </service>
+
         <service
             android:name=".tile.CastTileService"
             android:exported="true"
