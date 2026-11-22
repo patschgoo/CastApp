@@ -60,6 +60,16 @@ class AdaptiveBitrate(
     }
 
     companion object {
+        /**
+         * Lowest bitrate the automatic quality goes down to. HEVC keeps a watchable
+         * picture at roughly two thirds of the H.264 bitrate, so it may go lower.
+         */
+        fun minBpsFor(codec: VideoCodec): Int = if (codec == VideoCodec.HEVC) 650_000 else 1_000_000
+
+        /** Automatic quality for [codec], starting at (and never above) [maxBps]. */
+        fun forCodec(codec: VideoCodec, maxBps: Int, apply: (Int) -> Unit) =
+            AdaptiveBitrate(maxBps, minBps = minOf(minBpsFor(codec), maxBps), apply = apply)
+
         const val LAG_HIGH_US = 350_000L
         const val LAG_LOW_US = 120_000L
         const val LAG_HOLD_MS = 700L

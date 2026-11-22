@@ -40,6 +40,15 @@ enum class ConvertMode(val label: String, val description: String) {
     OFF("Never", "Show an error if the TV can't play a file"),
 }
 
+/** Video codec for screen mirroring. */
+enum class CodecPreference {
+    /** HEVC only where it is known to work, H.264 everywhere else. */
+    AUTO,
+    H264,
+    /** HEVC wherever the phone can encode it (DLNA TVs always get H.264). */
+    HEVC,
+}
+
 data class CastSettings(
     val resolution: Resolution = Resolution.P720,
     val fps: Int = 30,
@@ -62,7 +71,20 @@ data class CastSettings(
     val subtitleLanguage: String = "",
     /** Create subtitles automatically for videos that have none. */
     val autoSubtitles: Boolean = false,
+    /** Video codec for mirroring. */
+    val videoCodec: CodecPreference = CodecPreference.AUTO,
+    /** Mix the phone's microphone into the mirrored sound. */
+    val microphone: Boolean = false,
+    /** Microphone level in percent (100 = as recorded). */
+    val micLevel: Int = 100,
 ) {
+    /**
+     * Bitrate for [hevc] streams: automatic bitrates are about a third lower for
+     * HEVC (the same picture quality); a bitrate the user picked is kept.
+     */
+    fun bitrateFor(hevc: Boolean): Int =
+        if (hevc && bitrateMbps == 0) (effectiveBitrate * 0.65 / 100_000).toInt() * 100_000 else effectiveBitrate
+
     val effectiveBitrate: Int
         get() {
             if (bitrateMbps > 0) return bitrateMbps * 1_000_000
@@ -104,6 +126,9 @@ class AppSettings(context: Context) {
             slideshowSeconds = prefs.getInt("slideshow_seconds", d.slideshowSeconds),
             subtitleLanguage = prefs.getString("subtitle_language", d.subtitleLanguage) ?: "",
             autoSubtitles = prefs.getBoolean("auto_subtitles", d.autoSubtitles),
+            videoCodec = enumOr(prefs.getString("video_codec", null), d.videoCodec),
+            microphone = prefs.getBoolean("microphone", d.microphone),
+            micLevel = prefs.getInt("mic_level", d.micLevel).coerceIn(0, 200),
         )
     }
 
@@ -125,6 +150,9 @@ class AppSettings(context: Context) {
             putInt("slideshow_seconds", s.slideshowSeconds)
             putString("subtitle_language", s.subtitleLanguage)
             putBoolean("auto_subtitles", s.autoSubtitles)
+            putString("video_codec", s.videoCodec.name)
+            putBoolean("microphone", s.microphone)
+            putInt("mic_level", s.micLevel)
         }
         _state.value = s
         applyTheme()
