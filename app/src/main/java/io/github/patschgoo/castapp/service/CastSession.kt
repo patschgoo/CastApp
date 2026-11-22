@@ -20,6 +20,10 @@ import io.github.patschgoo.castapp.cast.RunningApp
 import io.github.patschgoo.castapp.discovery.CastDevice
 import io.github.patschgoo.castapp.discovery.DeviceKind
 import io.github.patschgoo.castapp.discovery.NetworkScanner
+import io.github.patschgoo.castapp.multi.ExtraScreens
+import io.github.patschgoo.castapp.multi.JoinMedia
+import io.github.patschgoo.castapp.multi.MirrorFormat
+import io.github.patschgoo.castapp.multi.MirrorFormats
 import io.github.patschgoo.castapp.render.DlnaRenderer
 import io.github.patschgoo.castapp.render.MediaRenderer
 import io.github.patschgoo.castapp.render.PlayState
@@ -114,6 +118,16 @@ class CastSession(
     @Volatile private var hevcPlayed = false
     @Volatile private var micOn = false
     private var echoWarned = false
+
+    // ---- several screens: one capture, more TVs pulling the same stream ------------------------
+    @Volatile override var handingOver = false
+    /** The first screen was taken out while others go on. */
+    @Volatile private var primaryDetached = false
+    private val extras: ExtraScreens = ExtraScreens(
+        scope, live = true,
+        onChange = { update { it } },
+        onGone = { d, _ -> onExtraGone(d) },
+    ).also { it.provider = { d, local -> extraMedia(d, local) } }
 
     fun start() {
         CastController.begin(
@@ -259,13 +273,13 @@ class CastSession(
      * HEVC didn't play on this TV: rebuild the encoder for H.264 (the capture and
      * the user's permission stay). Returns false if there is nothing to switch or it failed.
      */
-    private suspend fun switchToH264(reason: String): Boolean {
+    private suspend fun switchToH264(reason: String, tvFailed: Boolean = true): Boolean {
         if (codec != VideoCodec.HEVC || audioOnly || ended.get()) return false
         val v = video ?: return false
         val h = hub ?: return false
         val s = server ?: return false
         Log.i(TAG, "HEVC didn't work on ${device.name} ($reason), switching to H.264")
-        if (settings.videoCodec == CodecPreference.AUTO) HevcMemory.markFailed(context, device.id)
+        if (tvFailed && settings.videoCodec == CodecPreference.AUTO) HevcMemory.markFailed(context, device.id)
         codec = VideoCodec.H264
         val bitrate = currentBitrate()
         update { it.copy(phase = CastPhase.BUFFERING, videoCodec = codec.label, bitrateKbps = bitrate / 1000) }
@@ -279,8 +293,11 @@ class CastSession(
             }
             installAdaptiveBitrate(h, bitrate)
         }
-        CastController.message(context.getString(R.string.hevc_fallback_message, device.name))
-        return h.awaitInitSegment(8_000) != null
+        if (tvFailed) CastController.message(context.getString(R.string.hevc_fallback_message, device.name))
+        val ok = h.awaitInitSegment(8_000) != null
+        // The other screens lost their connection with the old stream: they load the new one.
+        if (ok) extras.reloadAll()
+        return ok
     }
 
     /** The low-latency web player answers whether its browser plays these codecs (older versions don't answer). */
@@ -355,9 +372,9 @@ class CastSession(
                     PlayState.BUFFERING -> if (!playing) update { it.copy(phase = CastPhase.BUFFERING) }
                     PlayState.ERROR -> when {
                         !playing && codec == VideoCodec.HEVC && !hevcPlayed -> scope.launch { urlRendererToH264(r, "player error") }
-                        playing && !reconnecting -> finish(Txt.s(R.string.err_cast_stopped_tv))
+                        playing && !reconnecting -> primaryFailed(Txt.s(R.string.err_cast_stopped_tv))
                     }
-                    PlayState.STOPPED, PlayState.FINISHED -> if (playing && !reconnecting) finish(Txt.s(R.string.err_cast_stopped_tv))
+                    PlayState.STOPPED, PlayState.FINISHED -> if (playing && !reconnecting) primaryFailed(Txt.s(R.string.err_cast_stopped_tv))
                     else -> Unit
                 }
             }
@@ -372,7 +389,7 @@ class CastSession(
                 if (r === urlRenderer && !ended.get()) scope.launch { reconnect() }
             }
             override fun onClosedOnDevice() {
-                if (r === urlRenderer) finish(Txt.s(R.string.err_cast_stopped_tv))
+                if (r === urlRenderer) primaryFailed(Txt.s(R.string.err_cast_stopped_tv))
             }
         }
         r.connect()
@@ -570,7 +587,12 @@ class CastSession(
 
     /** The connection to the TV broke (Wi-Fi drop, TV restart): keep capturing and try again. */
     private suspend fun reconnect() {
-        if (ended.get() || reconnecting) return
+        if (ended.get() || reconnecting || primaryDetached) return
+        if (handingOver) {
+            // The other device's player took the TV: nothing to reconnect to.
+            primaryFailed(null)
+            return
+        }
         reconnecting = true
         watchdog?.cancel()
         update { it.copy(phase = CastPhase.RECONNECTING) }
@@ -607,7 +629,7 @@ class CastSession(
             }
         }
         reconnecting = false
-        finish(Txt.s(R.string.err_lost_connection, device.name))
+        primaryFailed(Txt.s(R.string.err_lost_connection, device.name))
     }
 
     // ---- receiver events -------------------------------------------------------
@@ -634,7 +656,7 @@ class CastSession(
         }
 
         override fun onAppClosed() {
-            if (c === client && !reconnecting) finish(Txt.s(R.string.err_cast_stopped_tv))
+            if (c === client && !reconnecting) primaryFailed(Txt.s(R.string.err_cast_stopped_tv))
         }
 
         override fun onDisconnected(error: Throwable?) {
@@ -667,7 +689,7 @@ class CastSession(
             }
             "IDLE" -> when (status.optString("idleReason")) {
                 "ERROR", "FINISHED" -> scope.launch { recoverPlayback() }
-                "CANCELLED", "INTERRUPTED" -> finish(Txt.s(R.string.err_cast_stopped_tv))
+                "CANCELLED", "INTERRUPTED" -> primaryFailed(Txt.s(R.string.err_cast_stopped_tv))
             }
         }
     }
@@ -678,7 +700,7 @@ class CastSession(
         playing = false
         reloads++
         when {
-            reloads > 3 -> finish(Txt.s(R.string.err_keeps_stopping, device.name))
+            reloads > 3 -> primaryFailed(Txt.s(R.string.err_keeps_stopping, device.name))
             // An HEVC stream that never played: don't retry, it's most likely the codec.
             !usingHls && !audioOnly && (reloads > 1 || (codec == VideoCodec.HEVC && !hevcPlayed)) -> fallbackToHls("playback error")
             else -> {
@@ -728,23 +750,35 @@ class CastSession(
                 finish(Txt.s(R.string.err_cant_encode, res.short))
                 return@launch
             }
-            // The TV has to reload to pick up the new picture size.
-            try {
-                when {
-                    device.isUrlRenderer -> urlRenderer?.let { r ->
-                        val local = localAddress ?: return@let
-                        r.load(mirrorMedia(s, local))
-                    }
-                    usingCustomPlayer -> client?.let { c -> if (!tryCustomPlayer(c, settings.receiverAppId.trim())) reload() }
-                    else -> reload()
+            // The TVs have to reload to pick up the new picture size.
+            reloadPrimary()
+            extras.reloadAll()
+        }
+    }
+
+    /** The first screen plays the stream from the start again (new picture size or codec). */
+    private suspend fun reloadPrimary() {
+        if (primaryDetached) return
+        val s = server ?: return
+        try {
+            when {
+                device.isUrlRenderer -> urlRenderer?.let { r ->
+                    val local = localAddress ?: return@let
+                    r.load(mirrorMedia(s, local))
                 }
-            } catch (e: Exception) {
-                Log.w(TAG, "Reload after resolution change failed", e)
+                usingCustomPlayer -> client?.let { c -> if (!tryCustomPlayer(c, settings.receiverAppId.trim())) reload() }
+                else -> reload()
             }
+        } catch (e: Exception) {
+            Log.w(TAG, "Reload of the first screen failed", e)
         }
     }
 
     override fun changeVolume(delta: Double) {
+        if (primaryDetached) {
+            extras.devices.firstOrNull()?.let { extras.changeVolume(it.id, delta) }
+            return
+        }
         val c = client
         val r = urlRenderer
         if (c == null && r == null) return
@@ -766,6 +800,10 @@ class CastSession(
     }
 
     override fun toggleMute() {
+        if (primaryDetached) {
+            extras.devices.firstOrNull()?.let { extras.toggleMute(it.id) }
+            return
+        }
         scope.launch {
             try {
                 urlRenderer?.setMuted(!muted) ?: client?.setMuted(!muted)
@@ -783,7 +821,9 @@ class CastSession(
      */
     override fun finish(message: String?, stopReceiver: Boolean) {
         if (!ended.compareAndSet(false, true)) return
-        Thread({ teardown(message, stopReceiver) }, "cast-teardown").start()
+        // Handing over: the other device's player is on the TVs now; leave them alone and stay quiet.
+        val handing = handingOver
+        Thread({ teardown(if (handing) null else message, stopReceiver && !handing) }, "cast-teardown").start()
     }
 
     private fun teardown(message: String?, stopReceiver: Boolean) {
@@ -801,6 +841,7 @@ class CastSession(
             if (stopReceiver) try { runBlocking { withTimeoutOrNull(2500) { r.stop() } } } catch (_: Exception) {}
             r.close()
         }
+        extras.stopAll(stopReceiver)
         scope.cancel()
         if (Build.VERSION.SDK_INT >= 29) try { audio?.stop() } catch (_: Exception) {}
         try { video?.stop() } catch (_: Exception) {}
@@ -812,8 +853,136 @@ class CastSession(
         mainHandler.post { onEnded(this) }
     }
 
-    private fun update(transform: (CastState.Active) -> CastState.Active) = CastController.update(this) {
-        transform(it).copy(device = device)
+    private fun update(transform: (CastState.Active) -> CastState.Active): Unit = CastController.update(this) {
+        val next = transform(it).copy(device = device, handingOver = handingOver)
+        val withScreens = MultiScreens.withScreens(next, extras.infos(), primaryDetached)
+        if (primaryDetached) withScreens.copy(phase = MultiScreens.groupPhase(withScreens.screens)) else withScreens
+    }
+
+    // ---- several screens ------------------------------------------------------------------------
+
+    override val screenDevices: List<CastDevice>
+        get() = (if (primaryDetached) emptyList() else listOf(device)) + extras.devices
+
+    override fun addScreen(device: CastDevice) {
+        if (ended.get() || handingOver) return
+        if ((!primaryDetached && MirrorFormats.sameDevice(device, this.device)) || extras.contains(device)) return
+        scope.launch {
+            // One encoder feeds every screen and not every TV decodes HEVC: the group uses H.264.
+            if (codec == VideoCodec.HEVC && switchToH264("several screens", tvFailed = false)) reloadPrimary()
+            if (!ended.get()) extras.add(device)
+        }
+    }
+
+    override fun removeScreen(id: String) {
+        if (ended.get()) return
+        if (!primaryDetached && id == device.id) {
+            if (extras.isEmpty) finish(null) else detachPrimary(stopPlayer = true)
+            return
+        }
+        if (extras.remove(id)) afterExtraLeft()
+    }
+
+    override fun changeScreenVolume(id: String, delta: Double) {
+        if (!primaryDetached && id == device.id) changeVolume(delta) else extras.changeVolume(id, delta)
+    }
+
+    override fun toggleScreenMute(id: String) {
+        if (!primaryDetached && id == device.id) toggleMute() else extras.toggleMute(id)
+    }
+
+    /** What an added screen plays: the same stream in the format that kind of device takes. */
+    private suspend fun extraMedia(d: CastDevice, local: InetAddress): List<RendererMedia> {
+        val s = withTimeoutOrNull(15_000) {
+            while (server == null || hub == null) delay(100)
+            server
+        } ?: return emptyList()
+        val h = hub ?: return emptyList()
+        val ready = if (audioOnly) h.awaitAudioConfig(8_000) != null else h.awaitInitSegment(8_000) != null
+        if (!ready) return emptyList()
+        return MirrorFormats.forDevice(d, audioOnly).mapNotNull { f ->
+            when (f) {
+                MirrorFormat.AAC -> RendererMedia(
+                    s.urlFor(local, s.audioPath), "audio/aac", Txt.s(R.string.multi_phone_sound), d.name, live = true, lowLatency = d.isCastAppTv,
+                )
+                MirrorFormat.LOW_LATENCY_MP4 -> RendererMedia(s.urlFor(local, s.mp4Path), "video/mp4", TITLE, d.name, live = true, lowLatency = true)
+                MirrorFormat.MP4 -> RendererMedia(s.urlFor(local, s.mp4Path), "video/mp4", TITLE, d.name, live = true)
+                MirrorFormat.TS -> if (codec == VideoCodec.HEVC) null else RendererMedia(s.urlFor(local, s.tsPath), "video/mp2t", TITLE, d.name, live = true)
+                MirrorFormat.HLS -> {
+                    val segmenter = s.enableHls()
+                    withTimeoutOrNull(12_000) { while (segmenter.completedSegments < 3) delay(100) }
+                    val path = if (codec == VideoCodec.HEVC) s.hlsMasterPath else s.hlsPath
+                    RendererMedia(s.urlFor(local, path), "application/x-mpegurl", TITLE, d.name, live = true)
+                }
+            }
+        }
+    }
+
+    /**
+     * The first screen ended (closed on that TV, lost for good): with other screens still
+     * playing the cast goes on without it, otherwise it ends with [message].
+     */
+    private fun primaryFailed(message: String?) {
+        if (extras.isEmpty || ended.get()) {
+            finish(message)
+            return
+        }
+        val name = device.name
+        detachPrimary(stopPlayer = false)
+        if (message != null && !handingOver) CastController.message(Txt.s(R.string.multi_screen_left, name))
+    }
+
+    private fun detachPrimary(stopPlayer: Boolean) {
+        if (primaryDetached) return
+        val first = extras.devices.firstOrNull() ?: return finish(null)
+        primaryDetached = true
+        watchdog?.cancel()
+        val c = client
+        val a = app
+        val r = urlRenderer
+        client = null
+        app = null
+        urlRenderer = null
+        device = first
+        update { it }
+        scope.launch {
+            if (stopPlayer && !handingOver) {
+                if (c != null && a != null && c.isConnected) try { withTimeoutOrNull(2500) { c.stopApp(a) } } catch (_: Exception) {}
+                if (r != null) try { withTimeoutOrNull(2500) { r.stop() } } catch (_: Exception) {}
+            }
+            try { c?.close() } catch (_: Exception) {}
+            try { r?.close() } catch (_: Exception) {}
+        }
+    }
+
+    private fun onExtraGone(d: CastDevice) {
+        if (!handingOver && !ended.get()) CastController.message(Txt.s(R.string.multi_screen_left, d.name))
+        afterExtraLeft()
+    }
+
+    private fun afterExtraLeft() {
+        if (primaryDetached) {
+            val first = extras.devices.firstOrNull()
+            if (first == null) {
+                finish(null)
+                return
+            }
+            device = first
+        }
+        update { it }
+    }
+
+    // ---- for other CastApp devices ---------------------------------------------------------------
+
+    /** Viewers who join get the low-latency MP4 stream (or the sound), like a CastApp TV. */
+    override fun joinMedia(local: InetAddress): JoinMedia? {
+        val s = server ?: return null
+        if (ended.get()) return null
+        return if (audioOnly) {
+            JoinMedia(s.urlFor(local, s.audioPath), "audio/aac", Txt.s(R.string.multi_phone_sound), lowLatency = true, live = true)
+        } else {
+            JoinMedia(s.urlFor(local, s.mp4Path), "video/mp4", TITLE, lowLatency = true, live = true)
+        }
     }
 
     companion object {

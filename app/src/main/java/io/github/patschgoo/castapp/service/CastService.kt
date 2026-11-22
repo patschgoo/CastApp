@@ -55,6 +55,8 @@ class CastService : Service() {
     override fun onCreate() {
         super.onCreate()
         createChannel(this)
+        // Other CastApp devices see what is cast here (and may join, or take it over).
+        io.github.patschgoo.castapp.multi.Peers.acquire(this, "cast")
         scope.launch {
             CastController.state.collect { state ->
                 if (state is CastState.Active && session != null) {
@@ -159,6 +161,8 @@ class CastService : Service() {
         app.devices.markUsed(device)
         Shortcuts.update(this, device)
         newSession.start()
+        // Handed over from another device: the cast's other screens.
+        io.github.patschgoo.castapp.multi.PendingScreens.take().forEach(newSession::addScreen)
         io.github.patschgoo.castapp.support.DoNotDisturb.onMirroringStarted(this)
         if (!audioOnly && app.settings.current.picture == PictureMode.LANDSCAPE) lockLandscape(true)
     }
@@ -187,6 +191,7 @@ class CastService : Service() {
         app.devices.markUsed(device)
         Shortcuts.update(this, device)
         newSession.start()
+        io.github.patschgoo.castapp.multi.PendingScreens.take().forEach(newSession::addScreen)
     }
 
     // ---- turn apps sideways ---------------------------------------------------------------
@@ -286,6 +291,7 @@ class CastService : Service() {
         io.github.patschgoo.castapp.support.DoNotDisturb.onMirroringEnded(this)
         requestTileUpdate()
         scope.cancel()
+        io.github.patschgoo.castapp.multi.Peers.release("cast")
         super.onDestroy()
     }
 

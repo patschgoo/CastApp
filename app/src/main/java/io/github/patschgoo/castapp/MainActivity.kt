@@ -62,10 +62,12 @@ class MainActivity : ComponentActivity() {
     override fun onStart() {
         super.onStart()
         CastApp.get(this).devices.startDiscovery()
+        io.github.patschgoo.castapp.multi.Peers.acquire(this, "ui")
     }
 
     override fun onStop() {
         CastApp.get(this).devices.stopDiscovery()
+        io.github.patschgoo.castapp.multi.Peers.release("ui")
         super.onStop()
     }
 

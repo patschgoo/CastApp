@@ -1,0 +1,94 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Several screens at once, joining another device's cast, synced playback and handing a cast over. -->
+<resources>
+    <!-- Several screens -->
+    <string name="multi_add_screen">Add a screen</string>
+    <string name="multi_add_screen_title">Add a screen</string>
+    <string name="multi_add_screen_text">The new screen gets the same picture and sound. Any TV or speaker works; CastApp TVs have the least delay.</string>
+    <string name="multi_add_screen_file_text">The new screen plays the same, from where it is now. Play, pause and skipping go to every screen.</string>
+    <string name="multi_add_screen_none">No other TVs or speakers found. Tap Refresh on the main screen and try again.</string>
+    <string name="multi_screens_header">Screens (%1$d)</string>
+    <string name="multi_state_connecting">Connecting…</string>
+    <string name="multi_state_buffering">Buffering…</string>
+    <string name="multi_state_playing">Playing</string>
+    <string name="multi_state_paused">Paused</string>
+    <string name="multi_state_error">Not playing</string>
+    <string name="multi_volume">Volume %1$d%%</string>
+    <string name="multi_muted">Muted</string>
+    <string name="multi_in_sync">In sync</string>
+    <string name="multi_volume_down">Volume down on %1$s</string>
+    <string name="multi_volume_up">Volume up on %1$s</string>
+    <string name="multi_mute">Mute %1$s</string>
+    <string name="multi_remove_screen">Remove %1$s</string>
+    <string name="multi_screen_left">%1$s left the cast</string>
+    <string name="multi_best_effort">TVs without CastApp keep in step as well as they can; they may be a second or so apart.</string>
+    <string name="multi_synced_note">CastApp TVs play in sync with the first screen.</string>
+    <string name="multi_phone_sound">Phone sound</string>
+    <string name="multi_cancel">Cancel</string>
+
+    <!-- Joining -->
+    <string name="multi_title_screen">the phone screen</string>
+    <string name="multi_title_sound">the phone sound</string>
+    <string name="multi_peer_casting">%1$s is casting %2$s</string>
+    <string name="multi_peer_on">On %1$s</string>
+    <string name="multi_join">Join</string>
+    <string name="multi_joining">Asking %1$s to let you watch…</string>
+    <plurals name="multi_watching">
+        <item quantity="one">%1$d watching</item>
+        <item quantity="other">%1$d watching</item>
+    </plurals>
+    <string name="multi_policy_chip">Join: %1$s</string>
+    <string name="multi_policy_ask">Ask first</string>
+    <string name="multi_policy_allow">Anyone on this Wi-Fi</string>
+    <string name="multi_policy_off">Off</string>
+    <string name="multi_join_prompt_title">Allow %1$s to watch?</string>
+    <string name="multi_join_prompt_text">%1$s wants to watch what you are casting, on its own screen.</string>
+    <string name="multi_join_no_answer">%1$s didn\'t answer. Try again in a moment.</string>
+    <string name="multi_join_off">%1$s doesn\'t let others join right now.</string>
+    <string name="multi_join_ended">%1$s isn\'t casting any more.</string>
+    <string name="multi_join_denied">%1$s didn\'t allow you to watch.</string>
+    <string name="multi_host_stopped">The cast you joined has ended.</string>
+    <string name="multi_unreachable">Can\'t reach %1$s. Is it on the same Wi-Fi?</string>
+    <string name="multi_other_device">The other device</string>
+
+    <!-- Handing over -->
+    <string name="multi_hand_over_menu">Hand over…</string>
+    <string name="multi_hand_over_title">Hand over to…</string>
+    <string name="multi_hand_over_text">The phone or tablet you pick is asked first. If it says yes, it carries on casting to the same screens and this one stops.</string>
+    <string name="multi_handing_over">Handing over…</string>
+    <string name="multi_offering">Waiting for %1$s to answer…</string>
+    <string name="multi_offer_title">%1$s offers you %2$s</string>
+    <string name="multi_screens_and">%1$s and %2$s</string>
+    <string name="multi_offer_screen_text">You\'d cast your own screen there instead. Android asks you to allow screen capture first.</string>
+    <string name="multi_offer_file_text">You\'d carry on playing \"%1$s\" from where it is now.</string>
+    <string name="multi_offer_control_text">\"%1$s\" is on the other device, so it keeps playing from there. You get the controls.</string>
+    <string name="multi_offer_question">Take over?</string>
+    <string name="multi_take_over">Take over</string>
+    <string name="multi_take_controls">Take the controls</string>
+    <string name="multi_decline">No, thanks</string>
+    <string name="multi_handover_accepted">%1$s is taking over…</string>
+    <string name="multi_handover_declined">%1$s said no. You are still casting.</string>
+    <string name="multi_handover_done">Handed over to %1$s</string>
+    <string name="multi_handover_failed_other">%1$s couldn\'t take over. You are still casting.</string>
+    <string name="multi_handover_failed_here">Couldn\'t take over the cast. The other device is still casting.</string>
+    <string name="multi_handover_timeout">No answer in time. You are still casting.</string>
+    <string name="multi_handover_busy">A hand-over is already under way.</string>
+    <string name="multi_handover_gone">%1$s isn\'t offering this any more.</string>
+    <string name="multi_handover_control_given">%1$s has the controls now. Keep this phone on Wi-Fi: it still plays the files.</string>
+    <string name="multi_handover_control_explained">These files are only on this phone, so it keeps playing them; the other device gets the controls.</string>
+
+    <!-- Asking to cast -->
+    <string name="multi_ask_to_cast">Ask to cast</string>
+    <string name="multi_asking">Asking %1$s to hand over…</string>
+    <string name="multi_request_sent">Asked %1$s to hand over</string>
+    <string name="multi_request_title">%1$s wants to cast</string>
+    <string name="multi_request_question">Hand over your cast?</string>
+    <string name="multi_hand_over">Hand over</string>
+    <string name="multi_request_declined">%1$s keeps casting for now.</string>
+
+    <!-- Controls of another device's cast -->
+    <string name="multi_remote_title">Controlling %1$s</string>
+    <string name="multi_remote_text">Played from %1$s on %2$s</string>
+    <string name="multi_remote_release">Give back the controls</string>
+    <string name="multi_remote_ended">The cast on %1$s has ended.</string>
+</resources>

@@ -22,6 +22,13 @@ import io.github.patschgoo.castapp.capture.Transcoder
 import io.github.patschgoo.castapp.cast.CastException
 import io.github.patschgoo.castapp.discovery.CastDevice
 import io.github.patschgoo.castapp.discovery.NetworkScanner
+import io.github.patschgoo.castapp.multi.ExtraScreens
+import io.github.patschgoo.castapp.multi.HostTimeline
+import io.github.patschgoo.castapp.multi.JoinMedia
+import io.github.patschgoo.castapp.multi.MirrorFormats
+import io.github.patschgoo.castapp.multi.PendingStart
+import io.github.patschgoo.castapp.multi.Timeline
+import java.net.InetAddress
 import io.github.patschgoo.castapp.network.HttpMediaSource
 import io.github.patschgoo.castapp.network.NetworkSource
 import io.github.patschgoo.castapp.render.MediaRenderer
@@ -185,6 +192,16 @@ class MediaCastSession(
     private var volumeProvider: VolumeProvider? = null
 
     private val current: MediaItem get() = items[index]
+
+    // ---- several screens ----------------------------------------------------------------------
+    @Volatile override var handingOver = false
+    private val extras: ExtraScreens = ExtraScreens(
+        scope, live = false,
+        onChange = { update { it } },
+        onGone = { d, _ -> onExtraGone(d) },
+    ).also { it.provider = { d, local -> extraMedia(d, local) } }
+    /** Where playback is, on this phone's clock: CastApp receivers and viewers follow it. */
+    private val timeline = HostTimeline(SystemClock::elapsedRealtime)
 
     fun start() {
         CastController.begin(this, baseState(CastPhase.CONNECTING))
@@ -777,10 +794,17 @@ class MediaCastSession(
     /** Apple TV and Roku can't play an endless MP4: they get converted videos as HLS. */
     private val convertsToHls: Boolean get() = device.kind == DeviceKind.AIRPLAY || device.kind == DeviceKind.ROKU
 
-    private fun mediaFor(i: Int, d: Delivery, startMs: Long): RendererMedia {
+    private fun mediaFor(
+        i: Int,
+        d: Delivery,
+        startMs: Long,
+        target: CastDevice = device,
+        address: InetAddress? = null,
+    ): RendererMedia {
         val item = items[i]
         val id = queue.idAt(i)
-        val local = renderer?.localAddress ?: throw CastException(Txt.s(R.string.err_no_path))
+        val local = address ?: renderer?.localAddress ?: throw CastException(Txt.s(R.string.err_no_path))
+        val convertsToHls = target.kind == DeviceKind.AIRPLAY || target.kind == DeviceKind.ROKU
         val t = server.token
         val audio = audioChoice[item.uri] ?: 0
         val url = when (d) {
@@ -810,7 +834,7 @@ class MediaCastSession(
             url = url,
             mimeType = mime,
             title = item.title,
-            subtitle = device.name,
+            subtitle = target.name,
             live = item.live || d == Delivery.CONVERT,
             subtitleUrl = subtitlePath?.let { server.urlFor(local, "$it.vtt") },
             subtitleSrtUrl = subtitlePath?.let { server.urlFor(local, "$it.srt") },
@@ -835,7 +859,8 @@ class MediaCastSession(
         var item = current
         var start = startMs
         if (resume && onlyFrom == null && startMs == 0L) {
-            val at = history.resumePosition(item)
+            // Taken over from another device: carry on where it was.
+            val at = PendingStart.take(item.uri) ?: history.resumePosition(item)
             if (at != null) {
                 start = at
                 PlaybackHub.resumeFlow.value = ResumeNotice(item.uri, at)
@@ -893,6 +918,7 @@ class MediaCastSession(
                     skipped = 0
                     update { it.copy(phase = CastPhase.LIVE) }
                     scheduleSlideshow()
+                    extras.reloadAll()
                     return
                 }
                 // Wait for the TV to actually start (or to report an error).
@@ -901,6 +927,8 @@ class MediaCastSession(
                     started = true
                     skipped = 0
                     refreshExtras()
+                    // The other screens get the same item, from where the first one is now.
+                    extras.reloadAll()
                     if (d == Delivery.CONVERT && convertHeight == 0 && (audioChoice[item.uri] ?: 0) == 0) {
                         CastController.message(Txt.s(R.string.msg_converting, item.title))
                     }
@@ -951,13 +979,28 @@ class MediaCastSession(
         if (s.paused) play() else pause()
     }
 
-    fun play() = control { it.play() }
+    fun play() {
+        jumpTimeline(playing = true)
+        control { it.play() }
+    }
 
-    fun pause() = control { it.pause() }
+    fun pause() {
+        jumpTimeline(playing = false)
+        control { it.pause() }
+    }
+
+    /** Play, pause and seek from here move the shared timeline at once (the first TV confirms later). */
+    private fun jumpTimeline(playing: Boolean, positionMs: Long? = null) {
+        val s = CastController.state.value as? CastState.Active ?: return
+        val now = SystemClock.elapsedRealtime()
+        // A moment ahead, so every receiver can be there at the same time.
+        timeline.jump(positionMs ?: s.positionNow(now), playing, now + if (playing) SYNC_LEAD_MS else 0)
+    }
 
     fun seekTo(positionMs: Long) {
         if (current.live) return
         val target = positionMs.coerceAtLeast(0)
+        jumpTimeline((CastController.state.value as? CastState.Active)?.paused != true, target)
         update { it.copy(positionMs = target, positionAt = SystemClock.elapsedRealtime()) }
         if (delivery == Delivery.CONVERT) {
             // A converted stream can't seek on the TV: convert again from the new position.
@@ -1261,11 +1304,13 @@ class MediaCastSession(
         history.record(item, s.positionNow(SystemClock.elapsedRealtime()), s.durationMs, force)
     }
 
-    private fun control(action: suspend (MediaRenderer) -> Unit) {
+    /** Sends a command to the TV, and with [allScreens] to every other screen of the cast too. */
+    private fun control(allScreens: Boolean = true, action: suspend (MediaRenderer) -> Unit) {
         val r = renderer ?: return
         scope.launch {
             try { action(r) } catch (e: Exception) { Log.i(TAG, "Control failed: ${e.message}") }
         }
+        if (allScreens) extras.fanOut(action)
     }
 
     override fun changeVolume(delta: Double) {
@@ -1285,7 +1330,7 @@ class MediaCastSession(
 
     private fun setVolume(level: Double) = changeVolume(level - (volume ?: level))
 
-    override fun toggleMute() = control { it.setMuted(!muted) }
+    override fun toggleMute() = control(allScreens = false) { it.setMuted(!muted) }
 
     // ---- TV events ---------------------------------------------------------------------------------
 
@@ -1306,7 +1351,7 @@ class MediaCastSession(
         }
 
         override fun onClosedOnDevice() {
-            if (r === renderer && !reconnecting) finish(Txt.s(R.string.err_playback_stopped_tv))
+            if (r === renderer && !reconnecting) primaryFailed(Txt.s(R.string.err_playback_stopped_tv))
         }
     }
 
@@ -1336,8 +1381,15 @@ class MediaCastSession(
                     else -> finish(Txt.s(R.string.err_finished))
                 }
             }
-            PlayState.STOPPED -> if (started && waiter == null && !reconnecting) finish(Txt.s(R.string.err_playback_stopped_tv))
+            PlayState.STOPPED -> if (started && waiter == null && !reconnecting) primaryFailed(Txt.s(R.string.err_playback_stopped_tv))
             PlayState.IDLE -> Unit
+        }
+        // The first screen is the reference of the shared timeline.
+        if (started && current.type != MediaType.PHOTO && status.positionMs != null &&
+            (status.state == PlayState.PLAYING || status.state == PlayState.PAUSED)
+        ) {
+            val position = status.positionMs + if (delivery == Delivery.CONVERT) convertStartMs else 0
+            timeline.observe(queue.idAt(index).toString(), position, status.state == PlayState.PLAYING, current.live)
         }
         val converted = delivery == Delivery.CONVERT
         update {
@@ -1382,6 +1434,11 @@ class MediaCastSession(
 
     private suspend fun reconnect() {
         if (ended.get() || reconnecting) return
+        if (handingOver || !extras.isEmpty) {
+            // Another device's player took the TV, or other screens carry on: no waiting for this one.
+            primaryFailed(if (handingOver) null else Txt.s(R.string.err_lost_connection, device.name))
+            return
+        }
         reconnecting = true
         val resumeAt = (CastController.state.value as? CastState.Active)?.positionNow(SystemClock.elapsedRealtime()) ?: 0
         val wasPaused = (CastController.state.value as? CastState.Active)?.paused == true
@@ -1483,7 +1540,9 @@ class MediaCastSession(
 
     override fun finish(message: String?, stopReceiver: Boolean) {
         if (!ended.compareAndSet(false, true)) return
-        Thread({ teardown(message, stopReceiver) }, "media-cast-teardown").start()
+        // Handing over: the other device's player is on the TVs now; leave them alone and stay quiet.
+        val handing = handingOver
+        Thread({ teardown(if (handing) null else message, stopReceiver && !handing) }, "media-cast-teardown").start()
     }
 
     private fun teardown(message: String?, stopReceiver: Boolean) {
@@ -1497,6 +1556,8 @@ class MediaCastSession(
             try { runBlocking { withTimeoutOrNull(2500) { r.stop() } } } catch (_: Exception) {}
         }
         try { r?.close() } catch (_: Exception) {}
+        extras.stopAll(stopReceiver)
+        timeline.clear()
         scope.cancel()
         if (::server.isInitialized) try { server.stop() } catch (_: Exception) {}
         locks.release()
@@ -1512,9 +1573,125 @@ class MediaCastSession(
         }
     }
 
-    private fun update(transform: (CastState.Active) -> CastState.Active) = CastController.update(this) {
-        transform(it).copy(device = device)
+    private fun update(transform: (CastState.Active) -> CastState.Active): Unit = CastController.update(this) {
+        MultiScreens.withScreens(transform(it).copy(device = device, handingOver = handingOver), extras.infos(), primaryDetached = false)
     }
+
+    // ---- several screens ------------------------------------------------------------------------
+
+    override val screenDevices: List<CastDevice> get() = listOf(device) + extras.devices
+
+    override fun addScreen(device: CastDevice) {
+        if (ended.get() || handingOver) return
+        if (MirrorFormats.sameDevice(device, this.device) || extras.contains(device)) return
+        extras.add(device)
+    }
+
+    override fun removeScreen(id: String) {
+        if (ended.get()) return
+        if (id == device.id) {
+            if (extras.isEmpty) finish(null) else promote(stopOld = true)
+            return
+        }
+        if (extras.remove(id)) update { it }
+    }
+
+    override fun changeScreenVolume(id: String, delta: Double) {
+        if (id == device.id) changeVolume(delta) else extras.changeVolume(id, delta)
+    }
+
+    override fun toggleScreenMute(id: String) {
+        if (id == device.id) toggleMute() else extras.toggleMute(id)
+    }
+
+    /**
+     * What an added screen plays: the item playing now, from where it is now, delivered the way
+     * the first screen gets it (or the other ways that don't need converting).
+     * CastApp receivers also get the shared timeline to keep in sync.
+     */
+    private suspend fun extraMedia(d: CastDevice, local: InetAddress): List<RendererMedia> {
+        // Added while the first screen is still starting: wait for it (it decides how the item is delivered).
+        withTimeoutOrNull(60_000) { while (!started && !ended.get()) delay(200) }
+        if (!started || ended.get()) return emptyList()
+        val i = index
+        val item = items.getOrNull(i) ?: return emptyList()
+        val now = SystemClock.elapsedRealtime()
+        val position = (CastController.state.value as? CastState.Active)?.positionNow(now) ?: 0
+        val used = delivery
+        val options = (listOf(used) + plan(item).filter { it != used && it != Delivery.CONVERT }).distinct()
+        val sync = if (d.isCastAppTv && used != Delivery.CONVERT && item.type != MediaType.PHOTO) {
+            io.github.patschgoo.castapp.multi.Peers.timelineUrl(local)
+        } else {
+            null
+        }
+        return options.mapNotNull { option ->
+            try {
+                mediaFor(i, option, if (option == Delivery.CONVERT || item.live) position.coerceAtLeast(0) else position, d, local)
+                    .copy(syncUrl = sync)
+            } catch (e: Exception) {
+                null
+            }
+        }
+    }
+
+    /** The first screen is gone but others play on: the next one becomes the first. */
+    private fun primaryFailed(message: String?) {
+        if (extras.isEmpty || ended.get()) {
+            finish(message)
+            return
+        }
+        val name = device.name
+        promote(stopOld = false)
+        if (message != null && !handingOver) CastController.message(Txt.s(R.string.multi_screen_left, name))
+    }
+
+    private fun promote(stopOld: Boolean) {
+        val next = extras.all.firstOrNull { it.state != io.github.patschgoo.castapp.multi.ScreenState.ERROR } ?: extras.all.firstOrNull()
+            ?: return finish(null)
+        val s = extras.detach(next.device.id) ?: return finish(null)
+        val old = renderer
+        s.renderer.listener = listenerFor(s.renderer)
+        renderer = s.renderer
+        device = s.device
+        volume = s.volume
+        muted = s.muted
+        update { it.copy(volume = volume?.toFloat(), muted = muted) }
+        scope.launch {
+            if (stopOld && !handingOver) try { withTimeoutOrNull(2500) { old?.stop() } } catch (_: Exception) {}
+            try { old?.close() } catch (_: Exception) {}
+            try { renderer?.refresh() } catch (_: Exception) {}
+        }
+    }
+
+    private fun onExtraGone(d: CastDevice) {
+        if (!handingOver && !ended.get()) CastController.message(Txt.s(R.string.multi_screen_left, d.name))
+        update { it }
+    }
+
+    // ---- for other CastApp devices ---------------------------------------------------------------
+
+    override fun joinMedia(local: InetAddress): JoinMedia? {
+        if (!started || ended.get()) return null
+        val i = index
+        val item = items.getOrNull(i) ?: return null
+        val now = SystemClock.elapsedRealtime()
+        val position = (CastController.state.value as? CastState.Active)?.positionNow(now) ?: 0
+        val used = delivery
+        val media = try { mediaFor(i, used, position, device, local) } catch (_: Exception) { return null }
+        return JoinMedia(
+            url = media.url,
+            mimeType = media.mimeType,
+            title = media.title,
+            lowLatency = false,
+            live = item.live || used == Delivery.CONVERT,
+            subtitleUrl = media.subtitleSrtUrl ?: media.subtitleUrl,
+        )
+    }
+
+    /** A converted stream starts its clock where the conversion started: no shared position then. */
+    override fun timeline(): Timeline? = timeline.current?.let { if (delivery == Delivery.CONVERT) it.copy(live = true) else it }
+
+    override fun handOverQueue(): Pair<List<MediaItem>, Int> = items to index
 
     companion object {
         private const val TAG = "MediaCastSession"
@@ -1534,6 +1711,8 @@ class MediaCastSession(
         const val CUSTOM_REWIND = "rewind10"
         const val CUSTOM_FORWARD = "forward30"
         const val CUSTOM_STOP = "stop"
+        /** Play/seek from this phone: the shared timeline moves this far ahead, so all receivers start together. */
+        private const val SYNC_LEAD_MS = 300L
     }
 }
 
