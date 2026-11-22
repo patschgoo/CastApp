@@ -139,6 +139,12 @@
             android:windowSoftInputMode="adjustResize" />
 
         <activity
+            android:name=".RemoteActivity"
+            android:exported="false"
+            android:label="@string/remote_title"
+            android:windowSoftInputMode="adjustResize" />
+
+        <activity
             android:name=".PinActivity"
             android:excludeFromRecents="true"
             android:exported="false"
