@@ -57,6 +57,10 @@ class DeviceRepository(context: Context) {
     /** True while discovery is active (the device list is on screen). */
     val searching: StateFlow<Boolean> = _searching.asStateFlow()
 
+    private val _lastUsedId = MutableStateFlow(prefs.getString(KEY_LAST, null))
+    /** Id of the device used (or picked) last: what "Cast to" on the main screen, the tile and the shortcuts use. */
+    val lastUsedId: StateFlow<String?> = _lastUsedId.asStateFlow()
+
     private var mdns: MdnsBrowser? = null
     private var nsd: NsdBrowser? = null
     private var ssdp: io.github.patschgoo.castapp.dlna.SsdpBrowser? = null
@@ -224,14 +228,18 @@ class DeviceRepository(context: Context) {
             saved.remove(id)
             persistSaved()
         }
-        if (prefs.getString(KEY_LAST, null) == id) prefs.edit { remove(KEY_LAST) }
+        if (prefs.getString(KEY_LAST, null) == id) {
+            prefs.edit { remove(KEY_LAST) }
+            _lastUsedId.value = null
+        }
         publish()
     }
 
     /** Remembers [device] as the one to use for quick casting (tile, shortcut). */
     fun markUsed(device: CastDevice) {
-        save(device)
         prefs.edit { putString(KEY_LAST, device.id) }
+        _lastUsedId.value = device.id
+        save(device)
     }
 
     fun lastUsed(): CastDevice? {

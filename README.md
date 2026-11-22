@@ -118,10 +118,10 @@ Any device you've cast to once is **remembered**. If its IP address changes, Cas
 - Media controls on the lock screen when casting files.
 - **Quick Settings tiles**: "Cast screen" (tap to mirror to the last TV, tap again to stop; long-press opens the app), "Receive on this phone" and "TV remote".
 - **Home-screen widget** for quick casting and stopping.
-- **TV remote** from the top bar, see below.
+- **TV remote** from the top of the main screen and, in small, inside the casting card; see below.
 - **Launcher shortcuts**: long-press the app icon for "Mirror screen to *your TV*".
 
-**Looks:** light and dark mode that follow the system, with wallpaper colors (Material You) on Android 12+. You can force Light or Dark in Settings. On **tablets and in landscape** (600 dp and wider) the screens use two panes. The app is in **English and German** and follows the phone's language.
+**Looks:** CastApp's own violet look in a light and a dark mode that follow the system. You can force Light or Dark in Settings. On **tablets and in landscape** (600 dp and wider) the screens use two panes. The app is in **English and German** and follows the phone's language.
 
 ## Install
 
@@ -141,14 +141,12 @@ You need JDK 17+, the Android SDK with platform `android-37.1`, the Android **ND
 ## How to use
 
 1. Connect your phone and the TV or speaker to the **same Wi-Fi**. Guest networks usually block device-to-device traffic.
-2. Open CastApp and choose **Video** or **Audio** at the top.
-3. Tap **Cast** next to a device:
-   - in Video mode, this mirrors the screen;
-   - in Audio mode, it casts the phone's sound.
+2. Open CastApp. **Cast to** at the top shows the TV everything goes to: the one you used last, or the first one found. Tap it to pick another TV, to switch between **Video** (TVs) and **Audio** (speakers and speaker groups too), to search again, scan the network or add a TV by its IP address. The ⋮ next to a TV has everything for that one TV (also its remote, forgetting it and waking it up).
+3. Choose what to send:
+   - **Mirror screen**, **One app** or **Phone sound** send what this phone shows or plays. For a speaker, the buttons are **Phone sound** and **Music files**.
+   - The tiles below play something else: **Phone videos**, **Photos** and **Music** from this phone, **Plex**, **Jellyfin** (and Emby), **Network & cloud**, **TV channels** and **Web videos**. Files from the phone go to the TV in **Cast to**; in the other tiles you pick the TV when you start something. While a file or channel is already playing, anything new goes straight to that TV.
 
-   Tap the device's name for more options: a single app, files, web videos, or sound only.
-
-   Below the Video/Audio switch, **TV channels**, **Network & cloud** and **Web videos** open what you'd like to play; you pick the TV when you start it. While a file or channel is already playing, anything new goes straight to that TV.
+   While something is cast, a bar at the bottom shows what and where, with pause. Tap it to open the **casting card**: all playback controls, quality, subtitles, the queue, more screens, volume, Stop, Dark screen and a small remote. On tablets and in landscape the casting card and the TV list stand beside the tiles.
 4. Confirm Android's "Start casting?" dialog. File and web-video casting doesn't need this dialog.
 5. Stop from the app, the notification, the Quick Settings tile, or the TV remote.
 
@@ -167,7 +165,7 @@ To add the tile, pull down Quick Settings, tap the pencil (edit) icon and drag *
 
 ## TV remote
 
-Open the remote from the remote icon in the top bar, from a TV's menu or from the casting card. Three kinds are built in:
+Open the remote from the remote icon at the top of the main screen, from a TV's ⋮ menu under **Cast to** or from the casting card. The casting card also has the most used keys built in (D-pad, volume, channels, Back, Home, Menu, Mute): tap **Use this phone as the remote** there; **All buttons** opens the full remote. Three kinds are built in:
 
 | Kind | Works with | Notes |
 |---|---|---|
