@@ -8,6 +8,7 @@ import android.os.Environment
 import android.provider.MediaStore
 import androidx.annotation.RequiresApi
 import androidx.core.content.FileProvider
+import androidx.core.net.toUri
 import com.hierynomus.msdtyp.AccessMask
 import com.hierynomus.msfscc.FileAttributes
 import com.hierynomus.mssmb2.SMB2CreateDisposition
@@ -204,7 +205,7 @@ object RecordingSinks {
     fun delete(context: Context, r: Recording) {
         when (r.target) {
             RecordingTarget.PHONE -> File(r.location).delete()
-            RecordingTarget.GALLERY -> context.contentResolver.delete(Uri.parse(r.location), null, null)
+            RecordingTarget.GALLERY -> context.contentResolver.delete(r.location.toUri(), null, null)
             RecordingTarget.NETWORK -> {
                 val network = CastApp.get(context).network
                 val source = network.get(r.sourceId) ?: return
@@ -222,7 +223,7 @@ object RecordingSinks {
     /** An address that other apps (a video player) can open; null for network folders and missing files. */
     fun viewUri(context: Context, r: Recording): Uri? = when (r.target) {
         RecordingTarget.PHONE -> File(r.location).takeIf { it.exists() }?.let { FileProvider.getUriForFile(context, authority(context), it) }
-        RecordingTarget.GALLERY -> Uri.parse(r.location)
+        RecordingTarget.GALLERY -> r.location.toUri()
         RecordingTarget.NETWORK -> null
     }
 

@@ -26,6 +26,7 @@ import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.delay
@@ -83,7 +84,8 @@ class RecordingService : Service() {
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         RecordingNotifier.createChannels(this)
-        goForeground()
+        // Every start has to show the notification; a stop that finds nothing running just ends the service.
+        if (intent?.action == ACTION_START || running.isNotEmpty()) goForeground()
         val id = intent?.getStringExtra(EXTRA_ID)
         when (intent?.action) {
             ACTION_START -> if (id != null) begin(id)
@@ -228,7 +230,8 @@ class RecordingService : Service() {
         val taken = center.book.takenNames()
         var output: RecordingOutput? = null
         var note: String? = null
-        val result = withContext(Dispatchers.IO) {
+        // Not cancellable: when the service is destroyed, stop() makes this return and the result is still saved.
+        val result = withContext(NonCancellable + Dispatchers.IO) {
             recorder.record(rec.channelUrl, rec.toChannel().headers, rec.plannedEndMs) { ext ->
                 val wanted = RecordingNames.unique(
                     RecordingNames.fileName(rec.channelName, rec.title, if (rec.programmeStartMs > 0) rec.programmeStartMs else rec.plannedStartMs, ext),
