@@ -1,5 +1,6 @@
 package io.github.patschgoo.castapp.settings
 
+import android.app.UiModeManager
 import android.content.Context
 import androidx.core.content.edit
 import android.os.Build
@@ -18,6 +19,12 @@ enum class StreamMode(val label: String, val description: String) {
     COMPATIBLE("Compatible (HLS)", "Works with every Cast receiver, but lags a few seconds behind."),
 }
 
+enum class ThemeMode(val label: String) {
+    SYSTEM("System default"),
+    LIGHT("Light"),
+    DARK("Dark"),
+}
+
 data class CastSettings(
     val resolution: Resolution = Resolution.P720,
     val fps: Int = 30,
@@ -26,6 +33,7 @@ data class CastSettings(
     val audio: Boolean = Build.VERSION.SDK_INT >= 29,
     val streamMode: StreamMode = StreamMode.LOW_LATENCY,
     val port: Int = 8090,
+    val theme: ThemeMode = ThemeMode.SYSTEM,
 ) {
     val effectiveBitrate: Int
         get() {
@@ -41,7 +49,8 @@ data class CastSettings(
 
 /** Simple settings stored in SharedPreferences and exposed as a StateFlow for the UI. */
 class AppSettings(context: Context) {
-    private val prefs = context.applicationContext.getSharedPreferences("settings", Context.MODE_PRIVATE)
+    private val appContext = context.applicationContext
+    private val prefs = appContext.getSharedPreferences("settings", Context.MODE_PRIVATE)
     private val _state = MutableStateFlow(load())
     val state: StateFlow<CastSettings> = _state.asStateFlow()
     val current: CastSettings get() = _state.value
@@ -55,6 +64,7 @@ class AppSettings(context: Context) {
             audio = prefs.getBoolean("audio", d.audio) && Build.VERSION.SDK_INT >= 29,
             streamMode = enumOr(prefs.getString("stream_mode", null), d.streamMode),
             port = prefs.getInt("port", d.port),
+            theme = enumOr(prefs.getString("theme", null), d.theme),
         )
     }
 
@@ -67,11 +77,32 @@ class AppSettings(context: Context) {
             putBoolean("audio", s.audio)
             putString("stream_mode", s.streamMode.name)
             putInt("port", s.port)
+            putString("theme", s.theme.name)
         }
         _state.value = s
+        applyTheme()
     }
 
-    fun reset() = update { CastSettings() }
+    /** Resets the casting options; the chosen theme is kept. */
+    fun reset() = update { CastSettings(theme = it.theme) }
+
+    /**
+     * On Android 12+ the app's light/dark choice is handed to the system, so every
+     * window (including dialogs and the splash screen) follows it.
+     */
+    fun applyTheme() {
+        if (Build.VERSION.SDK_INT < 31) return
+        val mode = when (current.theme) {
+            ThemeMode.SYSTEM -> UiModeManager.MODE_NIGHT_AUTO
+            ThemeMode.LIGHT -> UiModeManager.MODE_NIGHT_NO
+            ThemeMode.DARK -> UiModeManager.MODE_NIGHT_YES
+        }
+        try {
+            val ui = appContext.getSystemService(UiModeManager::class.java)
+            ui.setApplicationNightMode(mode)
+        } catch (_: Exception) {
+        }
+    }
 
     /** Whether we already asked for the optional permissions once (we never nag). */
     var askedForPermissions: Boolean

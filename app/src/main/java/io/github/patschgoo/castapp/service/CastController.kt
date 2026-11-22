@@ -21,13 +21,33 @@ sealed interface CastState {
     data class Active(
         val device: CastDevice,
         val phase: CastPhase,
+        val kind: CastKind = CastKind.SCREEN,
         val compatibilityMode: Boolean = false,
         val volume: Float? = null,
         val muted: Boolean = false,
         val audio: Boolean = false,
         val resolution: String = "",
-    ) : CastState
+        /** Single-app screen casting on Android 14+: the phone screen can be blacked out. */
+        val canDarkScreen: Boolean = false,
+        val darkScreen: Boolean = false,
+        /** File casting: name, playback position and state as last reported by the TV. */
+        val title: String? = null,
+        val paused: Boolean = false,
+        val positionMs: Long = 0,
+        val durationMs: Long = 0,
+        /** SystemClock.elapsedRealtime() when [positionMs] was measured. */
+        val positionAt: Long = 0,
+    ) : CastState {
+        /** Current playback position, extrapolated while playing. */
+        fun positionNow(nowElapsed: Long): Long {
+            if (kind != CastKind.FILE || phase != CastPhase.LIVE || paused) return positionMs
+            val p = positionMs + (nowElapsed - positionAt)
+            return if (durationMs > 0) p.coerceAtMost(durationMs) else p
+        }
+    }
 }
+
+enum class CastKind { SCREEN, FILE }
 
 /** Process-wide casting state shared by the service, the UI and the Quick Settings tile. */
 object CastController {

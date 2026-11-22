@@ -259,6 +259,17 @@ class CastClient(
         return list?.optJSONObject(0) ?: JSONObject()
     }
 
+    /**
+     * Sends a media command (PLAY, PAUSE, SEEK, GET_STATUS, ...) for [mediaSessionId]
+     * and returns the resulting media status, if any.
+     */
+    suspend fun mediaCommand(app: RunningApp, mediaSessionId: Int, type: String, extra: (JSONObject) -> Unit = {}): JSONObject? {
+        val payload = JSONObject().put("type", type).put("mediaSessionId", mediaSessionId)
+        extra(payload)
+        val reply = request(NS_MEDIA, app.transportId, payload, 8000)
+        return reply.json.optJSONArray("status")?.optJSONObject(0)
+    }
+
     suspend fun setVolume(level: Double) {
         val volume = JSONObject().put("level", level.coerceIn(0.0, 1.0))
         request(NS_RECEIVER, RECEIVER_ID, JSONObject().put("type", "SET_VOLUME").put("volume", volume), 5000)
@@ -334,6 +345,20 @@ class CastClient(
             val app = findApp(status) { it.optString("appId") == appId && it.optString("transportId").isNotEmpty() }
                 ?: return null
             return RunningApp(appId, app.optString("sessionId"), app.optString("transportId"))
+        }
+
+        /** Media info for a file served from the phone (seekable, with a known length). */
+        fun fileMedia(url: String, mimeType: String, title: String, subtitle: String): JSONObject {
+            val metadata = JSONObject()
+                .put("metadataType", if (mimeType.startsWith("audio/")) 3 else 0)
+                .put("title", title)
+                .put(if (mimeType.startsWith("audio/")) "artist" else "subtitle", subtitle)
+            return JSONObject()
+                .put("contentId", url)
+                .put("contentUrl", url)
+                .put("contentType", mimeType)
+                .put("streamType", "BUFFERED")
+                .put("metadata", metadata)
         }
 
         /** Media info for the live stream, understood by the Default Media Receiver. */

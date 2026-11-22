@@ -10,6 +10,7 @@ import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
+import io.github.patschgoo.castapp.settings.ThemeMode
 
 private val LightColors = lightColorScheme(
     primary = Color(0xFF00629D),
@@ -37,9 +38,22 @@ private val DarkColors = darkColorScheme(
     surface = Color(0xFF101418),
 )
 
+/** Whether the app should be dark for [mode] right now. */
 @Composable
-fun CastAppTheme(content: @Composable () -> Unit) {
-    val dark = isSystemInDarkTheme()
+fun isAppInDarkTheme(mode: ThemeMode): Boolean = when (mode) {
+    ThemeMode.SYSTEM -> isSystemInDarkTheme()
+    ThemeMode.LIGHT -> false
+    ThemeMode.DARK -> true
+}
+
+/**
+ * Material 3 theme that follows the system's light/dark setting by default
+ * (or the choice in Settings) and uses the wallpaper-based "Material You"
+ * colors on Android 12+.
+ */
+@Composable
+fun CastAppTheme(mode: ThemeMode = ThemeMode.SYSTEM, content: @Composable () -> Unit) {
+    val dark = isAppInDarkTheme(mode)
     val colors = when {
         Build.VERSION.SDK_INT >= 31 -> {
             val context = LocalContext.current

@@ -1,27 +1,38 @@
 package io.github.patschgoo.castapp
 
 import android.Manifest
+import android.content.Intent
 import android.content.pm.PackageManager
+import android.graphics.Color
 import android.os.Build
 import android.os.Bundle
+import android.provider.Settings
+import android.widget.Toast
 import androidx.activity.ComponentActivity
+import androidx.activity.SystemBarStyle
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.platform.LocalContext
+import androidx.core.net.toUri
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import io.github.patschgoo.castapp.discovery.CastDevice
+import io.github.patschgoo.castapp.service.CastService
+import io.github.patschgoo.castapp.service.FileCastSession
 import io.github.patschgoo.castapp.ui.AppPickerScreen
 import io.github.patschgoo.castapp.ui.DevicesScreen
 import io.github.patschgoo.castapp.ui.SettingsScreen
 import io.github.patschgoo.castapp.ui.theme.CastAppTheme
+import io.github.patschgoo.castapp.ui.theme.isAppInDarkTheme
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -29,8 +40,15 @@ class MainActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         val app = CastApp.get(this)
         setContent {
-            CastAppTheme {
-                AppRoot(app)
+            val settings by app.settings.state.collectAsStateWithLifecycle()
+            val dark = isAppInDarkTheme(settings.theme)
+            LaunchedEffect(dark) {
+                // Status/navigation bar icons must match the app's theme, not just the system's.
+                val style = SystemBarStyle.auto(Color.TRANSPARENT, Color.TRANSPARENT) { dark }
+                enableEdgeToEdge(statusBarStyle = style, navigationBarStyle = style)
+            }
+            CastAppTheme(settings.theme) {
+                AppRoot(app, this)
             }
         }
     }
@@ -44,15 +62,27 @@ class MainActivity : ComponentActivity() {
         CastApp.get(this).devices.stopDiscovery()
         super.onStop()
     }
+
+    /** Turns the phone screen black; the shared app comes back to the front underneath. */
+    fun startDarkScreen() {
+        if (!Settings.canDrawOverlays(this)) {
+            Toast.makeText(this, R.string.dark_screen_permission, Toast.LENGTH_LONG).show()
+            startActivity(Intent(Settings.ACTION_MANAGE_OVERLAY_PERMISSION, "package:$packageName".toUri()))
+            return
+        }
+        CastService.darkScreen(this, true)
+        moveTaskToBack(true)
+    }
 }
 
 private enum class Route { DEVICES, SETTINGS, APP_PICKER }
 
 @Composable
-private fun AppRoot(app: CastApp) {
+private fun AppRoot(app: CastApp, activity: MainActivity) {
     val context = LocalContext.current
     var route by rememberSaveable { mutableStateOf(Route.DEVICES) }
     var pickerDeviceId by rememberSaveable { mutableStateOf<String?>(null) }
+    var fileDeviceId by rememberSaveable { mutableStateOf<String?>(null) }
 
     fun cast(device: CastDevice, mode: String, launchPackage: String? = null) {
         context.startActivity(ProjectionActivity.intent(context, device, mode, launchPackage))
@@ -66,6 +96,27 @@ private fun AppRoot(app: CastApp) {
     }
     val audioPermission = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
         audioGranted = granted
+    }
+
+    val notificationPermission = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { }
+
+    // "Cast a video or music file": the system file picker, then hand the file to the service.
+    val filePicker = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
+        val device = fileDeviceId?.let { app.devices.find(it) }
+        if (uri != null && device != null) {
+            try {
+                context.contentResolver.takePersistableUriPermission(uri, Intent.FLAG_GRANT_READ_URI_PERMISSION)
+            } catch (_: Exception) {
+            }
+            val title = FileCastSession.describe(context.contentResolver, uri).first
+            CastService.startFile(context, device, uri, context.contentResolver.getType(uri), title)
+            if (Build.VERSION.SDK_INT >= 33 &&
+                context.checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED
+            ) {
+                // The notification holds the lock-screen controls.
+                notificationPermission.launch(Manifest.permission.POST_NOTIFICATIONS)
+            }
+        }
     }
 
     BackHandler(enabled = route != Route.DEVICES) { route = Route.DEVICES }
@@ -84,6 +135,12 @@ private fun AppRoot(app: CastApp) {
                     route = Route.APP_PICKER
                 }
             },
+            onCastFile = { device ->
+                app.devices.save(device)
+                fileDeviceId = device.id
+                filePicker.launch(arrayOf("video/*", "audio/*"))
+            },
+            onDarkScreen = { activity.startDarkScreen() },
         )
         Route.SETTINGS -> SettingsScreen(
             settings = app.settings,
