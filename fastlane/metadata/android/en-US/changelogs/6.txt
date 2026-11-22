@@ -1,0 +1,7 @@
+• Cast to several screens at once; other phones with CastApp can join or take over
+• Plex and Jellyfin/Emby built in, resume synced with the server
+• TV channels: guide grid, reminders, recordings, parental lock
+• TV remote (network, Bluetooth, infrared, voice) and swap direction
+• Subtitles by Whisper, from OpenSubtitles, with your own look
+• Automation (Tasker, Home Assistant), Wear OS remote, widget and tiles
+• German, tablet layout, phone self-test

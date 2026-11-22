@@ -1,0 +1,7 @@
+• Mehrere Bildschirme gleichzeitig; andere Handys mit CastApp können mitschauen oder übernehmen
+• Plex und Jellyfin/Emby eingebaut, Fortsetzen synchron mit dem Server
+• TV-Sender: Programmraster, Erinnerungen, Aufnahmen, Kindersicherung
+• TV-Fernbedienung (Netzwerk, Bluetooth, Infrarot, Sprache) und Richtung tauschen
+• Untertitel per Whisper oder von OpenSubtitles
+• Automatisierung (Tasker, Home Assistant), Wear-OS-Fernbedienung, Widget, Kacheln
+• Deutsch, Tablet-Ansicht, Selbsttest
