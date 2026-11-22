@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="main_video">Video</string>
+    <string name="main_slideshow_paused">Diashow pausiert</string>
+    <string name="main_paused_on">Pausiert auf %1$s</string>
+    <string name="main_on_device_screen_off">Auf %1$s · Bildschirm darf aus sein</string>
+    <string name="main_queue_position">%1$d von %2$d</string>
+    <string name="main_converted_on_phone">auf dem Handy umgewandelt</string>
+    <string name="main_phone_sound">Handy-Ton</string>
+    <string name="main_bitrate">%1$.1f MBit/s</string>
+    <string name="main_audio_on">Ton an</string>
+    <string name="main_audio_off">Kein Ton</string>
+    <string name="main_low_latency">Player mit geringer Latenz</string>
+    <string name="main_compatible_mode">Kompatibilitätsmodus</string>
+    <string name="main_previous_channel">Vorheriger Sender</string>
+    <string name="main_next_channel">Nächster Sender</string>
+    <string name="main_quality">Qualität: %1$s</string>
+    <string name="main_write_subtitles">Untertitel erstellen</string>
+    <string name="main_live_caption">Live-Untertitel</string>
+    <string name="main_writing_subtitles">Untertitel werden aus der Sprache erstellt… %1$d%%</string>
+    <string name="main_quality_original">Original (ohne Umwandlung)</string>
+    <string name="main_quality_auto">Automatisch (der Fernseher passt an)</string>
+    <string name="main_quality_4k">4K (2160p)</string>
+    <string name="main_quality_converted">%1$s (auf dem Handy umgewandelt)</string>
+    <string name="main_web_videos">Web-Videos</string>
+    <string name="main_muted">Stumm</string>
+    <string name="main_casting_now">Wird gestreamt</string>
+    <string name="main_not_found">Gerade nicht gefunden</string>
+    <string name="main_speaker_group">Lautsprechergruppe</string>
+</resources>
