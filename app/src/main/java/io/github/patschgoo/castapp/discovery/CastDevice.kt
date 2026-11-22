@@ -36,6 +36,8 @@ data class CastDevice(
     val renderingControlUrl: String? = null,
     /** AirPlay: the "features" value it announces (which protocol and pairing it uses). */
     val airplayFeatures: String? = null,
+    /** Wi-Fi MAC address ("AA:BB:CC:DD:EE:FF") used to wake the TV with Wake-on-LAN, when known. */
+    val mac: String? = null,
 ) {
     val isDlna: Boolean get() = kind == DeviceKind.DLNA
 
@@ -73,6 +75,7 @@ data class CastDevice(
         .put("avt", avTransportUrl ?: "")
         .put("rc", renderingControlUrl ?: "")
         .put("apf", airplayFeatures ?: "")
+        .put("mac", mac ?: "")
 
     companion object {
         fun fromJson(o: JSONObject): CastDevice? {
@@ -89,6 +92,7 @@ data class CastDevice(
                 avTransportUrl = o.optString("avt").ifEmpty { null },
                 renderingControlUrl = o.optString("rc").ifEmpty { null },
                 airplayFeatures = o.optString("apf").ifEmpty { null },
+                mac = o.optString("mac").ifEmpty { null },
             )
         }
     }

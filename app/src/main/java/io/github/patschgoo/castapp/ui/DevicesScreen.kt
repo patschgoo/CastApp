@@ -842,6 +842,7 @@ private fun HelpCard(scanning: Boolean, onScan: () -> Unit, onAdd: () -> Unit) {
                     Text(stringResource(R.string.add_by_ip))
                 }
             }
+            io.github.patschgoo.castapp.support.NetworkCheckButton()
         }
     }
 }
@@ -898,6 +899,7 @@ private fun DeviceSheet(
                 HorizontalDivider(Modifier.padding(vertical = 8.dp))
                 SheetAction(Icons.Rounded.Delete, stringResource(R.string.forget_tv), null, onForget)
             }
+            if (d.video) io.github.patschgoo.castapp.support.WakeOnLanSheetItems(d)
         }
     }
 }
