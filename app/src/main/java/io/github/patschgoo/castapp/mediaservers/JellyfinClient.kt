@@ -257,7 +257,11 @@ class JellyfinClient(
                 if (method == PlayMethod.DIRECT) {
                     MediaItem(title, urls.directVideo(item.id, sourceId, media), PlaybackPlanner.mimeForVideo(media), subtitleUri = subtitle, serverRef = ref(method), trustAll = account.trustAll)
                 } else {
-                    MediaItem(title, urls.hls(item.id, sourceId), "application/x-mpegurl", subtitleUri = subtitle, serverRef = ref(method), trustAll = account.trustAll)
+                    MediaItem(
+                        title, urls.hls(item.id, sourceId), "application/x-mpegurl", subtitleUri = subtitle, serverRef = ref(method), trustAll = account.trustAll,
+                        // CastApp TV receivers try the file itself first (no converting on the server).
+                        original = urls.directVideo(item.id, sourceId, media), originalMime = PlaybackPlanner.mimeForVideo(media),
+                    )
                 }
             }
         }

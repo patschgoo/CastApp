@@ -112,7 +112,8 @@ class MediaCastSession(
     @Volatile override var device: CastDevice = device
         private set
 
-    private enum class Delivery { DIRECT, PROXY, SERVE, CONVERT }
+    /** [ORIGINAL]: a media server's file as it is, for CastApp TV receivers ([MediaItem.original]). */
+    private enum class Delivery { ORIGINAL, DIRECT, PROXY, SERVE, CONVERT }
 
     private val settings get() = settingsFlow.value
     private val resolver: ContentResolver = context.contentResolver
@@ -762,12 +763,14 @@ class MediaCastSession(
 
     // ---- playing ------------------------------------------------------------------------------
 
-    private fun plan(item: MediaItem): List<Delivery> {
+    private fun plan(item: MediaItem, target: CastDevice = device): List<Delivery> {
         val convert = settings.convert
         // The TV can't log in to a password-protected server or accept a self-signed certificate.
         val needsPhone = item.trustAll || item.headers.keys.any { it.equals("Authorization", ignoreCase = true) }
         val direct = if (needsPhone) emptyList() else listOf(Delivery.DIRECT)
-        val base = when {
+        // A CastApp TV plays the server's file itself; the server's converted stream is the fallback.
+        val original = if (item.original != null && !needsPhone && target.isCastAppTv && item.type == MediaType.VIDEO) listOf(Delivery.ORIGINAL) else emptyList()
+        val base = original + when {
             item.type == MediaType.PHOTO -> if (item.isWeb) direct + Delivery.PROXY else listOf(Delivery.SERVE)
             item.isHls -> listOf(Delivery.PROXY) + direct
             item.isWeb && item.type == MediaType.AUDIO -> direct + Delivery.PROXY
@@ -809,6 +812,7 @@ class MediaCastSession(
         val t = server.token
         val audio = audioChoice[item.uri] ?: 0
         val url = when (d) {
+            Delivery.ORIGINAL -> item.original ?: item.uri
             Delivery.DIRECT -> item.uri
             Delivery.PROXY -> server.urlFor(local, proxy.pathFor(item.uri))
             Delivery.SERVE -> server.urlFor(
@@ -823,6 +827,7 @@ class MediaCastSession(
         }
         val mime = when {
             d == Delivery.CONVERT -> if (convertsToHls) "application/x-mpegurl" else "video/mp4"
+            d == Delivery.ORIGINAL && item.original != null -> item.originalMime ?: MediaItem.mimeForUrl(item.original)
             item.type == MediaType.PHOTO -> if (d == Delivery.SERVE) "image/jpeg" else item.mimeType
             item.isHls -> "application/x-mpegurl"
             else -> CastService.normalizeMime(item.mimeType)
@@ -1635,7 +1640,8 @@ class MediaCastSession(
         val now = SystemClock.elapsedRealtime()
         val position = (CastController.state.value as? CastState.Active)?.positionNow(now) ?: 0
         val used = delivery
-        val options = (listOf(used) + plan(item).filter { it != used && it != Delivery.CONVERT }).distinct()
+        // The server's original file only goes to CastApp receivers; others get their own ways.
+        val options = (listOf(used).filter { it != Delivery.ORIGINAL || d.isCastAppTv } + plan(item, d).filter { it != used && it != Delivery.CONVERT }).distinct()
         val sync = if (d.isCastAppTv && used != Delivery.CONVERT && item.type != MediaType.PHOTO) {
             io.github.patschgoo.castapp.multi.Peers.timelineUrl(local)
         } else {

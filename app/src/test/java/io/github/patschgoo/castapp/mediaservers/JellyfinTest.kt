@@ -212,6 +212,11 @@ class JellyfinTest {
         assertTrue(hls.item.uri.contains("/Videos/m2/master.m3u8?"))
         assertTrue(hls.item.isHls)
         assertEquals(PlayMethod.TRANSCODE, ItemRef.decode(hls.item.serverRef)!!.method)
+        // CastApp TV receivers get the file itself first (MKV, HEVC, ASS play there).
+        assertTrue(hls.item.original!!.contains("/Videos/m2/stream"))
+        assertEquals("video/x-matroska", hls.item.originalMime)
+        // Direct items need no second address.
+        assertEquals(null, direct.item.original)
     }
 
     // ---- talking to a server ----------------------------------------------------------------------------------
