@@ -1,5 +1,7 @@
 package io.github.patschgoo.castapp.service
 
+import io.github.patschgoo.castapp.Txt
+import io.github.patschgoo.castapp.R
 import java.util.Locale
 
 /** A sound track inside a video file. [ordinal]: its place among the file's sound tracks (0 = first). */
@@ -15,7 +17,7 @@ data class AudioTrackInfo(
         label?.takeIf { it.isNotBlank() } ?: TrackNames.language(language),
         TrackNames.codec(mimeType),
         TrackNames.channels(channels),
-    ).ifEmpty { listOf("Track ${ordinal + 1}") }.joinToString(" · ")
+    ).ifEmpty { listOf(Txt.sOr(R.string.track_n, "Track %d", ordinal + 1)) }.joinToString(" · ")
 }
 
 /** A subtitle track inside a video file. [ordinal]: its place among the file's subtitle tracks. */
@@ -31,9 +33,9 @@ data class TextTrackInfo(
     val supported: Boolean get() = TrackNames.isTextSubtitle(mimeType)
 
     fun describe(): String = listOfNotNull(
-        label?.takeIf { it.isNotBlank() } ?: TrackNames.language(language) ?: "Track ${ordinal + 1}",
+        label?.takeIf { it.isNotBlank() } ?: TrackNames.language(language) ?: Txt.sOr(R.string.track_n, "Track %d", ordinal + 1),
         TrackNames.codec(mimeType),
-        if (forced) "forced" else null,
+        if (forced) Txt.sOr(R.string.track_forced, "forced") else null,
     ).joinToString(" · ")
 }
 
@@ -47,21 +49,21 @@ object TrackNames {
     fun language(code: String?): String? {
         val c = code?.trim()?.takeIf { it.isNotEmpty() && !it.equals("und", true) && !it.equals("unknown", true) } ?: return null
         // Three-letter codes like "ger"/"fre" (ISO 639-2) aren't always known to Locale.
-        THREE_LETTER[c.lowercase()]?.let { return it }
-        val name = try { Locale.forLanguageTag(c.replace('_', '-')).getDisplayLanguage(Locale.ENGLISH) } catch (_: Exception) { "" }
+        val tag = THREE_LETTER[c.lowercase()] ?: c.replace('_', '-')
+        val name = try { Locale.forLanguageTag(tag).getDisplayLanguage(Locale.getDefault()) } catch (_: Exception) { "" }
         return name.takeIf { it.isNotBlank() && !it.equals(c, true) } ?: c
     }
 
     private val THREE_LETTER = mapOf(
-        "ger" to "German", "fre" to "French", "dut" to "Dutch", "chi" to "Chinese", "cze" to "Czech", "gre" to "Greek",
-        "per" to "Persian", "rum" to "Romanian", "slo" to "Slovak", "alb" to "Albanian", "arm" to "Armenian",
-        "baq" to "Basque", "bur" to "Burmese", "geo" to "Georgian", "ice" to "Icelandic", "mac" to "Macedonian",
-        "may" to "Malay", "wel" to "Welsh", "tib" to "Tibetan",
-        "eng" to "English", "deu" to "German", "fra" to "French", "spa" to "Spanish", "ita" to "Italian",
-        "por" to "Portuguese", "nld" to "Dutch", "rus" to "Russian", "pol" to "Polish", "tur" to "Turkish",
-        "jpn" to "Japanese", "kor" to "Korean", "zho" to "Chinese", "swe" to "Swedish", "dan" to "Danish",
-        "nor" to "Norwegian", "fin" to "Finnish", "hun" to "Hungarian", "ces" to "Czech", "ell" to "Greek",
-        "ara" to "Arabic", "heb" to "Hebrew", "hin" to "Hindi", "ukr" to "Ukrainian", "ron" to "Romanian",
+        "ger" to "de", "fre" to "fr", "dut" to "nl", "chi" to "zh", "cze" to "cs", "gre" to "el",
+        "per" to "fa", "rum" to "ro", "slo" to "sk", "alb" to "sq", "arm" to "hy",
+        "baq" to "eu", "bur" to "my", "geo" to "ka", "ice" to "is", "mac" to "mk",
+        "may" to "ms", "wel" to "cy", "tib" to "bo",
+        "eng" to "en", "deu" to "de", "fra" to "fr", "spa" to "es", "ita" to "it",
+        "por" to "pt", "nld" to "nl", "rus" to "ru", "pol" to "pl", "tur" to "tr",
+        "jpn" to "ja", "kor" to "ko", "zho" to "zh", "swe" to "sv", "dan" to "da",
+        "nor" to "no", "fin" to "fi", "hun" to "hu", "ces" to "cs", "ell" to "el",
+        "ara" to "ar", "heb" to "he", "hin" to "hi", "ukr" to "uk", "ron" to "ro",
     )
 
     fun codec(mime: String): String? = when (mime.lowercase()) {
@@ -93,11 +95,11 @@ object TrackNames {
 
     fun channels(n: Int): String? = when {
         n <= 0 -> null
-        n == 1 -> "mono"
-        n == 2 -> "stereo"
+        n == 1 -> Txt.sOr(R.string.track_mono, "mono")
+        n == 2 -> Txt.sOr(R.string.track_stereo, "stereo")
         n == 6 -> "5.1"
         n == 8 -> "7.1"
-        else -> "$n channels"
+        else -> Txt.sOr(R.string.track_channels, "%d channels", n)
     }
 
     fun isTextSubtitle(mime: String): Boolean = mime.lowercase() in TEXT_SUBTITLES

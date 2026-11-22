@@ -1,5 +1,6 @@
 package io.github.patschgoo.castapp.remote
 
+import io.github.patschgoo.castapp.Txt
 import android.content.Context
 import android.hardware.ConsumerIrManager
 import io.github.patschgoo.castapp.R
@@ -17,7 +18,7 @@ import java.io.IOException
  * One target per brand in [IrCodes]; the protocols are in [IrEncoders].
  */
 object InfraredRemotes : RemoteProvider {
-    override val title = "Infrared"
+    override val title: String get() = Txt.s(R.string.ir_remote_label)
     private val list = MutableStateFlow<List<RemoteTarget>>(emptyList())
 
     override fun targets(context: Context): StateFlow<List<RemoteTarget>> {

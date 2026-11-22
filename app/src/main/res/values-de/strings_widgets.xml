@@ -1,0 +1,51 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Home-screen widget -->
+    <string name="widget_label">CastApp</string>
+    <string name="widget_description">Auf den Fernseher spiegeln und steuern, was du streamst</string>
+    <string name="widget_mirror_to">Auf %1$s spiegeln</string>
+    <string name="widget_pick_tv">Fernseher auswählen</string>
+    <string name="widget_open">CastApp öffnen</string>
+    <string name="widget_mirroring">Dein Bildschirm wird gespiegelt</string>
+    <string name="widget_subtitle_queue">%1$s · %2$d von %3$d</string>
+    <string name="widget_subtitle_device">%1$s · %2$s</string>
+
+    <!-- Quick Settings tiles -->
+    <string name="tile_receive_label">Auf diesem Handy empfangen</string>
+    <string name="tile_receive_on">An</string>
+    <string name="tile_receive_off">Aus</string>
+    <string name="tile_remote_label">TV-Fernbedienung</string>
+    <string name="tile_remote_subtitle">Fernseher steuern</string>
+
+    <!-- Who may cast to a receiver -->
+    <string name="protect_title">Wer hier streamen darf</string>
+    <string name="protect_mode_anyone">Jeder im Netzwerk</string>
+    <string name="protect_mode_anyone_hint">Jedes Handy und jede DLNA-App in deinem WLAN kann streamen, ohne zu fragen.</string>
+    <string name="protect_mode_ask">Erst fragen</string>
+    <string name="protect_mode_ask_hint">Beim ersten Stream von einem unbekannten Handy oder einer unbekannten App wird hier um dein Okay gebeten.</string>
+    <string name="protect_mode_paired">Nur gekoppelte Handys (Code)</string>
+    <string name="protect_mode_paired_hint">CastApp-Handys, die einmal den hier angezeigten Code eingeben. Andere Apps werden abgelehnt.</string>
+    <string name="protect_code_label">Kopplungscode</string>
+    <string name="protect_new_code">Neuer Code</string>
+    <string name="protect_change">Wer streamen darf …</string>
+    <string name="protect_known_title">Gemerkte Absender</string>
+    <string name="protect_known_none">Noch keine.</string>
+    <string name="protect_kind_paired">Gekoppeltes Handy</string>
+    <string name="protect_kind_allowed">Immer erlaubt · %1$s</string>
+    <string name="protect_kind_blocked">Blockiert · %1$s</string>
+    <string name="protect_forget">Vergessen</string>
+    <string name="protect_forget_all">Alle vergessen</string>
+    <string name="protect_done">Fertig</string>
+    <string name="protect_close">Schließen</string>
+    <string name="protect_allow">Erlauben</string>
+    <string name="protect_allow_always">Immer erlauben</string>
+    <string name="protect_block">Blockieren</string>
+    <string name="protect_prompt_title">%1$s das Streamen erlauben?</string>
+    <string name="protect_prompt_text">Möchte hierher streamen (%1$s)</string>
+    <string name="protect_prompt_text_tv">%1$s möchte an diesen Fernseher streamen. Antworte mit der Fernbedienung.</string>
+    <string name="protect_prompt_text_phone">%1$s möchte an dieses Handy streamen.</string>
+    <string name="protect_prompt_more">%1$d weitere warten</string>
+    <string name="protect_pairing_title">%1$s koppeln</string>
+    <string name="protect_pairing_text">Gib diesen Code in CastApp auf dem Handy ein. Er funktioniert nur einmal.</string>
+    <string name="protect_pairing_notification">Code: %1$s</string>
+</resources>

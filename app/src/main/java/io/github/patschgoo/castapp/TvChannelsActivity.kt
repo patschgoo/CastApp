@@ -1,5 +1,7 @@
 package io.github.patschgoo.castapp
 
+import io.github.patschgoo.castapp.Txt
+import io.github.patschgoo.castapp.R
 import android.content.Intent
 import android.net.Uri
 import android.os.Bundle
@@ -214,7 +216,7 @@ internal fun ChannelsScreen(repo: IptvRepository, onBack: () -> Unit) {
                 else -> emptyList()
             }
         } catch (e: Exception) {
-            snackbar.showSnackbar(e.message ?: "Couldn't load the channels")
+            snackbar.showSnackbar(e.message ?: Txt.s(R.string.tvc_load_failed))
             emptyList()
         }
         channelsOf = selectedId
@@ -289,18 +291,18 @@ internal fun ChannelsScreen(repo: IptvRepository, onBack: () -> Unit) {
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("TV channels") },
+                title = { Text(stringResource(R.string.tvc_title)) },
                 navigationIcon = {
-                    IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Rounded.ArrowBack, contentDescription = "Back") }
+                    IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Rounded.ArrowBack, contentDescription = stringResource(R.string.back)) }
                 },
                 actions = {
-                    IconButton(onClick = { showAdd = true }) { Icon(Icons.Rounded.Add, contentDescription = "Add a channel list") }
+                    IconButton(onClick = { showAdd = true }) { Icon(Icons.Rounded.Add, contentDescription = stringResource(R.string.tvc_add_cd)) }
                     if (selected != null) {
                         Box {
-                            IconButton(onClick = { menu = true }) { Icon(Icons.Rounded.MoreVert, contentDescription = "More") }
+                            IconButton(onClick = { menu = true }) { Icon(Icons.Rounded.MoreVert, contentDescription = stringResource(R.string.net_more)) }
                             DropdownMenu(expanded = menu, onDismissRequest = { menu = false }) {
                                 DropdownMenuItem(
-                                    text = { Text("Update channel list") },
+                                    text = { Text(stringResource(R.string.tvc_update_list)) },
                                     leadingIcon = { Icon(Icons.Rounded.Refresh, contentDescription = null) },
                                     onClick = {
                                         menu = false
@@ -328,7 +330,7 @@ internal fun ChannelsScreen(repo: IptvRepository, onBack: () -> Unit) {
                                     },
                                 )
                                 DropdownMenuItem(
-                                    text = { Text("Remove \"${selected.name}\"") },
+                                    text = { Text(stringResource(R.string.tvc_remove_list, selected.name)) },
                                     leadingIcon = { Icon(Icons.Rounded.Delete, contentDescription = null) },
                                     onClick = {
                                         menu = false
@@ -364,7 +366,7 @@ internal fun ChannelsScreen(repo: IptvRepository, onBack: () -> Unit) {
                     FilterChip(
                         selected = showingFavorites,
                         onClick = { selectedId = TvChannelsActivity.FAVORITES },
-                        label = { Text("Favourites") },
+                        label = { Text(stringResource(R.string.tvc_favourites)) },
                         leadingIcon = { Icon(Icons.Rounded.Star, contentDescription = null, modifier = Modifier.size(18.dp)) },
                     )
                 }
@@ -394,7 +396,7 @@ internal fun ChannelsScreen(repo: IptvRepository, onBack: () -> Unit) {
                 },
                 leadingIcon = { Icon(Icons.Rounded.Search, contentDescription = null) },
                 trailingIcon = {
-                    if (query.isNotEmpty()) IconButton(onClick = { query = "" }) { Icon(Icons.Rounded.Clear, contentDescription = "Clear") }
+                    if (query.isNotEmpty()) IconButton(onClick = { query = "" }) { Icon(Icons.Rounded.Clear, contentDescription = stringResource(R.string.tvc_clear)) }
                 },
                 singleLine = true,
                 modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp),
@@ -426,7 +428,7 @@ internal fun ChannelsScreen(repo: IptvRepository, onBack: () -> Unit) {
                     contentPadding = PaddingValues(horizontal = 16.dp),
                     horizontalArrangement = Arrangement.spacedBy(8.dp),
                 ) {
-                    item(key = "all") { FilterChip(selected = group == null, onClick = { group = null }, label = { Text("All") }) }
+                    item(key = "all") { FilterChip(selected = group == null, onClick = { group = null }, label = { Text(stringResource(R.string.tvc_all)) }) }
                     items(groups, key = { "g:$it" }) { g ->
                         FilterChip(selected = g == group, onClick = { group = if (g == group) null else g }, label = { Text(g, maxLines = 1) })
                     }
@@ -436,8 +438,8 @@ internal fun ChannelsScreen(repo: IptvRepository, onBack: () -> Unit) {
                 loading -> Box(Modifier.fillMaxWidth().padding(32.dp), contentAlignment = Alignment.Center) { CircularProgressIndicator() }
                 shown.isEmpty() -> Text(
                     when {
-                        showingFavorites && query.isEmpty() -> "No favourites yet. Tap the star next to a channel."
-                        else -> "No channels found"
+                        showingFavorites && query.isEmpty() -> stringResource(R.string.tvc_no_favourites)
+                        else -> stringResource(R.string.tvc_no_channels)
                     },
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
@@ -554,11 +556,11 @@ internal fun ChannelsScreen(repo: IptvRepository, onBack: () -> Unit) {
                     val found = repo.channels(p, refresh = true)
                     selectedId = p.id
                     reload++
-                    scope.launch { snackbar.showSnackbar("${found.size} channels added") }
+                    scope.launch { snackbar.showSnackbar(Txt.n(R.plurals.tvc_channels_added, found.size, found.size)) }
                     null
                 } catch (e: Exception) {
                     repo.remove(p.id)
-                    e.message ?: "Couldn't read this channel list"
+                    e.message ?: Txt.s(R.string.tvc_read_failed)
                 }
             },
         )
@@ -642,9 +644,9 @@ private fun ChannelRow(
         },
         supportingContent = {
             val details = listOfNotNull(
-                if (playing) "On the TV now" else null,
+                if (playing) stringResource(R.string.tvc_on_tv_now) else null,
                 channel.group,
-                if (radio && channel.group?.contains("radio", ignoreCase = true) != true) "Radio" else null,
+                if (radio && channel.group?.contains("radio", ignoreCase = true) != true) stringResource(R.string.tvc_radio) else null,
             )
             // A search hit inside the programme (not the channel name) shows the programme that matched.
             val hit = if (query.isNotEmpty() && !channel.name.contains(query, ignoreCase = true)) entry.matching(query, now) else null
@@ -672,7 +674,7 @@ private fun ChannelRow(
                 IconButton(onClick = onFavorite) {
                     Icon(
                         if (favorite) Icons.Rounded.Star else Icons.Rounded.StarBorder,
-                        contentDescription = if (favorite) "Remove from favourites" else "Add to favourites",
+                        contentDescription = stringResource(if (favorite) R.string.tvc_remove_favourite else R.string.tvc_add_favourite),
                         tint = if (favorite) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
                     )
                 }
@@ -708,13 +710,13 @@ fun NowPlayingBar(state: CastState.Active) {
             }
             if (state.queueSize > 1) {
                 IconButton(onClick = { CastService.send(context, CastService.ACTION_PREVIOUS) }, enabled = state.queueIndex > 0) {
-                    Icon(Icons.Rounded.SkipPrevious, contentDescription = "Previous")
+                    Icon(Icons.Rounded.SkipPrevious, contentDescription = stringResource(R.string.tvc_previous))
                 }
                 IconButton(onClick = { CastService.send(context, CastService.ACTION_NEXT) }, enabled = state.queueIndex + 1 < state.queueSize) {
-                    Icon(Icons.Rounded.SkipNext, contentDescription = "Next")
+                    Icon(Icons.Rounded.SkipNext, contentDescription = stringResource(R.string.tvc_next))
                 }
             }
-            IconButton(onClick = { CastService.stop(context) }) { Icon(Icons.Rounded.Stop, contentDescription = "Stop") }
+            IconButton(onClick = { CastService.stop(context) }) { Icon(Icons.Rounded.Stop, contentDescription = stringResource(R.string.tvc_stop)) }
         }
     }
 }
@@ -728,18 +730,17 @@ private fun EmptyChannels(onAdd: () -> Unit) {
         Column(Modifier.padding(20.dp)) {
             Icon(Icons.Rounded.LiveTv, contentDescription = null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(36.dp))
             Spacer(Modifier.height(12.dp))
-            Text("Watch TV channels", style = MaterialTheme.typography.titleMedium)
+            Text(stringResource(R.string.tvc_watch), style = MaterialTheme.typography.titleMedium)
             Spacer(Modifier.height(6.dp))
             Text(
-                "Add a channel list (an M3U or M3U8 playlist): the link from your IPTV provider, your TV provider's " +
-                    "or router's channel list, a public list, or a file on the phone. Radio stations work too.",
+                stringResource(R.string.tvc_watch_text),
                 style = MaterialTheme.typography.bodyMedium,
             )
             Spacer(Modifier.height(16.dp))
             Button(onClick = onAdd) {
                 Icon(Icons.Rounded.Add, contentDescription = null, modifier = Modifier.size(18.dp))
                 Spacer(Modifier.width(6.dp))
-                Text("Add a channel list")
+                Text(stringResource(R.string.tvc_add_list))
             }
         }
     }
@@ -785,11 +786,11 @@ private fun AddPlaylistDialog(onDismiss: () -> Unit, onAdd: suspend (name: Strin
 
     AlertDialog(
         onDismissRequest = { if (!busy) onDismiss() },
-        title = { Text("Add a channel list") },
+        title = { Text(stringResource(R.string.tvc_add_list)) },
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
                 SingleChoiceSegmentedButtonRow(Modifier.fillMaxWidth()) {
-                    listOf("Link", "File", "Log-in").forEachIndexed { i, label ->
+                    listOf(R.string.tvc_tab_link, R.string.tvc_tab_file, R.string.tvc_tab_login).map { stringResource(it) }.forEachIndexed { i, label ->
                         SegmentedButton(
                             selected = kind == i,
                             onClick = { kind = i; error = null },
@@ -801,29 +802,29 @@ private fun AddPlaylistDialog(onDismiss: () -> Unit, onAdd: suspend (name: Strin
                     0 -> OutlinedTextField(
                         value = link,
                         onValueChange = { link = it; error = null },
-                        label = { Text("Playlist address (M3U)") },
+                        label = { Text(stringResource(R.string.tvc_playlist_address)) },
                         placeholder = { Text("https://…/playlist.m3u") },
                         singleLine = true,
                         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Uri),
                         modifier = Modifier.fillMaxWidth(),
                     )
                     1 -> OutlinedButton(onClick = { picker.launch(arrayOf("*/*")) }, modifier = Modifier.fillMaxWidth()) {
-                        Text(if (file == null) "Choose an .m3u file" else "File chosen ✓", maxLines = 1)
+                        Text(stringResource(if (file == null) R.string.tvc_choose_m3u else R.string.tvc_file_chosen), maxLines = 1)
                     }
                     else -> {
-                        Text("For providers that give you a server, user name and password (Xtream Codes).", style = MaterialTheme.typography.bodySmall)
+                        Text(stringResource(R.string.tvc_xtream_text), style = MaterialTheme.typography.bodySmall)
                         OutlinedTextField(
                             value = server, onValueChange = { server = it; error = null },
-                            label = { Text("Server") }, placeholder = { Text("http://example.tv:8080") }, singleLine = true,
+                            label = { Text(stringResource(R.string.tvc_server)) }, placeholder = { Text("http://example.tv:8080") }, singleLine = true,
                             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Uri), modifier = Modifier.fillMaxWidth(),
                         )
                         OutlinedTextField(
                             value = user, onValueChange = { user = it; error = null },
-                            label = { Text("User name") }, singleLine = true, modifier = Modifier.fillMaxWidth(),
+                            label = { Text(stringResource(R.string.tvc_user)) }, singleLine = true, modifier = Modifier.fillMaxWidth(),
                         )
                         OutlinedSecureTextField(
                             state = passwordState,
-                            label = { Text("Password") },
+                            label = { Text(stringResource(R.string.tvc_password)) },
                             modifier = Modifier.fillMaxWidth(),
                         )
                     }
@@ -831,7 +832,7 @@ private fun AddPlaylistDialog(onDismiss: () -> Unit, onAdd: suspend (name: Strin
                 OutlinedTextField(
                     value = name,
                     onValueChange = { name = it },
-                    label = { Text("Name (optional)") },
+                    label = { Text(stringResource(R.string.tvc_name_optional)) },
                     singleLine = true,
                     modifier = Modifier.fillMaxWidth(),
                 )
@@ -851,9 +852,9 @@ private fun AddPlaylistDialog(onDismiss: () -> Unit, onAdd: suspend (name: Strin
                     }
                 },
             ) {
-                if (busy) CircularProgressIndicator(Modifier.size(18.dp), strokeWidth = 2.dp) else Text("Add")
+                if (busy) CircularProgressIndicator(Modifier.size(18.dp), strokeWidth = 2.dp) else Text(stringResource(R.string.tvc_add))
             }
         },
-        dismissButton = { TextButton(onClick = onDismiss, enabled = !busy) { Text("Cancel") } },
+        dismissButton = { TextButton(onClick = onDismiss, enabled = !busy) { Text(stringResource(R.string.cancel)) } },
     )
 }
