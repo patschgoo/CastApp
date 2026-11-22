@@ -27,7 +27,7 @@ import androidx.core.net.toUri
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import io.github.patschgoo.castapp.discovery.CastDevice
 import io.github.patschgoo.castapp.service.CastService
-import io.github.patschgoo.castapp.service.FileCastSession
+import io.github.patschgoo.castapp.service.MediaItem
 import io.github.patschgoo.castapp.ui.AppPickerScreen
 import io.github.patschgoo.castapp.ui.DevicesScreen
 import io.github.patschgoo.castapp.ui.SettingsScreen
@@ -67,11 +67,17 @@ class MainActivity : ComponentActivity() {
     fun startDarkScreen() {
         if (!Settings.canDrawOverlays(this)) {
             Toast.makeText(this, R.string.dark_screen_permission, Toast.LENGTH_LONG).show()
-            startActivity(Intent(Settings.ACTION_MANAGE_OVERLAY_PERMISSION, "package:$packageName".toUri()))
+            requestOverlayPermission()
             return
         }
         CastService.darkScreen(this, true)
         moveTaskToBack(true)
+    }
+
+    /** "Display over other apps" (Dark screen, Turn apps sideways) is granted in system settings. */
+    fun requestOverlayPermission() {
+        if (Settings.canDrawOverlays(this)) return
+        startActivity(Intent(Settings.ACTION_MANAGE_OVERLAY_PERMISSION, "package:$packageName".toUri()))
     }
 }
 
@@ -100,16 +106,22 @@ private fun AppRoot(app: CastApp, activity: MainActivity) {
 
     val notificationPermission = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { }
 
-    // "Cast a video or music file": the system file picker, then hand the file to the service.
-    val filePicker = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
+    // "Cast videos, music or photos": the system file picker (several files = a play list).
+    val filePicker = rememberLauncherForActivityResult(ActivityResultContracts.OpenMultipleDocuments()) { uris ->
         val device = fileDeviceId?.let { app.devices.find(it) }
-        if (uri != null && device != null) {
-            try {
-                context.contentResolver.takePersistableUriPermission(uri, Intent.FLAG_GRANT_READ_URI_PERMISSION)
-            } catch (_: Exception) {
+        if (uris.isNotEmpty() && device != null) {
+            for (uri in uris) {
+                try {
+                    context.contentResolver.takePersistableUriPermission(uri, Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                } catch (_: Exception) {
+                }
             }
-            val title = FileCastSession.describe(context.contentResolver, uri).first
-            CastService.startFile(context, device, uri, context.contentResolver.getType(uri), title)
+            val items = MediaItem.fromUris(context.contentResolver, uris)
+            if (items.isEmpty()) {
+                Toast.makeText(context, R.string.share_unsupported, Toast.LENGTH_LONG).show()
+                return@rememberLauncherForActivityResult
+            }
+            CastService.startMedia(context, device, items)
             if (Build.VERSION.SDK_INT >= 33 &&
                 context.checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED
             ) {
@@ -135,17 +147,25 @@ private fun AppRoot(app: CastApp, activity: MainActivity) {
                     route = Route.APP_PICKER
                 }
             },
-            onCastFile = { device ->
+            onCastFiles = { device ->
                 app.devices.save(device)
                 fileDeviceId = device.id
-                filePicker.launch(arrayOf("video/*", "audio/*"))
+                val types = if (device.video && !app.devices.audioMode.value) {
+                    arrayOf("video/*", "audio/*", "image/*", "application/x-subrip", "text/vtt", "application/octet-stream")
+                } else {
+                    arrayOf("audio/*")
+                }
+                filePicker.launch(types)
             },
+            onCastSound = { cast(it, ProjectionActivity.MODE_AUDIO) },
+            onOpenBrowser = { context.startActivity(Intent(context, BrowserActivity::class.java)) },
             onDarkScreen = { activity.startDarkScreen() },
         )
         Route.SETTINGS -> SettingsScreen(
             settings = app.settings,
             audioPermissionGranted = audioGranted,
             onRequestAudioPermission = { audioPermission.launch(Manifest.permission.RECORD_AUDIO) },
+            onRequestOverlayPermission = { activity.requestOverlayPermission() },
             onBack = { route = Route.DEVICES },
         )
         Route.APP_PICKER -> AppPickerScreen(

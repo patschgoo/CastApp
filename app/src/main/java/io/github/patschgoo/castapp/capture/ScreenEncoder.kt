@@ -1,5 +1,7 @@
 package io.github.patschgoo.castapp.capture
 
+import android.content.Context
+import android.graphics.Point
 import android.hardware.display.DisplayManager
 import android.hardware.display.VirtualDisplay
 import android.media.MediaCodec
@@ -19,11 +21,13 @@ import io.github.patschgoo.castapp.stream.VideoConfig
  * Captures the screen through MediaProjection into a hardware H.264 encoder and
  * pushes the encoded frames into the [StreamHub].
  *
- * The capture surface is always 16:9 landscape (the shape of a TV). Android keeps
- * the aspect ratio when mirroring, so a portrait phone shows up centred with bars
- * and rotating the phone never has to restart the stream.
+ * The stream is always 16:9 landscape (the shape of a TV). In "fit" mode Android
+ * keeps the aspect ratio when mirroring, so a portrait phone shows up centred with
+ * bars. In "fill" mode the screen is captured at its own shape and an OpenGL pass
+ * zooms it to cover the whole TV picture. Rotating the phone never restarts the stream.
  */
 class ScreenEncoder(
+    private val context: Context,
     private val projection: MediaProjection,
     private val hub: StreamHub,
     private val width: Int,
@@ -31,11 +35,15 @@ class ScreenEncoder(
     private val fps: Int,
     private val bitrate: Int,
     private val densityDpi: Int,
+    private val fill: Boolean,
     private val onError: (Throwable) -> Unit,
 ) {
     private var codec: MediaCodec? = null
     private var inputSurface: Surface? = null
     private var display: VirtualDisplay? = null
+    private var scaler: GlScaler? = null
+    private var displayListener: DisplayManager.DisplayListener? = null
+    private var captureSize = Point(0, 0)
     private var drainThread: Thread? = null
     @Volatile private var running = false
     @Volatile private var lastKeyRequest = 0L
@@ -48,16 +56,69 @@ class ScreenEncoder(
     fun start(handler: Handler) {
         val c = createConfiguredCodec()
         codec = c
-        inputSurface = c.createInputSurface()
+        val encoderSurface = c.createInputSurface()
+        inputSurface = encoderSurface
         c.start()
         running = true
+
+        val target: Surface
+        if (fill) {
+            // Capture at the phone's own shape, then zoom to cover the 16:9 picture.
+            captureSize = phoneCaptureSize()
+            val gl = GlScaler(encoderSurface, encodedWidth, encodedHeight, fill = true)
+            target = gl.start(captureSize.x, captureSize.y)
+            scaler = gl
+        } else {
+            captureSize = Point(encodedWidth, encodedHeight)
+            target = encoderSurface
+        }
         display = projection.createVirtualDisplay(
-            "CastApp", encodedWidth, encodedHeight, densityDpi,
+            "CastApp", captureSize.x, captureSize.y, densityDpi,
             DisplayManager.VIRTUAL_DISPLAY_FLAG_AUTO_MIRROR,
-            inputSurface, null, handler,
+            target, null, handler,
         )
+        if (fill) watchRotation(handler)
         hub.keyFrameRequester = { requestKeyFrame() }
         drainThread = Thread({ drainLoop(c) }, "video-encoder").apply { start() }
+    }
+
+    /** The phone's current screen shape, scaled so the long side is at most 1920 pixels. */
+    private fun phoneCaptureSize(): Point {
+        val dm = context.getSystemService(DisplayManager::class.java)
+        val real = Point()
+        @Suppress("DEPRECATION")
+        dm.getDisplay(android.view.Display.DEFAULT_DISPLAY)?.getRealSize(real)
+        if (real.x <= 0 || real.y <= 0) return Point(encodedWidth, encodedHeight)
+        val scale = minOf(1f, 1920f / maxOf(real.x, real.y))
+        return Point(((real.x * scale).toInt() / 2) * 2, ((real.y * scale).toInt() / 2) * 2)
+    }
+
+    /** In fill mode the capture must follow the phone's orientation. */
+    private fun watchRotation(handler: Handler) {
+        val dm = context.getSystemService(DisplayManager::class.java)
+        val listener = object : DisplayManager.DisplayListener {
+            override fun onDisplayAdded(displayId: Int) {}
+            override fun onDisplayRemoved(displayId: Int) {}
+            override fun onDisplayChanged(displayId: Int) {
+                if (displayId != android.view.Display.DEFAULT_DISPLAY || !running) return
+                val size = phoneCaptureSize()
+                if (size == captureSize) return
+                captureSize = size
+                scaler?.setInputSize(size.x, size.y)
+                try { display?.resize(size.x, size.y, densityDpi) } catch (_: Exception) {}
+                requestKeyFrame()
+            }
+        }
+        dm.registerDisplayListener(listener, handler)
+        displayListener = listener
+    }
+
+    /** Changes the bitrate on the fly (automatic quality). */
+    fun setBitrate(bps: Int) {
+        try {
+            codec?.setParameters(Bundle().apply { putInt(MediaCodec.PARAMETER_KEY_VIDEO_BITRATE, bps) })
+        } catch (_: Exception) {
+        }
     }
 
     private fun createConfiguredCodec(): MediaCodec {
@@ -182,8 +243,12 @@ class ScreenEncoder(
     fun stop() {
         running = false
         hub.keyFrameRequester = null
+        displayListener?.let { l -> try { context.getSystemService(DisplayManager::class.java).unregisterDisplayListener(l) } catch (_: Exception) {} }
+        displayListener = null
         try { display?.release() } catch (_: Exception) {}
         display = null
+        scaler?.release()
+        scaler = null
         try { drainThread?.join(500) } catch (_: InterruptedException) {}
         drainThread = null
         try { codec?.stop() } catch (_: Exception) {}

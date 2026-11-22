@@ -47,6 +47,8 @@ class CastClient(
         /** The receiver app we connected to was closed (e.g. from the TV remote or another phone). */
         fun onAppClosed() {}
         fun onDisconnected(error: Throwable?) {}
+        /** A message on an app-specific namespace (our low-latency TV player). */
+        fun onCustomMessage(namespace: String, json: JSONObject) {}
     }
 
     class Incoming(val namespace: String, val sourceId: String, val json: JSONObject) {
@@ -190,6 +192,7 @@ class CastClient(
                 val list = msg.json.optJSONArray("status")
                 if (list != null && list.length() > 0) list.optJSONObject(0)?.let { listener?.onMediaStatus(it) }
             }
+            else -> listener?.onCustomMessage(msg.namespace, msg.json)
         }
         for (w in waiters) {
             if (w.match(msg)) w.result.complete(msg)
@@ -250,10 +253,15 @@ class CastClient(
             .put("media", media)
             .put("autoplay", true)
             .put("currentTime", 0)
+        return loadRaw(app, payload, timeoutMs)
+    }
+
+    /** Sends a ready-made LOAD [payload] (with tracks, start time, ...) and returns the first media status. */
+    suspend fun loadRaw(app: RunningApp, payload: JSONObject, timeoutMs: Long = 30_000): JSONObject {
         val reply = request(NS_MEDIA, app.transportId, payload, timeoutMs)
         if (reply.type != "MEDIA_STATUS") {
             val detail = reply.json.optString("detailedErrorCode", "").ifEmpty { reply.json.optString("reason", "") }
-            throw CastException("The TV could not play the stream (${reply.type}${if (detail.isNotEmpty()) ", $detail" else ""})")
+            throw CastException("The TV could not play this (${reply.type}${if (detail.isNotEmpty()) ", $detail" else ""})")
         }
         val list = reply.json.optJSONArray("status")
         return list?.optJSONObject(0) ?: JSONObject()
@@ -269,6 +277,10 @@ class CastClient(
         val reply = request(NS_MEDIA, app.transportId, payload, 8000)
         return reply.json.optJSONArray("status")?.optJSONObject(0)
     }
+
+    /** Sends [payload] to the app on [namespace] and waits for the reply with the same requestId. */
+    suspend fun requestCustom(app: RunningApp, namespace: String, payload: JSONObject, timeoutMs: Long): JSONObject =
+        request(namespace, app.transportId, payload, timeoutMs).json
 
     suspend fun setVolume(level: Double) {
         val volume = JSONObject().put("level", level.coerceIn(0.0, 1.0))
@@ -360,6 +372,14 @@ class CastClient(
                 .put("streamType", "BUFFERED")
                 .put("metadata", metadata)
         }
+
+        /** Media info for the live sound-only stream (speakers, or a TV without picture). */
+        fun liveAudioMedia(url: String, title: String, subtitle: String): JSONObject = JSONObject()
+            .put("contentId", url)
+            .put("contentUrl", url)
+            .put("contentType", "audio/aac")
+            .put("streamType", "LIVE")
+            .put("metadata", JSONObject().put("metadataType", 3).put("title", title).put("artist", subtitle))
 
         /** Media info for the live stream, understood by the Default Media Receiver. */
         fun liveMedia(url: String, hls: Boolean, title: String, subtitle: String): JSONObject {

@@ -1,7 +1,7 @@
 package io.github.patschgoo.castapp.discovery
 
 import org.junit.Assert.assertEquals
-import org.junit.Assert.assertNull
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
 import java.io.ByteArrayOutputStream
@@ -82,9 +82,16 @@ class DnsTest {
     }
 
     @Test
-    fun hidesSpeakersWithoutVideoOutput() {
+    fun marksSpeakersAndGroupsAsAudioOnly() {
         // ca=2052 (0x804) is an audio-only device such as a Nest speaker.
-        assertNull(MdnsCastInfo.fromRecords(Dns.parse(chromecastResponse("2052")), null).single().toDevice())
+        val speaker = MdnsCastInfo.fromRecords(Dns.parse(chromecastResponse("2052")), null).single().toDevice()!!
+        assertFalse(speaker.video)
+        assertFalse(speaker.group)
+        // 0x20 marks a speaker group.
+        val group = MdnsCastInfo.fromRecords(Dns.parse(chromecastResponse("2084")), null).single().toDevice()!!
+        assertTrue(group.group)
+        assertFalse(group.video)
+        assertTrue(MdnsCastInfo.fromRecords(Dns.parse(chromecastResponse("4101")), null).single().toDevice()!!.video)
     }
 
     @Test

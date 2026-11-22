@@ -33,6 +33,23 @@ class StreamHub {
     @Volatile private var initHasAudio = false
     @Volatile var keyFrameRequester: (() -> Unit)? = null
 
+    /** Shifts audio against video (positive = sound later), for TVs whose sound is off. */
+    @Volatile var audioOffsetUs: Long = 0
+
+    /** Told how far behind the slowest live client is, for automatic quality. */
+    @Volatile var congestionListener: CongestionListener? = null
+
+    interface CongestionListener {
+        /** [lagUs]: media waiting to be sent to a client. */
+        fun onClientLag(lagUs: Long)
+
+        /** A client fell so far behind that queued frames had to be dropped. */
+        fun onClientDropped()
+    }
+
+    private val audioConfigLock = ReentrantLock()
+    private val audioReady = audioConfigLock.newCondition()
+
     private val initLock = ReentrantLock()
     private val initReady = initLock.newCondition()
     private val subscribers = CopyOnWriteArrayList<StreamSubscriber>()
@@ -58,7 +75,21 @@ class StreamHub {
 
     fun setAudioConfig(config: AudioConfig) {
         audioConfig = config
+        audioConfigLock.withLock { audioReady.signalAll() }
         maybeBuildInit()
+    }
+
+    /** Waits for the AAC configuration (audio-only streams). */
+    fun awaitAudioConfig(timeoutMs: Long): AudioConfig? {
+        val deadline = System.nanoTime() + timeoutMs * 1_000_000
+        audioConfigLock.withLock {
+            while (audioConfig == null) {
+                val left = deadline - System.nanoTime()
+                if (left <= 0) return null
+                audioReady.awaitNanos(left)
+            }
+            return audioConfig
+        }
     }
 
     private fun maybeBuildInit(forceWithoutAudio: Boolean = false) {
@@ -138,7 +169,7 @@ class StreamHub {
     /** Called by the audio encoder with one raw AAC frame (1024 samples). */
     fun pushAudio(data: ByteArray, ptsUs: Long) {
         val rate = audioConfig?.sampleRate ?: return
-        publish(EncodedSample(FragmentedMp4.AUDIO_TRACK_ID, data, ptsUs, AAC_FRAME_SAMPLES * 1_000_000L / rate, true))
+        publish(EncodedSample(FragmentedMp4.AUDIO_TRACK_ID, data, ptsUs + audioOffsetUs, AAC_FRAME_SAMPLES * 1_000_000L / rate, true))
     }
 
     private fun publish(sample: EncodedSample) {
@@ -223,7 +254,12 @@ class Mp4FragmentSerializer(private val audioSampleRate: Int?) {
  * up and more than [maxLagUs] of media piles up, everything queued is dropped and
  * the stream resumes at the next key frame, which keeps latency bounded.
  */
-class LiveClientQueue(private val hub: StreamHub, private val maxLagUs: Long = 1_200_000) : StreamSubscriber {
+class LiveClientQueue(
+    private val hub: StreamHub,
+    private val maxLagUs: Long = 1_200_000,
+    /** Audio-only streams have no key frames: start (and resync) on any audio frame, ignore video. */
+    private val audioOnly: Boolean = false,
+) : StreamSubscriber {
     class Item(val sample: EncodedSample, val discontinuity: Boolean)
 
     private val lock = ReentrantLock()
@@ -239,8 +275,9 @@ class LiveClientQueue(private val hub: StreamHub, private val maxLagUs: Long = 1
         var requestKey = false
         lock.withLock {
             if (closed) return
+            if (audioOnly && sample.trackId != FragmentedMp4.AUDIO_TRACK_ID) return
             if (waitingForKey) {
-                if (sample.trackId != FragmentedMp4.VIDEO_TRACK_ID || !sample.isKey) return
+                if (!audioOnly && (sample.trackId != FragmentedMp4.VIDEO_TRACK_ID || !sample.isKey)) return
                 waitingForKey = false
             }
             queue.addLast(Item(sample, nextIsDiscontinuity && sample.trackId == FragmentedMp4.VIDEO_TRACK_ID))
@@ -255,19 +292,27 @@ class LiveClientQueue(private val hub: StreamHub, private val maxLagUs: Long = 1
             }
             notEmpty.signal()
         }
-        if (requestKey) hub.requestKeyFrame()
+        if (requestKey) {
+            hub.requestKeyFrame()
+            hub.congestionListener?.onClientDropped()
+        }
     }
 
     /** Returns the next item, or null after [timeoutMs] or once closed. */
     fun take(timeoutMs: Long): Item? {
+        val item: Item
+        val lag: Long
         lock.withLock {
             var nanos = TimeUnit.MILLISECONDS.toNanos(timeoutMs)
             while (queue.isEmpty()) {
                 if (closed || nanos <= 0) return null
                 nanos = notEmpty.awaitNanos(nanos)
             }
-            return queue.removeFirst()
+            item = queue.removeFirst()
+            lag = if (queue.isEmpty()) 0 else queue.last().sample.ptsUs - item.sample.ptsUs
         }
+        hub.congestionListener?.onClientLag(lag)
+        return item
     }
 
     val isClosed: Boolean get() = lock.withLock { closed }

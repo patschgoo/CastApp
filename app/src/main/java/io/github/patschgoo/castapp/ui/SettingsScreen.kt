@@ -44,10 +44,12 @@ import io.github.patschgoo.castapp.BuildConfig
 import io.github.patschgoo.castapp.R
 import io.github.patschgoo.castapp.settings.AppSettings
 import io.github.patschgoo.castapp.settings.Resolution
+import io.github.patschgoo.castapp.settings.ConvertMode
+import io.github.patschgoo.castapp.settings.PictureMode
 import io.github.patschgoo.castapp.settings.StreamMode
 import io.github.patschgoo.castapp.settings.ThemeMode
 
-private enum class SettingDialog { RESOLUTION, FPS, BITRATE, MODE, PORT, THEME }
+private enum class SettingDialog { RESOLUTION, FPS, BITRATE, MODE, PORT, THEME, PICTURE, CONVERT, SLIDESHOW, RECEIVER }
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -56,6 +58,7 @@ fun SettingsScreen(
     audioPermissionGranted: Boolean,
     onRequestAudioPermission: () -> Unit,
     onBack: () -> Unit,
+    onRequestOverlayPermission: () -> Unit = {},
 ) {
     val s by settings.state.collectAsStateWithLifecycle()
     var dialog by remember { mutableStateOf<SettingDialog?>(null) }
@@ -85,6 +88,18 @@ fun SettingsScreen(
                 val auto = "Automatic (${s.effectiveBitrate / 1_000_000.0} Mbit/s)".replace(".0 ", " ")
                 SettingItem("Bitrate", if (s.bitrateMbps == 0) auto else "${s.bitrateMbps} Mbit/s") { dialog = SettingDialog.BITRATE }
             }
+            item {
+                ListItem(
+                    onClick = { settings.update { it.copy(adaptiveQuality = !it.adaptiveQuality) } },
+                    supportingContent = { Text("Lowers the bitrate when the Wi-Fi can't keep up, raises it again when it can") },
+                    trailingContent = {
+                        Switch(checked = s.adaptiveQuality, onCheckedChange = { c -> settings.update { it.copy(adaptiveQuality = c) } })
+                    },
+                ) { Text("Automatic quality") }
+            }
+            item {
+                SettingItem("Picture shape", s.picture.label + " — " + s.picture.description) { dialog = SettingDialog.PICTURE }
+            }
 
             item { SectionTitle("Sound") }
             item {
@@ -113,10 +128,22 @@ fun SettingsScreen(
                     },
                 ) { Text("Cast audio") }
             }
+            item { AudioDelayItem(s.audioDelayMs) { d -> settings.update { it.copy(audioDelayMs = d) } } }
+
+            item { SectionTitle("Videos, music and photos") }
+            item { SettingItem("Convert videos the TV can't play", s.convert.label + " — " + s.convert.description) { dialog = SettingDialog.CONVERT } }
+            item { SettingItem("Slideshow", "Next photo after ${s.slideshowSeconds} seconds") { dialog = SettingDialog.SLIDESHOW } }
 
             item { SectionTitle("Connection") }
             item { SettingItem("Stream mode", s.streamMode.label + " — " + s.streamMode.description) { dialog = SettingDialog.MODE } }
             item { SettingItem("Stream port", "${s.port} (only change if something else uses it)") { dialog = SettingDialog.PORT } }
+            item {
+                SettingItem(
+                    "Low-latency TV player (advanced)",
+                    if (s.receiverAppId.isBlank()) "Off — uses Google's standard player. Needs a one-time setup, see the README."
+                    else "App ID ${s.receiverAppId} — about 0.2 s delay on Chromecast / Google TV / Shield",
+                ) { dialog = SettingDialog.RECEIVER }
+            }
 
             item { SectionTitle("Appearance") }
             item {
@@ -179,6 +206,37 @@ fun SettingsScreen(
             options = ThemeMode.entries.map { it to it.label },
             selected = s.theme,
             onSelect = { t -> settings.update { it.copy(theme = t) } },
+            onDismiss = { dialog = null },
+        )
+        SettingDialog.PICTURE -> ChoiceDialog(
+            title = "Picture shape",
+            options = PictureMode.entries.map { it to it.label },
+            descriptions = PictureMode.entries.associateWith { it.description },
+            selected = s.picture,
+            onSelect = { m ->
+                settings.update { it.copy(picture = m) }
+                if (m == PictureMode.LANDSCAPE) onRequestOverlayPermission()
+            },
+            onDismiss = { dialog = null },
+        )
+        SettingDialog.CONVERT -> ChoiceDialog(
+            title = "Convert videos the TV can't play",
+            options = ConvertMode.entries.map { it to it.label },
+            descriptions = ConvertMode.entries.associateWith { it.description },
+            selected = s.convert,
+            onSelect = { m -> settings.update { it.copy(convert = m) } },
+            onDismiss = { dialog = null },
+        )
+        SettingDialog.SLIDESHOW -> ChoiceDialog(
+            title = "Slideshow",
+            options = listOf(3, 6, 10, 20, 60).map { it to "$it seconds per photo" },
+            selected = s.slideshowSeconds,
+            onSelect = { v -> settings.update { it.copy(slideshowSeconds = v) } },
+            onDismiss = { dialog = null },
+        )
+        SettingDialog.RECEIVER -> ReceiverDialog(
+            appId = s.receiverAppId,
+            onSave = { id -> settings.update { it.copy(receiverAppId = id) } },
             onDismiss = { dialog = null },
         )
         SettingDialog.PORT -> PortDialog(
@@ -272,6 +330,63 @@ private fun PortDialog(port: Int, onSave: (Int) -> Unit, onDismiss: () -> Unit) 
         },
         confirmButton = {
             TextButton(onClick = { if (valid) { onSave(value); onDismiss() } }, enabled = valid) { Text(stringResource(R.string.save)) }
+        },
+        dismissButton = { TextButton(onClick = onDismiss) { Text(stringResource(R.string.cancel)) } },
+    )
+}
+
+@Composable
+private fun AudioDelayItem(delayMs: Int, onChange: (Int) -> Unit) {
+    Column(Modifier.padding(horizontal = 16.dp, vertical = 8.dp)) {
+        Text("Sound sync", style = MaterialTheme.typography.bodyLarge)
+        Text(
+            when {
+                delayMs == 0 -> "In sync (0 ms). If lips and sound don't match on your TV, adjust here while casting."
+                delayMs > 0 -> "Sound $delayMs ms later"
+                else -> "Sound ${-delayMs} ms earlier"
+            },
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            TextButton(onClick = { onChange((delayMs - 50).coerceAtLeast(-500)) }) { Text("− 50 ms") }
+            Spacer(Modifier.weight(1f))
+            TextButton(onClick = { onChange(0) }, enabled = delayMs != 0) { Text("Reset") }
+            Spacer(Modifier.weight(1f))
+            TextButton(onClick = { onChange((delayMs + 50).coerceAtMost(500)) }) { Text("+ 50 ms") }
+        }
+    }
+}
+
+@Composable
+private fun ReceiverDialog(appId: String, onSave: (String) -> Unit, onDismiss: () -> Unit) {
+    var text by remember { mutableStateOf(appId) }
+    val valid = text.isBlank() || Regex("[0-9A-Fa-f]{8}").matches(text.trim())
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("Low-latency TV player") },
+        text = {
+            Column {
+                Text(
+                    "Google's standard player buffers about a second. CastApp's own TV player (in the receiver folder of the " +
+                        "project) plays with about 0.2 s delay, but Google requires it to be registered once: host it (e.g. GitHub " +
+                        "Pages), register it at the Google Cast SDK Developer Console (one-time US\$5) and enter its App ID here. " +
+                        "Leave empty to use the standard player.",
+                    style = MaterialTheme.typography.bodyMedium,
+                )
+                Spacer(Modifier.height(12.dp))
+                OutlinedTextField(
+                    value = text,
+                    onValueChange = { text = it.filter(Char::isLetterOrDigit).take(8).uppercase() },
+                    singleLine = true,
+                    isError = !valid,
+                    label = { Text("App ID (8 characters)") },
+                    supportingText = { Text("Falls back to the standard player if it doesn't start") },
+                )
+            }
+        },
+        confirmButton = {
+            TextButton(onClick = { onSave(text.trim()); onDismiss() }, enabled = valid) { Text(stringResource(R.string.save)) }
         },
         dismissButton = { TextButton(onClick = onDismiss) { Text(stringResource(R.string.cancel)) } },
     )

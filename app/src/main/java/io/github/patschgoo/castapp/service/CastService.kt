@@ -28,6 +28,7 @@ import io.github.patschgoo.castapp.MainActivity
 import io.github.patschgoo.castapp.R
 import io.github.patschgoo.castapp.Shortcuts
 import io.github.patschgoo.castapp.discovery.CastDevice
+import io.github.patschgoo.castapp.settings.PictureMode
 import io.github.patschgoo.castapp.tile.CastTileService
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -47,6 +48,7 @@ class CastService : Service() {
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
     private val mainHandler = Handler(Looper.getMainLooper())
     private var overlay: DarkScreenOverlay? = null
+    private var orientationLock: OrientationLock? = null
 
     override fun onBind(intent: Intent?): IBinder? = null
 
@@ -74,10 +76,13 @@ class CastService : Service() {
             ACTION_VOLUME_UP -> session?.changeVolume(+VOLUME_STEP)
             ACTION_VOLUME_DOWN -> session?.changeVolume(-VOLUME_STEP)
             ACTION_TOGGLE_MUTE -> session?.toggleMute()
-            ACTION_PLAY_PAUSE -> (session as? FileCastSession)?.togglePlay()
-            ACTION_REWIND -> (session as? FileCastSession)?.seekBy(-FileCastSession.REWIND_MS)
-            ACTION_FORWARD -> (session as? FileCastSession)?.seekBy(FileCastSession.FORWARD_MS)
-            ACTION_SEEK -> (session as? FileCastSession)?.seekTo(intent.getLongExtra(EXTRA_POSITION, 0))
+            ACTION_PLAY_PAUSE -> (session as? MediaCastSession)?.togglePlay()
+            ACTION_REWIND -> (session as? MediaCastSession)?.seekBy(-MediaCastSession.REWIND_MS)
+            ACTION_FORWARD -> (session as? MediaCastSession)?.seekBy(MediaCastSession.FORWARD_MS)
+            ACTION_SEEK -> (session as? MediaCastSession)?.seekTo(intent.getLongExtra(EXTRA_POSITION, 0))
+            ACTION_NEXT -> (session as? MediaCastSession)?.next()
+            ACTION_PREVIOUS -> (session as? MediaCastSession)?.previous()
+            ACTION_SUBTITLES -> (session as? MediaCastSession)?.toggleSubtitles()
             ACTION_DARK_SCREEN -> setDarkScreen(intent.getBooleanExtra(EXTRA_ON, overlay == null))
             else -> if (session == null) stopSelfCompletely()
         }
@@ -117,7 +122,8 @@ class CastService : Service() {
         replaceSession(device)
         val app = CastApp.get(this)
         val singleApp = intent.getBooleanExtra(EXTRA_SINGLE_APP, false)
-        val newSession = CastSession(this, device, projection, app.settings.current, singleApp, ::onSessionEnded)
+        val audioOnly = intent.getBooleanExtra(EXTRA_AUDIO_ONLY, false)
+        val newSession = CastSession(this, device, projection, app.settings.state, singleApp, audioOnly, ::onSessionEnded)
         // Android 14+ requires the callback to be registered before capture starts.
         projection.registerCallback(object : MediaProjection.Callback() {
             override fun onStop() {
@@ -128,28 +134,42 @@ class CastService : Service() {
         app.devices.markUsed(device)
         Shortcuts.update(this, device)
         newSession.start()
+        if (!audioOnly && app.settings.current.picture == PictureMode.LANDSCAPE) lockLandscape(true)
     }
 
     // ---- file casting ------------------------------------------------------------------
 
     private fun handleStartFile(intent: Intent) {
         val device = deviceFrom(intent)
-        val uri: Uri? = intent.data
+        val items = intent.getStringExtra(EXTRA_ITEMS)?.let { runCatching { MediaItem.listFromJson(it) }.getOrNull() }.orEmpty()
         if (!goForeground(device, if (Build.VERSION.SDK_INT >= 29) ServiceInfo.FOREGROUND_SERVICE_TYPE_MEDIA_PLAYBACK else 0)) return
-        if (device == null || uri == null) {
+        if (device == null || items.isEmpty()) {
             stopIfIdle()
             return
         }
-        val mime = intent.type ?: contentResolver.getType(uri) ?: "video/mp4"
-        val title = intent.getStringExtra(EXTRA_TITLE) ?: FileCastSession.describe(contentResolver, uri).first ?: "Video"
-
         replaceSession(device)
         val app = CastApp.get(this)
-        val newSession = FileCastSession(this, device, uri, normalizeMime(mime), title, app.settings.current.port, ::onSessionEnded)
+        val newSession = MediaCastSession(this, device, items, intent.getIntExtra(EXTRA_INDEX, 0), app.settings.state, ::onSessionEnded)
         session = newSession
         app.devices.markUsed(device)
         Shortcuts.update(this, device)
         newSession.start()
+    }
+
+    // ---- turn apps sideways ---------------------------------------------------------------
+
+    private fun lockLandscape(on: Boolean) {
+        if (on) {
+            if (orientationLock != null) return
+            if (!Settings.canDrawOverlays(this)) {
+                CastController.message("Allow CastApp to \"display over other apps\" to turn apps sideways")
+                return
+            }
+            orientationLock = OrientationLock(this).also { it.show() }
+        } else {
+            orientationLock?.hide()
+            orientationLock = null
+        }
     }
 
     // ---- dark screen ---------------------------------------------------------------------
@@ -199,6 +219,7 @@ class CastService : Service() {
     private fun replaceSession(newDevice: CastDevice) {
         overlay?.hide()
         overlay = null
+        lockLandscape(false)
         session?.let { it.finish(null, stopReceiver = it.device.host != newDevice.host) }
     }
 
@@ -207,6 +228,7 @@ class CastService : Service() {
             session = null
             overlay?.hide()
             overlay = null
+            lockLandscape(false)
             stopSelfCompletely()
         }
     }
@@ -224,6 +246,7 @@ class CastService : Service() {
     override fun onDestroy() {
         overlay?.hide()
         overlay = null
+        lockLandscape(false)
         session?.finish(null)
         session = null
         scope.cancel()
@@ -246,17 +269,18 @@ class CastService : Service() {
     )
 
     private fun buildNotification(state: CastState.Active): Notification {
-        val file = session as? FileCastSession
+        val file = session as? MediaCastSession
         if (state.kind == CastKind.FILE && file != null) return buildMediaNotification(state, file)
 
         val text = buildString {
             append(state.phase.label)
             if (state.compatibilityMode) append(" · compatibility mode")
+            if (state.lowLatencyPlayer) append(" · low-latency player")
             state.volume?.let { append(" · volume ").append((it * 100).toInt()).append('%') }
         }
         val builder = NotificationCompat.Builder(this, CHANNEL_ID)
             .setSmallIcon(R.drawable.ic_cast_connected)
-            .setContentTitle(getString(R.string.notification_title, state.device.name))
+            .setContentTitle(getString(if (state.audioOnly) R.string.notification_title_sound else R.string.notification_title, state.device.name))
             .setContentText(text)
             .setContentIntent(openAppIntent())
             .setOngoing(true)
@@ -283,15 +307,20 @@ class CastService : Service() {
     }
 
     /** Media-style notification: shows on the lock screen with play/pause and seeking. */
-    private fun buildMediaNotification(state: CastState.Active, file: FileCastSession): Notification {
+    private fun buildMediaNotification(state: CastState.Active, file: MediaCastSession): Notification {
         fun platformAction(icon: Int, title: Int, pi: PendingIntent) =
             Notification.Action.Builder(Icon.createWithResource(this, icon), getString(title), pi).build()
 
         val playing = state.phase == CastPhase.LIVE && !state.paused
-        val status = when {
-            state.phase != CastPhase.LIVE -> state.phase.label
-            state.paused -> "Paused on ${state.device.name}"
-            else -> "Playing on ${state.device.name}"
+        val status = buildString {
+            append(
+                when {
+                    state.phase != CastPhase.LIVE -> state.phase.label
+                    state.paused -> "Paused on ${state.device.name}"
+                    else -> "Playing on ${state.device.name}"
+                },
+            )
+            if (state.queueSize > 1) append(" · ${state.queueIndex + 1}/${state.queueSize}")
         }
         val style = Notification.MediaStyle().setShowActionsInCompactView(0, 1, 2)
         file.mediaSession?.sessionToken?.let { style.setMediaSession(it) }
@@ -306,16 +335,19 @@ class CastService : Service() {
             .setVisibility(Notification.VISIBILITY_PUBLIC)
             .setCategory(Notification.CATEGORY_TRANSPORT)
             .setStyle(style)
-            .addAction(platformAction(R.drawable.ic_rewind, R.string.action_rewind, action(ACTION_REWIND, 5)))
-            .addAction(
-                platformAction(
-                    if (playing) R.drawable.ic_pause else R.drawable.ic_play,
-                    if (playing) R.string.action_pause else R.string.action_play,
-                    action(ACTION_PLAY_PAUSE, 6),
-                ),
-            )
-            .addAction(platformAction(R.drawable.ic_forward, R.string.action_forward, action(ACTION_FORWARD, 7)))
-            .addAction(platformAction(R.drawable.ic_stop, R.string.action_stop, action(ACTION_STOP, 3)))
+        val queue = state.queueSize > 1
+        if (queue) builder.addAction(platformAction(R.drawable.ic_previous, R.string.action_previous, action(ACTION_PREVIOUS, 8)))
+        else builder.addAction(platformAction(R.drawable.ic_rewind, R.string.action_rewind, action(ACTION_REWIND, 5)))
+        builder.addAction(
+            platformAction(
+                if (playing) R.drawable.ic_pause else R.drawable.ic_play,
+                if (playing) R.string.action_pause else R.string.action_play,
+                action(ACTION_PLAY_PAUSE, 6),
+            ),
+        )
+        if (queue) builder.addAction(platformAction(R.drawable.ic_next, R.string.action_next, action(ACTION_NEXT, 9)))
+        else builder.addAction(platformAction(R.drawable.ic_forward, R.string.action_forward, action(ACTION_FORWARD, 7)))
+        builder.addAction(platformAction(R.drawable.ic_stop, R.string.action_stop, action(ACTION_STOP, 3)))
         if (Build.VERSION.SDK_INT >= 31) builder.setForegroundServiceBehavior(Notification.FOREGROUND_SERVICE_IMMEDIATE)
         return builder.build()
     }
@@ -338,35 +370,50 @@ class CastService : Service() {
         const val ACTION_FORWARD = "io.github.patschgoo.castapp.action.FORWARD"
         const val ACTION_SEEK = "io.github.patschgoo.castapp.action.SEEK"
         const val ACTION_DARK_SCREEN = "io.github.patschgoo.castapp.action.DARK_SCREEN"
+        const val ACTION_NEXT = "io.github.patschgoo.castapp.action.NEXT"
+        const val ACTION_PREVIOUS = "io.github.patschgoo.castapp.action.PREVIOUS"
+        const val ACTION_SUBTITLES = "io.github.patschgoo.castapp.action.SUBTITLES"
         private const val EXTRA_DEVICE = "device"
         private const val EXTRA_RESULT_CODE = "result_code"
         private const val EXTRA_RESULT_DATA = "result_data"
         private const val EXTRA_SINGLE_APP = "single_app"
-        private const val EXTRA_TITLE = "title"
+        private const val EXTRA_AUDIO_ONLY = "audio_only"
+        private const val EXTRA_ITEMS = "items"
+        private const val EXTRA_INDEX = "index"
         private const val EXTRA_POSITION = "position"
         private const val EXTRA_ON = "on"
         private const val CHANNEL_ID = "casting"
         private const val NOTIFICATION_ID = 1
         private const val VOLUME_STEP = 0.05
 
-        fun start(context: Context, device: CastDevice, resultCode: Int, data: Intent, singleApp: Boolean) {
+        fun start(context: Context, device: CastDevice, resultCode: Int, data: Intent, singleApp: Boolean, audioOnly: Boolean) {
             val intent = Intent(context, CastService::class.java)
                 .setAction(ACTION_START)
                 .putExtra(EXTRA_DEVICE, device.toJson().toString())
                 .putExtra(EXTRA_RESULT_CODE, resultCode)
                 .putExtra(EXTRA_RESULT_DATA, data)
                 .putExtra(EXTRA_SINGLE_APP, singleApp)
+                .putExtra(EXTRA_AUDIO_ONLY, audioOnly)
             ContextCompat.startForegroundService(context, intent)
         }
 
-        /** Casts a video/audio file. The read permission for [uri] is handed on to the service. */
-        fun startFile(context: Context, device: CastDevice, uri: Uri, mimeType: String?, title: String?) {
+        /**
+         * Casts a list of videos, music, photos or web videos. Read permission for every
+         * file on the phone is handed on to the service through the ClipData.
+         */
+        fun startMedia(context: Context, device: CastDevice, items: List<MediaItem>, startIndex: Int = 0) {
             val intent = Intent(context, CastService::class.java)
                 .setAction(ACTION_START_FILE)
-                .setDataAndType(uri, mimeType)
-                .addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
                 .putExtra(EXTRA_DEVICE, device.toJson().toString())
-                .apply { if (title != null) putExtra(EXTRA_TITLE, title) }
+                .putExtra(EXTRA_ITEMS, MediaItem.listToJson(items))
+                .putExtra(EXTRA_INDEX, startIndex)
+            val localUris = items.flatMap { listOfNotNull(it.uri, it.subtitleUri) }.filter { it.startsWith("content:") }.map(Uri::parse)
+            if (localUris.isNotEmpty()) {
+                val clip = android.content.ClipData.newRawUri("media", localUris.first())
+                localUris.drop(1).forEach { clip.addItem(android.content.ClipData.Item(it)) }
+                intent.clipData = clip
+                intent.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+            }
             ContextCompat.startForegroundService(context, intent)
         }
 

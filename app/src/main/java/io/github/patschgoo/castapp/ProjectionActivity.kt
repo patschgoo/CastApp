@@ -31,11 +31,24 @@ class ProjectionActivity : ComponentActivity() {
         requestProjection()
     }
 
+    private val audioPermissionLauncher = registerForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
+        if (granted) {
+            requestProjection()
+        } else {
+            Toast.makeText(this, R.string.sound_needs_permission, Toast.LENGTH_LONG).show()
+            finish()
+        }
+    }
+
     private val projectionLauncher = registerForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
         val d = device
         val data = result.data
         if (result.resultCode == Activity.RESULT_OK && data != null && d != null) {
-            CastService.start(this, d, result.resultCode, data, singleApp = mode == MODE_APP && Build.VERSION.SDK_INT >= 34)
+            CastService.start(
+                this, d, result.resultCode, data,
+                singleApp = mode == MODE_APP && Build.VERSION.SDK_INT >= 34,
+                audioOnly = mode == MODE_AUDIO,
+            )
             launchPackage?.let { pkg ->
                 packageManager.getLaunchIntentForPackage(pkg)?.let { launch ->
                     try {
@@ -65,6 +78,18 @@ class ProjectionActivity : ComponentActivity() {
             return
         }
 
+        if (mode == MODE_AUDIO) {
+            if (Build.VERSION.SDK_INT < 29) {
+                Toast.makeText(this, R.string.sound_needs_android10, Toast.LENGTH_LONG).show()
+                finish()
+                return
+            }
+            // Sound casting needs this permission; ask every time it's missing.
+            if (checkSelfPermission(Manifest.permission.RECORD_AUDIO) != PackageManager.PERMISSION_GRANTED) {
+                audioPermissionLauncher.launch(Manifest.permission.RECORD_AUDIO)
+                return
+            }
+        }
         val missing = optionalPermissions().filter { checkSelfPermission(it) != PackageManager.PERMISSION_GRANTED }
         if (missing.isNotEmpty() && !app.settings.askedForPermissions) {
             app.settings.askedForPermissions = true
@@ -76,7 +101,9 @@ class ProjectionActivity : ComponentActivity() {
 
     private fun optionalPermissions(): List<String> = buildList {
         if (Build.VERSION.SDK_INT >= 33) add(Manifest.permission.POST_NOTIFICATIONS)
-        if (Build.VERSION.SDK_INT >= 29 && CastApp.get(this@ProjectionActivity).settings.current.audio) add(Manifest.permission.RECORD_AUDIO)
+        if (Build.VERSION.SDK_INT >= 29 && mode != MODE_AUDIO && CastApp.get(this@ProjectionActivity).settings.current.audio) {
+            add(Manifest.permission.RECORD_AUDIO)
+        }
     }
 
     private fun requestProjection() {
@@ -100,6 +127,8 @@ class ProjectionActivity : ComponentActivity() {
         const val ACTION_CAST = "io.github.patschgoo.castapp.action.CAST"
         const val MODE_SCREEN = "screen"
         const val MODE_APP = "app"
+        /** Only the phone's sound (speakers, or a TV without picture). */
+        const val MODE_AUDIO = "audio"
         private const val EXTRA_DEVICE_ID = "device_id"
         private const val EXTRA_DEVICE_JSON = "device_json"
         private const val EXTRA_MODE = "mode"

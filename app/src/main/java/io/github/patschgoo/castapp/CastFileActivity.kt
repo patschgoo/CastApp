@@ -15,8 +15,12 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Search
+import androidx.compose.material.icons.rounded.Speaker
+import androidx.compose.material.icons.rounded.SpeakerGroup
 import androidx.compose.material.icons.rounded.Tv
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -37,41 +41,53 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import io.github.patschgoo.castapp.discovery.CastDevice
 import io.github.patschgoo.castapp.discovery.DeviceEntry
 import io.github.patschgoo.castapp.service.CastService
-import io.github.patschgoo.castapp.service.FileCastSession
+import io.github.patschgoo.castapp.service.MediaItem
+import io.github.patschgoo.castapp.service.MediaType
 import io.github.patschgoo.castapp.ui.theme.CastAppTheme
 
 /**
- * "Cast to TV" from the share sheet or "Open with": shows the TVs and casts the
- * video or music file to the one you tap. The TV plays the file directly, so
- * the phone's screen can be turned off afterwards.
+ * "Cast to TV" from the share sheet or "Open with": videos, music and photos (one
+ * or many), or a link. A web page opens in the built-in browser to find its video;
+ * a direct video link is cast right away. The TV plays everything by itself, so the
+ * phone's screen can be turned off afterwards.
  */
 class CastFileActivity : ComponentActivity() {
-    private var uri: Uri? = null
-    private var mimeType: String? = null
-    private var title: String? = null
+    private var items: List<MediaItem> = emptyList()
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        val u = sharedUri(intent)
-        val mime = intent.type?.takeIf { it != "*/*" } ?: u?.let { contentResolver.getType(it) }
-        if (u == null || mime == null || !(mime.startsWith("video/") || mime.startsWith("audio/"))) {
+        val sharedText = if (intent.action == Intent.ACTION_SEND) intent.getStringExtra(Intent.EXTRA_TEXT) else null
+        val link = sharedText?.let { Regex("https?://\\S+").find(it)?.value }
+        if (link != null && sharedUris(intent).isEmpty()) {
+            val mime = MediaItem.mimeForUrl(link)
+            if (looksLikeMediaFile(link)) {
+                items = listOf(MediaItem(title = link.substringBefore('?').substringAfterLast('/').ifEmpty { link }, uri = link, mimeType = mime))
+            } else {
+                // A normal page: find the video in our browser.
+                startActivity(Intent(this, BrowserActivity::class.java).putExtra(BrowserActivity.EXTRA_URL, link))
+                finish()
+                return
+            }
+        } else {
+            items = MediaItem.fromUris(contentResolver, sharedUris(intent))
+        }
+        if (items.isEmpty()) {
             Toast.makeText(this, R.string.share_unsupported, Toast.LENGTH_LONG).show()
             finish()
             return
         }
-        uri = u
-        mimeType = mime
-        title = FileCastSession.describe(contentResolver, u).first ?: u.lastPathSegment
 
         val app = CastApp.get(this)
+        val soundOnly = items.all { it.type == MediaType.AUDIO }
+        val title = if (items.size == 1) items[0].title else getString(R.string.share_count, items.size)
         setContent {
             val settings by app.settings.state.collectAsStateWithLifecycle()
             CastAppTheme(settings.theme) {
-                val devices by app.devices.devices.collectAsStateWithLifecycle()
+                val all by app.devices.devices.collectAsStateWithLifecycle()
                 val scanning by app.devices.scanning.collectAsStateWithLifecycle()
                 PickTvSheet(
-                    fileName = title ?: "",
-                    devices = devices,
+                    title = title,
+                    devices = if (soundOnly) all else all.filter { it.device.video },
                     scanning = scanning,
                     onPick = ::castTo,
                     onScan = { app.devices.scanNetwork() },
@@ -81,19 +97,26 @@ class CastFileActivity : ComponentActivity() {
         }
     }
 
-    private fun sharedUri(intent: Intent): Uri? = when (intent.action) {
-        Intent.ACTION_SEND -> if (Build.VERSION.SDK_INT >= 33) {
-            intent.getParcelableExtra(Intent.EXTRA_STREAM, Uri::class.java)
-        } else {
-            @Suppress("DEPRECATION") intent.getParcelableExtra(Intent.EXTRA_STREAM)
-        }
-        Intent.ACTION_VIEW -> intent.data
-        else -> null
+    private fun looksLikeMediaFile(url: String): Boolean {
+        val path = url.substringBefore('?').substringBefore('#').lowercase()
+        return listOf(".mp4", ".m4v", ".mov", ".webm", ".mkv", ".m3u8", ".mp3", ".m4a", ".aac", ".flac", ".ogg", ".opus", ".wav")
+            .any { path.endsWith(it) }
+    }
+
+    private fun sharedUris(intent: Intent): List<Uri> = when (intent.action) {
+        Intent.ACTION_SEND -> listOfNotNull(
+            if (Build.VERSION.SDK_INT >= 33) intent.getParcelableExtra(Intent.EXTRA_STREAM, Uri::class.java)
+            else @Suppress("DEPRECATION") intent.getParcelableExtra(Intent.EXTRA_STREAM),
+        )
+        Intent.ACTION_SEND_MULTIPLE ->
+            if (Build.VERSION.SDK_INT >= 33) intent.getParcelableArrayListExtra(Intent.EXTRA_STREAM, Uri::class.java).orEmpty()
+            else @Suppress("DEPRECATION") intent.getParcelableArrayListExtra<Uri>(Intent.EXTRA_STREAM).orEmpty()
+        Intent.ACTION_VIEW -> listOfNotNull(intent.data)
+        else -> emptyList()
     }
 
     private fun castTo(device: CastDevice) {
-        val u = uri ?: return
-        CastService.startFile(this, device, u, mimeType, title)
+        CastService.startMedia(this, device, items)
         finish()
     }
 
@@ -108,10 +131,11 @@ class CastFileActivity : ComponentActivity() {
     }
 }
 
+/** Bottom sheet listing the TVs (and speakers, for music) to cast to. */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-private fun PickTvSheet(
-    fileName: String,
+fun PickTvSheet(
+    title: String,
     devices: List<DeviceEntry>,
     scanning: Boolean,
     onPick: (CastDevice) -> Unit,
@@ -119,17 +143,17 @@ private fun PickTvSheet(
     onDismiss: () -> Unit,
 ) {
     ModalBottomSheet(onDismissRequest = onDismiss) {
-        Column(Modifier.padding(bottom = 24.dp)) {
+        Column(Modifier.padding(bottom = 24.dp).verticalScroll(rememberScrollState())) {
             Text(
                 stringResource(R.string.share_title),
                 style = MaterialTheme.typography.titleLarge,
                 modifier = Modifier.padding(horizontal = 24.dp),
             )
             Text(
-                fileName,
+                title,
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
-                maxLines = 1,
+                maxLines = 2,
                 overflow = TextOverflow.Ellipsis,
                 modifier = Modifier.padding(horizontal = 24.dp, vertical = 4.dp),
             )
@@ -142,25 +166,30 @@ private fun PickTvSheet(
                 }
             }
             for (entry in devices) {
+                val d = entry.device
                 ListItem(
-                    onClick = { onPick(entry.device) },
+                    onClick = { onPick(d) },
                     modifier = Modifier.padding(horizontal = 8.dp),
                     leadingContent = {
                         Icon(
-                            Icons.Rounded.Tv,
+                            when {
+                                d.group -> Icons.Rounded.SpeakerGroup
+                                !d.video -> Icons.Rounded.Speaker
+                                else -> Icons.Rounded.Tv
+                            },
                             contentDescription = null,
                             tint = if (entry.online) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outline,
                         )
                     },
                     supportingContent = {
                         Text(
-                            listOfNotNull(if (entry.online) null else "Not found right now", entry.device.model, entry.device.host)
+                            listOfNotNull(if (entry.online) null else "Not found right now", if (d.isDlna) "DLNA" else null, d.model, d.host)
                                 .joinToString(" · "),
                             maxLines = 1,
                             overflow = TextOverflow.Ellipsis,
                         )
                     },
-                ) { Text(entry.device.name) }
+                ) { Text(d.name) }
             }
             Row(Modifier.fillMaxWidth().padding(horizontal = 16.dp), horizontalArrangement = Arrangement.End) {
                 TextButton(onClick = onScan, enabled = !scanning) {

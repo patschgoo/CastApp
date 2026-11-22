@@ -12,13 +12,14 @@ import java.net.InetAddress
 import java.net.Socket
 import java.net.URI
 
-class FileServerTest {
+class MediaServerTest {
     private val data = ByteArray(100_000) { (it * 31 + 7).toByte() }
     private val source = object : MediaSource {
         override val length: Long = data.size.toLong()
         override fun open(offset: Long): InputStream = ByteArrayInputStream(data, offset.toInt(), data.size - offset.toInt())
     }
-    private val server = FileServer(source, "video/mp4", "My Holiday (2026).mp4", 0).also { it.start() }
+    private val server = MediaServer(0).also { it.start() }
+    private val mediaPath = server.addRoute("media/" + MediaServer.safeName("My Holiday (2026).mp4"), server.ranged(source, "video/mp4"))
 
     @After
     fun tearDown() = server.stop()
@@ -41,7 +42,7 @@ class FileServerTest {
         }
     }
 
-    private val path: String get() = URI(server.urlFor(InetAddress.getLoopbackAddress(), server.mediaPath)).path
+    private val path: String get() = URI(server.urlFor(InetAddress.getLoopbackAddress(), mediaPath)).path
 
     @Test
     fun servesWholeFile() {
@@ -49,6 +50,7 @@ class FileServerTest {
         val r = get(path)
         assertEquals(200, r.status)
         assertEquals("bytes", r.headers["accept-ranges"])
+        assertEquals("Streaming", r.headers["transfermode.dlna.org"]) // DLNA TVs need this
         assertEquals("100000", r.headers["content-length"])
         assertArrayEquals(data, r.body)
     }
@@ -81,11 +83,11 @@ class FileServerTest {
 
     @Test
     fun parseRangeEdgeCases() {
-        assertNull(FileServer.parseRange("items=0-1", 10))
-        assertEquals(0L to 9L, FileServer.parseRange("bytes=0-", 10))
-        assertEquals(5L to 9L, FileServer.parseRange("bytes=5-500", 10)) // end clamped to the file
-        assertEquals(FileServer.INVALID_RANGE, FileServer.parseRange("bytes=10-", 10))
-        assertEquals(FileServer.INVALID_RANGE, FileServer.parseRange("bytes=7-3", 10))
-        assertEquals(0L to 9L, FileServer.parseRange("bytes=-50", 10))
+        assertNull(MediaServer.parseRange("items=0-1", 10))
+        assertEquals(0L to 9L, MediaServer.parseRange("bytes=0-", 10))
+        assertEquals(5L to 9L, MediaServer.parseRange("bytes=5-500", 10)) // end clamped to the file
+        assertEquals(MediaServer.INVALID_RANGE, MediaServer.parseRange("bytes=10-", 10))
+        assertEquals(MediaServer.INVALID_RANGE, MediaServer.parseRange("bytes=7-3", 10))
+        assertEquals(0L to 9L, MediaServer.parseRange("bytes=-50", 10))
     }
 }

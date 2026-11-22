@@ -25,6 +25,18 @@ enum class ThemeMode(val label: String) {
     DARK("Dark"),
 }
 
+enum class PictureMode(val label: String, val description: String) {
+    FIT("Fit", "Whole picture, black bars where the shapes differ"),
+    FILL("Fill the TV", "Zooms in to remove black bars; edges are cut off"),
+    LANDSCAPE("Turn apps sideways", "Rotates the phone to landscape while casting, so apps fill the TV"),
+}
+
+enum class ConvertMode(val label: String, val description: String) {
+    AUTO("Automatic", "Only when the TV can't play a file"),
+    ALWAYS("Always", "Every video is converted on the phone (uses more battery)"),
+    OFF("Never", "Show an error if the TV can't play a file"),
+}
+
 data class CastSettings(
     val resolution: Resolution = Resolution.P720,
     val fps: Int = 30,
@@ -34,6 +46,15 @@ data class CastSettings(
     val streamMode: StreamMode = StreamMode.LOW_LATENCY,
     val port: Int = 8090,
     val theme: ThemeMode = ThemeMode.SYSTEM,
+    val picture: PictureMode = PictureMode.FIT,
+    /** Lower the quality automatically when the Wi-Fi can't keep up. */
+    val adaptiveQuality: Boolean = true,
+    /** Positive: sound plays later; negative: earlier. */
+    val audioDelayMs: Int = 0,
+    /** App ID of the optional low-latency TV player (empty = Google's standard player). */
+    val receiverAppId: String = "",
+    val convert: ConvertMode = ConvertMode.AUTO,
+    val slideshowSeconds: Int = 6,
 ) {
     val effectiveBitrate: Int
         get() {
@@ -65,6 +86,12 @@ class AppSettings(context: Context) {
             streamMode = enumOr(prefs.getString("stream_mode", null), d.streamMode),
             port = prefs.getInt("port", d.port),
             theme = enumOr(prefs.getString("theme", null), d.theme),
+            picture = enumOr(prefs.getString("picture", null), d.picture),
+            adaptiveQuality = prefs.getBoolean("adaptive", d.adaptiveQuality),
+            audioDelayMs = prefs.getInt("audio_delay", d.audioDelayMs),
+            receiverAppId = prefs.getString("receiver_app_id", d.receiverAppId) ?: "",
+            convert = enumOr(prefs.getString("convert", null), d.convert),
+            slideshowSeconds = prefs.getInt("slideshow_seconds", d.slideshowSeconds),
         )
     }
 
@@ -78,13 +105,19 @@ class AppSettings(context: Context) {
             putString("stream_mode", s.streamMode.name)
             putInt("port", s.port)
             putString("theme", s.theme.name)
+            putString("picture", s.picture.name)
+            putBoolean("adaptive", s.adaptiveQuality)
+            putInt("audio_delay", s.audioDelayMs)
+            putString("receiver_app_id", s.receiverAppId.trim())
+            putString("convert", s.convert.name)
+            putInt("slideshow_seconds", s.slideshowSeconds)
         }
         _state.value = s
         applyTheme()
     }
 
     /** Resets the casting options; the chosen theme is kept. */
-    fun reset() = update { CastSettings(theme = it.theme) }
+    fun reset() = update { CastSettings(theme = it.theme, receiverAppId = it.receiverAppId) }
 
     /**
      * On Android 12+ the app's light/dark choice is handed to the system, so every
