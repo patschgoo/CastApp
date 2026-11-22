@@ -20,6 +20,9 @@ android {
 
         // Phones only; keeps the speech-recognition library small.
         ndk { abiFilters += listOf("arm64-v8a", "armeabi-v7a") }
+        externalNativeBuild {
+            cmake { arguments += listOf("-DANDROID_STL=c++_static") }
+        }
     }
 
     signingConfigs {
@@ -47,6 +50,15 @@ android {
         debug {
             applicationIdSuffix = ".debug"
             signingConfig = signingConfigs.getByName("shared")
+        }
+    }
+
+    // Native part of the optional Whisper speech engine (whisper.cpp, vendored in src/main/cpp).
+    ndkVersion = "29.0.14206865"
+    externalNativeBuild {
+        cmake {
+            path = file("src/main/cpp/CMakeLists.txt")
+            version = "3.22.1"
         }
     }
 
