@@ -198,17 +198,17 @@ body.glance-only section.block:not(#glance) { display: none; }
     <p class="lead">CastApp is the Android app that sends your phone's screen, its videos, music and photos, network folders, Plex and Jellyfin, TV channels and web videos to the TVs and speakers in your home, and works as their remote. The same app on a Fire TV, Shield or Android TV box becomes <b>CastApp TV</b>, a receiver with lower delay and extras. No ads, no tracking, no account.</p>
     <div class="castbar" role="group" aria-label="Versions">
       <span class="cb-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path class="cb-stroke" d="M2 8V6a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2h-6M2 12a8 8 0 0 1 8 8M2 16a4 4 0 0 1 4 4M2 20h.01"/></svg></span>
-      <span class="cb-item"><span class="cb-label">Released</span><span class="cb-value">4.0.0 <span>GitHub release v4.0.0</span></span></span>
-      <span class="cb-item"><span class="cb-label">Next</span><span class="cb-value">4.1.0 <span>ready on main, not released yet</span></span></span>
+      <span class="cb-item"><span class="cb-label">Released</span><span class="cb-value">4.1.0 <span>GitHub release v4.1.0, 23 Nov 2026</span></span></span>
+      <span class="cb-item"><span class="cb-label">Next</span><span class="cb-value">4.2.0 <span>nothing merged yet</span></span></span>
     </div>
     <div class="facts">
-      <span>Last updated: <b>2026-11-23</b>, matching CastApp main <b>315ed8c</b></span>
+      <span>Last updated: <b>2026-11-23</b>, matching CastApp main <b>0722f06</b> (release v4.1.0)</span>
       <span>Feature IDs like <b>H9</b> are stable: use them when you add to or check this page.</span>
       <span>Kept current: source <code>docs/feature-map.html</code> in the CastApp repository.</span>
     </div>
     <div class="legend">
-      <span class="item"><span class="pill s-ok">Released</span><span>in 4.0.0 or earlier</span></span>
-      <span class="item"><span class="pill s-new">Ready in 4.1.0</span><span>merged on main, not released yet</span></span>
+      <span class="item"><span class="pill s-ok">Released</span><span>in 4.1.0 or earlier (the card says which version)</span></span>
+      <span class="item"><span class="pill s-new">Ready for 4.2.0</span><span>merged on main, not released yet</span></span>
       <span class="item"><span class="pill s-later">Later</span><span>planned, not started</span></span>
       <span class="item"><span class="pill s-no">Not in CastApp</span><span>on purpose; another app does it</span></span>
       <span class="item"><span class="pill s-dec">Decided</span><span>your decisions</span></span>
@@ -344,7 +344,7 @@ body.glance-only section.block:not(#glance) { display: none; }
   <div class="filters" role="group" aria-label="Show features by status">
     <button type="button" data-f="all" aria-pressed="true">All</button>
     <button type="button" data-f="ok" aria-pressed="false">Released</button>
-    <button type="button" data-f="new" aria-pressed="false">Ready in 4.1.0</button>
+    <button type="button" data-f="new" aria-pressed="false">Ready for 4.2.0</button>
     <button type="button" data-f="later" aria-pressed="false">Later</button>
     <button type="button" data-f="no" aria-pressed="false">Not in CastApp</button>
     <span class="count" id="fcount" aria-live="polite"></span>
@@ -508,11 +508,11 @@ body.glance-only section.block:not(#glance) { display: none; }
       <p>Resume points and watched marks are reported to the server, so Plex and Jellyfin apps elsewhere show the same place. The next episodes are queued after the one you start.</p>
       <div class="links"><a href="#E2">E2</a><a href="#D3">D3</a></div>
       <div class="files">mediaservers/ProgressReporter.kt · mediaservers/PlexClient.kt · mediaservers/JellyfinClient.kt</div><div class="ver">4.0</div></article>
-    <article class="f" id="D6" data-s="new"><div class="top"><div><div class="id">D6</div><h3>Plex: subtitle tracks inside MKV files</h3></div><span class="pill s-new">Ready in 4.1.0</span></div>
+    <article class="f" id="D6" data-s="ok"><div class="top"><div><div class="id">D6</div><h3>Plex: subtitle tracks inside MKV files</h3></div><span class="pill s-ok">Released</span></div>
       <p>Every text track in the file (ASS, SRT) becomes a choice in the subtitle picker. The one in your Subtitle languages shows, full tracks before "Signs &amp; Songs". A CastApp TV shows it from the file; for a Chromecast the phone reads it out of the file first (a bar shows how far), the next episode's too.</p>
       <div class="links"><a href="#Y1">Y1</a><a href="#H9">H9</a><a href="#F2">F2</a><a href="#F3">F3</a></div>
       <div class="files">mediaservers/PlexClient.kt · mediaservers/ServerSubtitle.kt · mediaservers/PlaybackPlanner.kt · subtitles/EmbeddedSubtitles.kt</div><div class="ver">4.1.0</div></article>
-    <article class="f" id="D7" data-s="new"><div class="top"><div><div class="id">D7</div><h3>The sound track you picked on the server</h3></div><span class="pill s-new">Ready in 4.1.0</span></div>
+    <article class="f" id="D7" data-s="ok"><div class="top"><div><div class="id">D7</div><h3>The sound track you picked on the server</h3></div><span class="pill s-ok">Released</span></div>
       <p>When a CastApp TV plays the file itself, it plays the sound track picked in Plex (or Jellyfin's default one), for example the German dub of a dual-audio anime. Before, it played the file's default track.</p>
       <div class="links"><a href="#H9">H9</a><a href="#D4">D4</a></div>
       <div class="files">mediaservers/PlexClient.kt · mediaservers/JellyfinClient.kt · dlna/Dlna.kt · tv/TrackHint.kt</div><div class="ver">4.1.0</div></article>
@@ -534,7 +534,7 @@ body.glance-only section.block:not(#glance) { display: none; }
       <p>Videos resume where you stopped. A row on the main screen lists them; the history file is stored encrypted on the phone.</p>
       <div class="links"><a href="#E3">E3</a><a href="#D5">D5</a></div>
       <div class="files">service/WatchHistory.kt · ui/ContinueWatching.kt</div><div class="ver">4.0</div></article>
-    <article class="f" id="E3" data-s="new"><div class="top"><div><div class="id">E3</div><h3>Pictures in Continue watching</h3></div><span class="pill s-new">Ready in 4.1.0</span></div>
+    <article class="f" id="E3" data-s="ok"><div class="top"><div><div class="id">E3</div><h3>Pictures in Continue watching</h3></div><span class="pill s-ok">Released</span></div>
       <p>Each card shows its poster, channel logo, cover or a frame of the video. Frames from network shares are only taken on Wi-Fi, one file at a time.</p>
       <div class="links"><a href="#E2">E2</a><a href="#C3">C3</a><a href="#L2">L2</a></div>
       <div class="files">artwork/Artwork.kt · artwork/ArtworkRules.kt · artwork/PhoneThumbnails.kt · artwork/ShareFrames.kt</div><div class="ver">4.1.0</div></article>
@@ -602,11 +602,11 @@ body.glance-only section.block:not(#glance) { display: none; }
       <p>HEVC or MKV on an older Chromecast, MPEG-2 and other formats are converted to H.264 and AAC (up to 1080p) while they play. Seeking restarts the conversion at the new spot, which takes a moment.</p>
       <div class="links"><a href="#G2">G2</a><a href="#E7">E7</a><a href="#A4">A4</a></div>
       <div class="files">capture/Transcoder.kt · capture/GlScaler.kt · capture/AudioEncoder.kt · stream/StreamHub.kt</div><div class="ver">2.0</div></article>
-    <article class="f" id="G2" data-s="new"><div class="top"><div><div class="id">G2</div><h3>Repackaging instead of converting</h3></div><span class="pill s-new">Ready in 4.1.0</span></div>
+    <article class="f" id="G2" data-s="ok"><div class="top"><div><div class="id">G2</div><h3>Repackaging instead of converting</h3></div><span class="pill s-ok">Released</span></div>
       <p>When the picture already is H.264 the TV plays (HD TV recordings in MPEG-TS, most MKV files), it is copied unchanged and only the file around it is made new ("Repackaging…"); sound that isn't AAC is converted. Starts in seconds with the full picture quality. If a TV refuses the copy, the phone converts it in full.</p>
       <div class="links"><a href="#G1">G1</a><a href="#P2">P2</a><a href="#P3">P3</a></div>
       <div class="files">capture/Remux.kt · stream/FragmentedMp4.kt · service/PlaybackChecks.kt</div><div class="ver">4.1.0</div></article>
-    <article class="f" id="G3" data-s="new"><div class="top"><div><div class="id">G3</div><h3>AVI and DivX on more phones</h3></div><span class="pill s-new">Ready in 4.1.0</span></div>
+    <article class="f" id="G3" data-s="ok"><div class="top"><div><div class="id">G3</div><h3>AVI and DivX on more phones</h3></div><span class="pill s-ok">Released</span></div>
       <p>AVI, XviD and .divx files now convert on phones whose Android can't read AVI (Pixels), with picture and sound in step after seeking. DivX 3 can't be converted on any phone; CastApp says so.</p>
       <div class="links"><a href="#G1">G1</a><a href="#H8">H8</a></div>
       <div class="files">capture/AviSupport.kt · capture/Media3Samples.kt · capture/SampleReader.kt</div><div class="ver">4.1.0</div></article>
@@ -636,7 +636,7 @@ body.glance-only section.block:not(#glance) { display: none; }
       <p>Start with the TV keeps it ready after a restart; Rename sets the name phones see. On Android 10+ TVs it opens its player by itself only if it may display over other apps.</p>
       <div class="links"><a href="#H1">H1</a><a href="#H5">H5</a></div>
       <div class="files">tv/TvReceiverService.kt · tv/TvHomeActivity.kt</div><div class="ver">3.1</div></article>
-    <article class="f" id="H5" data-s="new"><div class="top"><div><div class="id">H5</div><h3>Found again after the TV sleeps</h3></div><span class="pill s-new">Ready in 4.1.0</span></div>
+    <article class="f" id="H5" data-s="ok"><div class="top"><div><div class="id">H5</div><h3>Found again after the TV sleeps</h3></div><span class="pill s-ok">Released</span></div>
       <p>When the TV wakes up (screen on, screensaver ends), CastApp TV announces itself on the network again, so phones and PCs find it without opening the app.</p>
       <div class="links"><a href="#H1">H1</a><a href="#B1">B1</a></div>
       <div class="files">tv/TvReceiverService.kt · tv/UpnpRenderer.kt</div><div class="ver">4.1.0</div></article>
@@ -644,23 +644,23 @@ body.glance-only section.block:not(#glance) { display: none; }
       <p>Anyone on the network (the default on TVs), Ask first (the default on phones) or Only paired phones, which enter a 4-digit code once. Wrong codes are refused.</p>
       <div class="links"><a href="#I5">I5</a><a href="#H2">H2</a></div>
       <div class="files">tv/ReceiverGuard.kt · tv/ReceiverPrompt.kt · tv/PairingClient.kt · tv/ReceiverProtectionUi.kt</div><div class="ver">4.0</div></article>
-    <article class="f" id="H7" data-s="new"><div class="top"><div><div class="id">H7</div><h3>Tells what it can play</h3></div><span class="pill s-new">Ready in 4.1.0</span></div>
+    <article class="f" id="H7" data-s="ok"><div class="top"><div><div class="id">H7</div><h3>Tells what it can play</h3></div><span class="pill s-ok">Released</span></div>
       <p>Phones and other apps can ask the TV which picture, sound and subtitle formats and which file types it plays, as a list of yes and no at <code>/castapp/capabilities</code>. CastApp uses it to send a file as it is, use HEVC, or convert first. Blu-ray <code>.m2ts</code>/<code>.mts</code> files (192-byte packets), WMV/ASF and Ogg video don't open on CastApp TV; send them repackaged (e.g. as MKV or plain <code>.ts</code>) or converted.</p>
       <div class="links"><a href="#A9">A9</a><a href="#H8">H8</a><a href="#D4">D4</a></div>
       <div class="files">tv/DecoderReport.kt · tv/UpnpRenderer.kt · service/CastAppTvClient.kt</div><div class="ver">first list (HEVC, YouTube) 4.0 · full list, version 3, 4.1.0</div></article>
-    <article class="f" id="H8" data-s="new"><div class="top"><div><div class="id">H8</div><h3>Says why it can't play</h3></div><span class="pill s-new">Ready in 4.1.0</span></div>
+    <article class="f" id="H8" data-s="ok"><div class="top"><div><div class="id">H8</div><h3>Says why it can't play</h3></div><span class="pill s-ok">Released</span></div>
       <p>When a file fails (10-bit H.264 on a Shield, DivX 3, an address it can't load), the TV names the reason within seconds. The phone shows it and converts or moves on instead of waiting; other apps read it at <code>/castapp/status</code>.</p>
       <div class="links"><a href="#E7">E7</a><a href="#G1">G1</a><a href="#G3">G3</a></div>
       <div class="files">tv/PlaybackFailure.kt · tv/TrackSupport.kt · service/CastAppTvClient.kt · render/DlnaRenderer.kt</div><div class="ver">4.1.0</div></article>
-    <article class="f" id="H9" data-s="new"><div class="top"><div><div class="id">H9</div><h3>Picks the right subtitle and sound track</h3></div><span class="pill s-new">Ready in 4.1.0</span></div>
+    <article class="f" id="H9" data-s="ok"><div class="top"><div><div class="id">H9</div><h3>Picks the right subtitle and sound track</h3></div><span class="pill s-ok">Released</span></div>
       <p>A hint tells the TV which subtitle track inside the file to show (<code>castapp:subtrack</code>) and which sound track to play (<code>castapp:audiotrack</code>): the full English subtitles rather than "Signs &amp; Songs", or the German dub of a dual-audio file. Without a hint it plays the file's defaults.</p>
       <div class="links"><a href="#D6">D6</a><a href="#D7">D7</a><a href="#L2">L2</a></div>
       <div class="files">tv/TrackHint.kt · tv/TextTrackHint.kt · dlna/Dlna.kt</div><div class="ver">4.1.0</div></article>
-    <article class="f" id="H10" data-s="new"><div class="top"><div><div class="id">H10</div><h3>Styled ASS and several subtitle files</h3></div><span class="pill s-new">Ready in 4.1.0</span></div>
+    <article class="f" id="H10" data-s="ok"><div class="top"><div><div class="id">H10</div><h3>Styled ASS and several subtitle files</h3></div><span class="pill s-ok">Released</span></div>
       <p>Other apps can send ASS/SSA files as they are (position, colours, bold and italic kept) and up to 20 subtitle files at once (<code>castapp:subfiles</code>); the TV's subtitle menu then offers them. CastApp on the phone still sends one subtitle file as SRT or WebVTT.</p>
       <div class="links"><a href="#H9">H9</a><a href="#F1">F1</a></div>
       <div class="files">tv/SubtitleFiles.kt · tv/UpnpRenderer.kt · tv/TvPlayerActivity.kt</div><div class="ver">4.1.0</div></article>
-    <article class="f" id="H11" data-s="new"><div class="top"><div><div class="id">H11</div><h3>Plays the queued next item</h3></div><span class="pill s-new">Ready in 4.1.0</span></div>
+    <article class="f" id="H11" data-s="ok"><div class="top"><div><div class="id">H11</div><h3>Plays the queued next item</h3></div><span class="pill s-ok">Released</span></div>
       <p>A sender can queue the next file (<code>SetNextAVTransportURI</code>); the TV starts it by itself when the current one ends, never after live streams, photos or mirroring. CastApp on the phone still sends each item itself.</p>
       <div class="links"><a href="#P4">P4</a><a href="#H2">H2</a></div>
       <div class="files">tv/UpnpRenderer.kt · tv/TvPlayerActivity.kt</div><div class="ver">4.1.0</div></article>
@@ -768,15 +768,15 @@ body.glance-only section.block:not(#glance) { display: none; }
       <p>Off by default (Settings → Automation), with an optional secret. Mirror, cast a link or file, stop, play/pause, skip, volume, quality, Receive on this phone and the remote, each answered with a result code.</p>
       <div class="links"><a href="#L2">L2</a><a href="#M1">M1</a></div>
       <div class="files">automation/AutomationParser.kt · automation/AutomationExecutor.kt · automation/AutomationEntry.kt · automation/DeviceMatcher.kt · AUTOMATION.md</div><div class="ver">4.0</div></article>
-    <article class="f" id="L2" data-s="new"><div class="top"><div><div class="id">L2</div><h3>Cast a play list (CAST_QUEUE)</h3></div><span class="pill s-new">Ready in 4.1.0</span></div>
+    <article class="f" id="L2" data-s="ok"><div class="top"><div><div class="id">L2</div><h3>Cast a play list (CAST_QUEUE)</h3></div><span class="pill s-ok">Released</span></div>
       <p>One request with up to 500 items: address, title, subtitles with languages, poster, where to start, and the sound and subtitle language. Every item is checked; one bad item refuses the whole request and the message says which.</p>
       <div class="links"><a href="#L3">L3</a><a href="#L4">L4</a><a href="#H9">H9</a></div>
       <div class="files">automation/QueueRequest.kt · automation/QueueCast.kt</div><div class="ver">4.1.0</div></article>
-    <article class="f" id="L3" data-s="new"><div class="top"><div><div class="id">L3</div><h3>"Play on TV" for other apps</h3></div><span class="pill s-new">Ready in 4.1.0</span></div>
+    <article class="f" id="L3" data-s="ok"><div class="top"><div><div class="id">L3</div><h3>"Play on TV" for other apps</h3></div><span class="pill s-ok">Released</span></div>
       <p>An app can open CastApp's Cast to TV sheet with its play list without the automation switch. Nothing is cast until you tap a TV; the app hears ok or cancelled.</p>
       <div class="links"><a href="#L2">L2</a></div>
       <div class="files">automation/PlayOnTvActivity.kt</div><div class="ver">4.1.0</div></article>
-    <article class="f" id="L4" data-s="new"><div class="top"><div><div class="id">L4</div><h3>Playback reports (PLAYBACK)</h3></div><span class="pill s-new">Ready in 4.1.0</span></div>
+    <article class="f" id="L4" data-s="ok"><div class="top"><div><div class="id">L4</div><h3>Playback reports (PLAYBACK)</h3></div><span class="pill s-ok">Released</span></div>
       <p>The app that sent the list hears started, paused, resumed, progress (about every 30 s), stopped, finished and failed with a reason, so it can save resume points and mark episodes watched. Reports go only to that app, and only if CastApp can confirm who asked.</p>
       <div class="links"><a href="#L2">L2</a><a href="#E2">E2</a></div>
       <div class="files">automation/PlaybackReports.kt</div><div class="ver">4.1.0</div></article>
@@ -802,7 +802,7 @@ body.glance-only section.block:not(#glance) { display: none; }
       <p>Shows what the phone casts, with play/pause, previous/next, volume, stop and Mirror to your last TV. Needs Google Play services and the same CastApp build (same signing key) on phone and watch.</p>
       <div class="links"><a href="#M2">M2</a><a href="#E6">E6</a></div>
       <div class="files">watch app: wear/ · wear-protocol/ · phone side: castapp/wear/WearListenerService.kt, WearSync.kt, WearCommands.kt</div><div class="ver">4.0</div></article>
-    <article class="f" id="M2" data-s="new"><div class="top"><div><div class="id">M2</div><h3>TV volume on the bezel or crown</h3></div><span class="pill s-new">Ready in 4.1.0</span></div>
+    <article class="f" id="M2" data-s="ok"><div class="top"><div><div class="id">M2</div><h3>TV volume on the bezel or crown</h3></div><span class="pill s-ok">Released</span></div>
       <p>Turning a Galaxy Watch bezel, or a Pixel Watch or TicWatch crown, changes the TV volume one step per notch, with a tick you can feel and the level shown at the edge.</p>
       <div class="links"><a href="#M1">M1</a></div>
       <div class="files">watch app: wear/…/RotaryVolume.kt, RotaryVolumeUi.kt · wear-protocol/…/WearProtocol.kt · phone side: castapp/wear/WearCommands.kt</div><div class="ver">4.1.0</div></article>
@@ -848,15 +848,15 @@ body.glance-only section.block:not(#glance) { display: none; }
       <p>Looks at the GitHub releases once a day at start (can be off) or when you tap Check for updates, shows the release notes, and Install downloads CastApp.apk and starts Android's installer. A tag like v4.1.0 makes the release.</p>
       <div class="links"><a href="#N10">N10</a><a href="#Y4">Y4</a></div>
       <div class="files">support/Updates.kt · support/ReleaseInfo.kt · .github/workflows/build.yml · fastlane/metadata/android/</div><div class="ver">4.0</div></article>
-    <article class="f" id="N10" data-s="new"><div class="top"><div><div class="id">N10</div><h3>Your own signing key</h3></div><span class="pill s-new">Ready in 4.1.0</span></div>
+    <article class="f" id="N10" data-s="ok"><div class="top"><div><div class="id">N10</div><h3>Your own signing key</h3></div><span class="pill s-ok">Released</span></div>
       <p>A script makes the release key on your Windows PC and writes down exactly what goes into GitHub. Without it, builds use the committed key, which is fine for personal use only.</p>
       <div class="links"><a href="#N9">N9</a></div>
       <div class="files">tools/make-signing-key.ps1</div><div class="ver">4.1.0</div></article>
-    <article class="f" id="N11" data-s="new"><div class="top"><div><div class="id">N11</div><h3>Free software, GPL-3.0</h3></div><span class="pill s-new">Ready in 4.1.0</span></div>
+    <article class="f" id="N11" data-s="ok"><div class="top"><div><div class="id">N11</div><h3>Free software, GPL-3.0</h3></div><span class="pill s-ok">Released</span></div>
       <p>CastApp is under the GNU GPL version 3, with an extra permission for Google Play services (Wear OS only). whisper.cpp, Vosk, Media3, smbj and Bouncy Castle keep their own compatible licenses.</p>
       <div class="links"><a href="#P5">P5</a></div>
       <div class="files">LICENSE · README.md (License)</div><div class="ver">4.1.0</div></article>
-    <article class="f" id="N12" data-s="new"><div class="top"><div><div class="id">N12</div><h3>Screens checked on the PC</h3></div><span class="pill s-new">Ready in 4.1.0</span></div>
+    <article class="f" id="N12" data-s="ok"><div class="top"><div><div class="id">N12</div><h3>Screens checked on the PC</h3></div><span class="pill s-ok">Released</span></div>
       <p>Pictures of the main screens (light and dark, English and German, normal and double font size, phone, tablet and TV home) are made on the PC, each with a list of cut-off text and small tap targets. The store pictures come from the same run.</p>
       <div class="links"><a href="#N1">N1</a><a href="#N3">N3</a></div>
       <div class="files">app/src/test/…/screenshots/ · docs/*.png · fastlane/metadata/android/</div><div class="ver">4.1.0</div></article>
@@ -923,8 +923,8 @@ body.glance-only section.block:not(#glance) { display: none; }
     <article class="f" id="Y3"><div class="top"><div><div class="id">Y3</div><h3>CastApp stays a cast and mirror app</h3></div><span class="pill s-dec">Decided 2026-11-23</span></div>
       <p>Library, MyAnimeList sync, "What's missing" and downloads belong to AniBox. CastApp offers other apps a clean way in (CAST_QUEUE and PLAYBACK) instead.</p>
       <div class="links"><a href="#X1">X1</a><a href="#X2">X2</a><a href="#X3">X3</a><a href="#L2">L2</a></div></article>
-    <article class="f" id="Y4"><div class="top"><div><div class="id">Y4</div><h3>When to release 4.1.0</h3></div><span class="pill s-dec">Your call</span></div>
-      <p>4.1.0 is ready on main. The in-app update check only sees it after the v4.1.0 tag, and the Shield needs 4.1.0 for the CastApp TV extras AniBox uses. The 30-minute checks in TESTING.md are a good gate.</p>
+    <article class="f" id="Y4"><div class="top"><div><div class="id">Y4</div><h3>Release 4.1.0</h3></div><span class="pill s-dec">Decided</span></div>
+      <p>Released on 23 Nov 2026 (GitHub release v4.1.0). Next: install it on the Shield and the phone, open CastApp TV once, and do the 30-minute checks in TESTING.md.</p>
       <div class="links"><a href="#N9">N9</a><a href="#check">To test</a></div></article>
   </div></div>
 </section>
@@ -969,8 +969,8 @@ body.glance-only section.block:not(#glance) { display: none; }
   <div class="tw"><table>
     <thead><tr><th>What</th><th>How it works</th><th>Status</th></tr></thead>
     <tbody>
-      <tr><td>AniBox on the PC → CastApp TV</td><td>Plain DLNA: AniBox finds CastApp TV by searching the network or by the address the TV shows (…:49595), pairs with the 4-digit code in "Only paired phones" mode, reads what it can play, sends the subtitle and sound track hints and reads why something didn't play. Since AniBox 1.11.1 the sound hint names the exact track (<code>t=</code>/<code>lang=</code>/<code>title=</code>, counted the same way as CastApp TV) when AniBox can read the file's tracks, else your languages (<code>prefer=</code>); its "Plays on the TV?" check reads the <code>container_*</code> keys and warns about <code>.m2ts</code>, WMV and Ogg video. With 4.0.0 on the TV, videos play, but the hints, the full format list and the reasons are missing. <a href="#H2">H2</a> <a href="#H6">H6</a> <a href="#H7">H7</a> <a href="#H8">H8</a> <a href="#H9">H9</a></td><td><span class="pill s-new">Ready in 4.1.0</span></td></tr>
-      <tr><td>AniBox Android app → CastApp on the phone</td><td><code>CAST_QUEUE</code> opens the Cast to TV sheet with the episode list (resume point, subtitles, sound and subtitle language, poster). <code>PLAYBACK</code> reports come back, so AniBox saves resume points and marks episodes watched. <a href="#L2">L2</a> <a href="#L3">L3</a> <a href="#L4">L4</a></td><td><span class="pill s-new">Ready in 4.1.0</span> CastApp side; the AniBox app comes later</td></tr>
+      <tr><td>AniBox on the PC → CastApp TV</td><td>Plain DLNA: AniBox finds CastApp TV by searching the network or by the address the TV shows (…:49595), pairs with the 4-digit code in "Only paired phones" mode, reads what it can play, sends the subtitle and sound track hints and reads why something didn't play. Since AniBox 1.11.1 the sound hint names the exact track (<code>t=</code>/<code>lang=</code>/<code>title=</code>, counted the same way as CastApp TV) when AniBox can read the file's tracks, else your languages (<code>prefer=</code>); its "Plays on the TV?" check reads the <code>container_*</code> keys and warns about <code>.m2ts</code>, WMV and Ogg video. With 4.0.0 on the TV, videos play, but the hints, the full format list and the reasons are missing. <a href="#H2">H2</a> <a href="#H6">H6</a> <a href="#H7">H7</a> <a href="#H8">H8</a> <a href="#H9">H9</a></td><td><span class="pill s-ok">Released in 4.1.0</span></td></tr>
+      <tr><td>AniBox Android app → CastApp on the phone</td><td><code>CAST_QUEUE</code> opens the Cast to TV sheet with the episode list (resume point, subtitles, sound and subtitle language, poster). <code>PLAYBACK</code> reports come back, so AniBox saves resume points and marks episodes watched. <a href="#L2">L2</a> <a href="#L3">L3</a> <a href="#L4">L4</a></td><td><span class="pill s-ok">Released</span> CastApp side (4.1.0); the AniBox app comes later</td></tr>
       <tr><td>Library, MyAnimeList sync, "What's missing", downloads</td><td>AniBox's job; CastApp stays a cast and mirror app. <a href="#X1">X1</a> <a href="#X2">X2</a> <a href="#X3">X3</a> <a href="#Y3">Y3</a></td><td><span class="pill s-no">Not in CastApp</span></td></tr>
     </tbody>
   </table></div>
@@ -1137,7 +1137,7 @@ body.glance-only section.block:not(#glance) { display: none; }
 
 (function () {
   var box = document.getElementById("glanceList");
-  var label = { ok: "Released", "new": "Ready in 4.1.0", later: "Later", no: "Not in CastApp", dec: "Your decision" };
+  var label = { ok: "Released", "new": "Ready for 4.2.0", later: "Later", no: "Not in CastApp", dec: "Your decision" };
   function esc(t) { return t.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/"/g, "&quot;"); }
   var html = "";
   document.querySelectorAll("#features .area").forEach(function (area) {
