@@ -1,6 +1,5 @@
-• Plex: subtitle tracks inside MKV files now show on every TV
-• AVI/XviD converts on phones without an AVI reader; H.264 TV recordings are repackaged, not converted
+• Plex: subtitle tracks inside MKV files show on every TV
+• AVI/XviD converts on more phones; H.264 TV recordings are repackaged, not converted
+• CastApp TV: plays your audio language, keeps ASS styling, says why a file won't play, moves on to the next file by itself
 • Other apps can send a play list and hear what was watched
-• CastApp TV tells apps what it plays and is found again after sleep
 • Pictures in Continue watching, clearer layout with large fonts
-• Samsung remote: fewer repeated "Allow?" questions
