@@ -46,7 +46,7 @@
     <string name="ms_plex_code_title">Mit Plex anmelden</string>
     <string name="ms_plex_code_text">Gehe auf plex.tv/link und gib diesen Code ein:</string>
     <string name="ms_plex_open_link">plex.tv/link öffnen</string>
-    <string name="ms_plex_code_waiting">Warte darauf, dass du den Code eingibst …</string>
+    <string name="ms_plex_code_waiting">Warte darauf, dass du den Code eingibst\u00A0…</string>
     <string name="ms_plex_code_expired">Der Code ist abgelaufen. Versuche es nochmal.</string>
     <string name="ms_plex_refresh">Server von plex.tv aktualisieren</string>
     <string name="ms_plex_no_servers">Auf diesem Plex-Konto wurde kein Server gefunden. Läuft dein Server und ist er mit demselben Konto angemeldet?</string>

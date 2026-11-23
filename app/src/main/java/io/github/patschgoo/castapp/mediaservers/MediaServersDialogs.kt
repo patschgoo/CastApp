@@ -234,7 +234,7 @@ internal fun PlexSignInDialog(servers: MediaServers, onDone: () -> Unit, onDismi
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         CircularProgressIndicator(Modifier.size(16.dp), strokeWidth = 2.dp)
                         Spacer(Modifier.width(10.dp))
-                        Text(stringResource(R.string.ms_plex_code_waiting), style = MaterialTheme.typography.bodySmall)
+                        Text(stringResource(R.string.ms_plex_code_waiting), style = MaterialTheme.typography.bodySmall, modifier = Modifier.weight(1f, fill = false))
                     }
                 }
                 error?.let { Text(it, color = MaterialTheme.colorScheme.error) }
