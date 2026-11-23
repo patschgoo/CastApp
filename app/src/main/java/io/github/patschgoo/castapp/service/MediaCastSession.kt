@@ -2,6 +2,8 @@ package io.github.patschgoo.castapp.service
 
 import io.github.patschgoo.castapp.mediaservers.ServerReporting
 import io.github.patschgoo.castapp.mediaservers.ServerSubtitle
+import io.github.patschgoo.castapp.automation.AppReports
+import io.github.patschgoo.castapp.automation.AutomationApi
 import io.github.patschgoo.castapp.Txt
 import android.content.ContentResolver
 import android.content.Context
@@ -225,6 +227,7 @@ class MediaCastSession(
     private val timeline = HostTimeline(SystemClock::elapsedRealtime)
 
     fun start() {
+        AppReports.onQueue(this, items)
         CastController.begin(this, baseState(CastPhase.CONNECTING))
         PlaybackHub.attach(this)
         publishQueue()
@@ -291,6 +294,7 @@ class MediaCastSession(
             throw e
         } catch (e: Exception) {
             Log.w(TAG, "Media cast failed", e)
+            AppReports.failed(this@MediaCastSession, current, AutomationApi.REASON_CAST_FAILED)
             finish(e.message ?: Txt.s(R.string.err_cast_failed))
         }
     }
@@ -309,6 +313,7 @@ class MediaCastSession(
             playMutex.withLock {
                 recordPosition(force = true)
                 queue.replaceAll(newItems, startIndex.coerceIn(newItems.indices))
+                AppReports.onQueue(this@MediaCastSession, newItems)
                 direction = 1
                 skipped = 0
             }
@@ -1020,6 +1025,7 @@ class MediaCastSession(
         }
         // Nothing worked for this item: skip it (the way the user was going), saying why where it's known.
         CastController.message(refused?.let { cantConvertMessage(item, it) } ?: Txt.s(R.string.err_cant_play_item, device.name, item.title))
+        AppReports.failed(this, item, AutomationApi.REASON_CANNOT_PLAY)
         val nextIndex = i + direction
         if (nextIndex in items.indices && skipped < MAX_SKIPS) {
             skipped++
@@ -1582,13 +1588,19 @@ class MediaCastSession(
         // Plex / Jellyfin: keep the server's resume position and watched state in step.
         if (force) ServerReporting.stopped(context, item, position, s.durationMs, finished = false)
         else ServerReporting.progress(context, item, position, s.durationMs, s.paused)
+        // An app that sent the queue and asked to hear how it plays (automation CAST_QUEUE).
+        if (force) AppReports.stopped(this, item, position, s.durationMs, playedToEnd = false)
+        else AppReports.progress(this, item, position, s.durationMs, s.paused)
     }
 
-    /** The TV started the file: tell the server it is being watched (only for Plex / Jellyfin items). */
+    /** The TV started the file: tell the server it is being watched (Plex / Jellyfin items), and an app that asked (CAST_QUEUE). */
     private fun reportStarted(item: MediaItem) {
-        if (item.serverRef == null || item.live) return
+        if (item.live) return
         val s = CastController.state.value as? CastState.Active
-        ServerReporting.started(context, item, s?.positionNow(SystemClock.elapsedRealtime()) ?: 0, s?.durationMs ?: 0)
+        val position = s?.positionNow(SystemClock.elapsedRealtime()) ?: 0
+        AppReports.started(this, item, position, s?.durationMs ?: 0)
+        if (item.serverRef == null) return
+        ServerReporting.started(context, item, position, s?.durationMs ?: 0)
     }
 
     /** Sends a command to the TV, and with [allScreens] to every other screen of the cast too. */
@@ -1659,6 +1671,7 @@ class MediaCastSession(
                     val duration = (CastController.state.value as? CastState.Active)?.durationMs ?: 0
                     history.markFinished(current, duration)
                     ServerReporting.stopped(context, current, duration, duration, finished = true)
+                    AppReports.stopped(this, current, duration, duration, playedToEnd = true)
                 }
                 val following = queue.nextIndex(auto = true)
                 when {
@@ -1706,8 +1719,10 @@ class MediaCastSession(
             playIndex(index, position, onlyFrom = Delivery.CONVERT)
         } else if (queue.nextIndex(auto = false)?.takeIf { it != index } != null) {
             CastController.message(Txt.s(R.string.err_cant_play_item, device.name, current.title))
+            AppReports.failed(this, current, AutomationApi.REASON_CANNOT_PLAY)
             playIndex(queue.nextIndex(auto = false) ?: return, 0)
         } else {
+            AppReports.failed(this, current, AutomationApi.REASON_CANNOT_PLAY)
             finish(Txt.s(R.string.err_cant_play_item, device.name, current.title))
         }
     }
@@ -1763,6 +1778,7 @@ class MediaCastSession(
             }
         }
         reconnecting = false
+        AppReports.failed(this, current, AutomationApi.REASON_CONNECTION_LOST)
         finish(Txt.s(R.string.err_lost_connection, device.name))
     }
 
@@ -1843,6 +1859,7 @@ class MediaCastSession(
     private fun teardown(message: String?, stopReceiver: Boolean) {
         slideshow?.cancel()
         recordPosition(force = true)
+        AppReports.ended(this)
         history.flush()
         hls.stopAll()
         PlaybackHub.detach(this)

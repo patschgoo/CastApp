@@ -9,11 +9,24 @@ interface ExtrasSource {
 
     /** The Intent's data URI as text (`am start -d ...`), or null. */
     val data: String?
+
+    /**
+     * content:// addresses this Intent granted CastApp read access to: its ClipData and its data,
+     * when it carries FLAG_GRANT_READ_URI_PERMISSION.
+     */
+    val grantedUris: Set<String> get() = emptySet()
 }
 
-class MapExtras(private val values: Map<String, Any?> = emptyMap(), override val data: String? = null) : ExtrasSource {
+class MapExtras(
+    private val values: Map<String, Any?> = emptyMap(),
+    override val data: String? = null,
+    override val grantedUris: Set<String> = emptySet(),
+) : ExtrasSource {
     override fun get(key: String): Any? = values[key]
 }
+
+/** A request that is wrong in itself; becomes "invalid_request" with this message. */
+internal class BadRequest(message: String) : Exception(message)
 
 /** The two settings that gate the API. */
 data class AutomationConfig(val enabled: Boolean, val secret: String)
@@ -47,6 +60,9 @@ sealed interface AutomationCommand {
     /** [enabled] null: switch. */
     data class Receive(val enabled: Boolean?) : AutomationCommand
     data class OpenRemote(val device: DeviceRef) : AutomationCommand
+
+    /** A play list; [queue]'s report_to is checked already. */
+    data class CastQueue(val device: DeviceRef, val queue: CastQueueRequest) : AutomationCommand
 }
 
 sealed interface ParsedRequest {
@@ -58,7 +74,8 @@ sealed interface ParsedRequest {
 object AutomationParser {
     const val MAX_URL = 8192
 
-    fun parse(action: String?, extras: ExtrasSource, config: AutomationConfig): ParsedRequest {
+    /** [caller]: who sent it, as far as Android tells (only CAST_QUEUE's report_to needs it). */
+    fun parse(action: String?, extras: ExtrasSource, config: AutomationConfig, caller: CallerEvidence = CallerEvidence.NONE): ParsedRequest {
         // The switch and the secret come before anything else, so a closed door says nothing about the API.
         if (!config.enabled) return rejected(AutomationResult.DISABLED)
         if (!secretMatches(config.secret, extras[AutomationApi.EXTRA_SECRET])) return rejected(AutomationResult.UNAUTHORIZED)
@@ -66,10 +83,32 @@ object AutomationParser {
             return rejected(AutomationResult.invalid("Unknown action: ${action ?: "(none)"}"))
         }
         return try {
-            ParsedRequest.Accepted(build(action, extras))
+            checked(build(action, extras), caller, secretVerified = config.secret.isNotEmpty())
         } catch (e: BadRequest) {
             rejected(AutomationResult.invalid(e.message ?: "Invalid request"))
         }
+    }
+
+    /**
+     * CAST_QUEUE sent to [PlayOnTvActivity]: the user picks the TV, so neither the switch nor the
+     * secret is needed (like sharing a file to "Cast to TV"). The secret only counts for report_to.
+     */
+    fun parseForConfirmation(action: String?, extras: ExtrasSource, config: AutomationConfig, caller: CallerEvidence): ParsedRequest {
+        if (action != AutomationApi.ACTION_CAST_QUEUE) {
+            return rejected(AutomationResult.invalid("Only CAST_QUEUE can be confirmed on the phone, not ${action ?: "(none)"}"))
+        }
+        val secretVerified = config.secret.isNotEmpty() && secretMatches(config.secret, extras[AutomationApi.EXTRA_SECRET])
+        return try {
+            checked(AutomationCommand.CastQueue(deviceRef(extras), queueRequest(extras)), caller, secretVerified)
+        } catch (e: BadRequest) {
+            rejected(AutomationResult.invalid(e.message ?: "Invalid request"))
+        }
+    }
+
+    /** report_to: only to the caller itself (see [ReportRules]). */
+    private fun checked(command: AutomationCommand, caller: CallerEvidence, secretVerified: Boolean): ParsedRequest {
+        val reportTo = (command as? AutomationCommand.CastQueue)?.queue?.reportTo ?: return ParsedRequest.Accepted(command)
+        return ReportRules.check(reportTo, caller, secretVerified)?.let(::rejected) ?: ParsedRequest.Accepted(command)
     }
 
     /** No secret set in Settings: anything goes. Otherwise exact match, compared in constant time. */
@@ -78,8 +117,6 @@ object AutomationParser {
         val g = (given as? CharSequence)?.toString() ?: given?.toString() ?: return false
         return MessageDigest.isEqual(expected.toByteArray(Charsets.UTF_8), g.toByteArray(Charsets.UTF_8))
     }
-
-    private class BadRequest(message: String) : Exception(message)
 
     private fun rejected(result: AutomationResult) = ParsedRequest.Rejected(result)
 
@@ -120,8 +157,35 @@ object AutomationParser {
         )
         AutomationApi.ACTION_RECEIVE -> AutomationCommand.Receive(flag(x, AutomationApi.EXTRA_ENABLED))
         AutomationApi.ACTION_OPEN_REMOTE -> AutomationCommand.OpenRemote(deviceRef(x))
+        AutomationApi.ACTION_CAST_QUEUE -> AutomationCommand.CastQueue(deviceRef(x), queueRequest(x))
         else -> throw BadRequest("Unknown action: $action")
     }
+
+    /** CAST_QUEUE's extras; start_index and start_position_ms as extras win over those in a JSON object. */
+    private fun queueRequest(x: ExtrasSource): CastQueueRequest {
+        val json = when (val raw = x[AutomationApi.EXTRA_QUEUE]) {
+            null -> throw BadRequest("Missing extra \"${AutomationApi.EXTRA_QUEUE}\" (a JSON array of items)")
+            is CharSequence -> raw.toString()
+            else -> throw BadRequest("\"${AutomationApi.EXTRA_QUEUE}\" must be a string holding JSON")
+        }
+        val parsed = QueueParser.parse(json, x.grantedUris)
+        val startIndex = number(x, AutomationApi.EXTRA_START_INDEX) ?: parsed.startIndex ?: 0
+        if (startIndex !in parsed.items.indices) {
+            throw BadRequest("\"${AutomationApi.EXTRA_START_INDEX}\" must be 0 to ${parsed.items.size - 1}, got $startIndex")
+        }
+        val startPosition = longNumber(x, AutomationApi.EXTRA_START_POSITION)?.also(QueueParser::checkStartPosition) ?: parsed.startPositionMs
+        return CastQueueRequest(
+            items = parsed.items,
+            startIndex = startIndex,
+            startPositionMs = startPosition,
+            title = limited(x, AutomationApi.EXTRA_TITLE, QueueParser.MAX_TITLE) ?: parsed.title,
+            reportTo = text(x, AutomationApi.EXTRA_REPORT_TO),
+            requestId = limited(x, AutomationApi.EXTRA_REQUEST_ID, QueueParser.MAX_ID),
+        )
+    }
+
+    private fun limited(x: ExtrasSource, key: String, max: Int): String? =
+        text(x, key)?.also { if (it.length > max) throw BadRequest("\"$key\" is too long (at most $max characters)") }
 
     // ---- extras ----------------------------------------------------------------------------------
 
@@ -140,6 +204,17 @@ object AutomationParser {
         }
         if (d.isNaN() || d.isInfinite()) throw BadRequest("\"$key\" must be a number, got \"$v\"")
         return Math.round(d).toInt()
+    }
+
+    /** A whole number of milliseconds, sent as a number or as text. */
+    private fun longNumber(x: ExtrasSource, key: String): Long? {
+        val v = x[key] ?: return null
+        val d: Double = when (v) {
+            is Number -> v.toDouble()
+            else -> v.toString().trim().takeIf { it.isNotEmpty() }?.toDoubleOrNull() ?: throw BadRequest("\"$key\" must be a number, got \"$v\"")
+        }
+        if (d.isNaN() || d.isInfinite()) throw BadRequest("\"$key\" must be a number, got \"$v\"")
+        return Math.round(d)
     }
 
     private fun flag(x: ExtrasSource, key: String): Boolean? {

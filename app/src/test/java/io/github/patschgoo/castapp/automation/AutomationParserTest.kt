@@ -267,6 +267,7 @@ class AutomationParserTest {
         // Needs-extras actions get valid ones; all must produce a command, none the "Unknown action" error.
         val extras = mapOf(
             Api.EXTRA_URL to "https://example.com/a.mp4", Api.EXTRA_URI to "content://x/1", Api.EXTRA_LEVEL to 10, Api.EXTRA_QUALITY to "720p",
+            Api.EXTRA_QUEUE to """["https://example.com/a.mp4"]""",
         )
         for (action in Api.ALL_ACTIONS) accepted(action, extras)
     }
@@ -276,7 +277,7 @@ class AutomationParserTest {
         val codes = listOf(
             AutomationResult.CODE_OK, AutomationResult.CODE_PENDING_USER, AutomationResult.CODE_DISABLED, AutomationResult.CODE_UNAUTHORIZED,
             AutomationResult.CODE_INVALID, AutomationResult.CODE_NO_DEVICE, AutomationResult.CODE_NOT_CASTING, AutomationResult.CODE_NEEDS_ACTIVITY,
-            AutomationResult.CODE_FAILED, AutomationResult.CODE_UNSUPPORTED,
+            AutomationResult.CODE_FAILED, AutomationResult.CODE_UNSUPPORTED, AutomationResult.CODE_CANCELLED,
         )
         assertEquals(codes.size, codes.toSet().size)
         assertTrue(AutomationResult.ok().ok)

@@ -4,6 +4,7 @@ import android.app.Activity
 import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
+import android.os.Build
 import android.os.Bundle
 
 /** Reads the extras of an Intent. A bundle that cannot be read (foreign Parcelable) counts as empty. */
@@ -22,12 +23,53 @@ class IntentExtras(private val intent: Intent) : ExtrasSource {
     }
 
     override val data: String? get() = intent.dataString
+
+    override val grantedUris: Set<String> by lazy {
+        try {
+            if (intent.flags and Intent.FLAG_GRANT_READ_URI_PERMISSION == 0) return@lazy emptySet()
+            val clip = intent.clipData
+            val fromClip = clip?.let { c -> (0 until c.itemCount).mapNotNull { c.getItemAt(it).uri?.toString() } }.orEmpty()
+            (fromClip + listOfNotNull(intent.dataString)).filter(::isContentUri).toSet()
+        } catch (_: Exception) {
+            emptySet()
+        }
+    }
+}
+
+/** Who sent a request, as far as Android tells ([CallerEvidence]). */
+object Callers {
+    fun of(activity: Activity): CallerEvidence = CallerEvidence(
+        callingActivity = try { activity.callingActivity?.packageName } catch (_: Exception) { null },
+        sharedIdentity = if (Build.VERSION.SDK_INT >= 34) activity.launchedFromPackage else null,
+        referrer = systemReferrer(activity),
+        sdk = Build.VERSION.SDK_INT,
+    )
+
+    /** Call it in onReceive. */
+    fun of(receiver: BroadcastReceiver): CallerEvidence =
+        CallerEvidence(sharedIdentity = if (Build.VERSION.SDK_INT >= 34) receiver.sentFromPackage else null, sdk = Build.VERSION.SDK_INT)
+
+    /** The app that started [activity] as Android recorded it: getReferrer() prefers the caller's own EXTRA_REFERRER, so it goes. */
+    private fun systemReferrer(activity: Activity): String? {
+        val original = activity.intent ?: return null
+        return try {
+            activity.intent = Intent(original).apply {
+                removeExtra(Intent.EXTRA_REFERRER)
+                removeExtra(Intent.EXTRA_REFERRER_NAME)
+            }
+            activity.referrer?.takeIf { it.scheme == "android-app" }?.host
+        } catch (_: Exception) {
+            null
+        } finally {
+            activity.intent = original
+        }
+    }
 }
 
 /** What both entry points do: check, run, and answer the caller. */
 object AutomationDispatcher {
-    fun handle(context: Context, intent: Intent, interactive: Boolean): AutomationResult {
-        val result = AutomationParser.parse(intent.action, IntentExtras(intent), AutomationSettings.get(context).current)
+    fun handle(context: Context, intent: Intent, interactive: Boolean, caller: CallerEvidence = CallerEvidence.NONE): AutomationResult {
+        val result = AutomationParser.parse(intent.action, IntentExtras(intent), AutomationSettings.get(context).current, caller)
         return when (result) {
             is ParsedRequest.Rejected -> result.result
             is ParsedRequest.Accepted -> try {
@@ -69,7 +111,7 @@ class AutomationActivity : Activity() {
         super.onCreate(savedInstanceState)
         if (savedInstanceState == null) {
             val request = intent
-            val result = AutomationDispatcher.handle(this, request, interactive = true)
+            val result = AutomationDispatcher.handle(this, request, interactive = true, Callers.of(this))
             val caller = referrer?.takeIf { it.scheme == "android-app" }?.host
             AutomationDispatcher.sendResult(this, request, result, caller)
             setResult(result.code, Intent().putExtras(AutomationDispatcher.resultExtras(request, result)))
@@ -85,7 +127,7 @@ class AutomationActivity : Activity() {
  */
 class AutomationReceiver : BroadcastReceiver() {
     override fun onReceive(context: Context, intent: Intent) {
-        val result = AutomationDispatcher.handle(context, intent, interactive = false)
+        val result = AutomationDispatcher.handle(context, intent, interactive = false, Callers.of(this))
         if (isOrderedBroadcast) setResult(result.code, result.status, AutomationDispatcher.resultExtras(intent, result))
         AutomationDispatcher.sendResult(context, intent, result, fallbackPackage = null)
     }

@@ -63,7 +63,7 @@ object ServiceMapping {
 
             // Not about the running cast.
             is AutomationCommand.Mirror, is AutomationCommand.CastUrl, is AutomationCommand.CastFile,
-            is AutomationCommand.Receive, is AutomationCommand.OpenRemote -> null
+            is AutomationCommand.Receive, is AutomationCommand.OpenRemote, is AutomationCommand.CastQueue -> null
         }
     }
 
