@@ -22,6 +22,8 @@ class FakeWsServer(
     private val refuse: String? = null,
     /** Send a wrong Sec-WebSocket-Accept. */
     private val badAccept: Boolean = false,
+    /** Wait this long before answering the upgrade (a slow TV or a busy network). */
+    private val answerAfterMs: Long = 0,
     private val handler: (Peer) -> Unit,
 ) : Closeable {
     private val server: ServerSocket = if (secure) {
@@ -115,6 +117,7 @@ class FakeWsServer(
         val accept = if (badAccept) "AAAA" else java.util.Base64.getEncoder().encodeToString(
             java.security.MessageDigest.getInstance("SHA-1").digest((key + "258EAFA5-E914-47DA-95CA-C5AB0DC85B11").toByteArray()),
         )
+        if (answerAfterMs > 0) Thread.sleep(answerAfterMs)
         output.write("HTTP/1.1 101 Switching Protocols\r\nUpgrade: websocket\r\nConnection: Upgrade\r\nSec-WebSocket-Accept: $accept\r\n\r\n".toByteArray())
         output.flush()
         handler(Peer(s, input, output, path, headers))

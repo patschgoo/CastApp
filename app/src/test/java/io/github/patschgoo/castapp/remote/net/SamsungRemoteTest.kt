@@ -103,6 +103,24 @@ class SamsungRemoteTest {
     }
 
     @Test
+    fun slowHandshakeIsNotTakenForAMissingSecurePort() = runBlocking {
+        // The upgrade answer takes longer than the "Allow?" silence: that must not fall back to the plain port.
+        FakeWsServer(secure = true, answerAfterMs = 800) { peer ->
+            peer.sendText("""{"event":"ms.channel.connect","data":{"clients":[],"id":"x","token":"555"}}""")
+            peer.readText()
+        }.use { server ->
+            val client = SamsungRemoteClient("127.0.0.1", "CastApp", urlFor = { secure, _ ->
+                assertTrue("fell back to the plain port", secure)
+                "wss://127.0.0.1:${server.port}/"
+            })
+            val conn = client.connect(token = "old", onPrompt = {}, promptAfterMs = 200)
+            assertEquals("555", conn.token)
+            conn.close()
+            assertTrue(server.errors.toString(), server.errors.isEmpty())
+        }
+    }
+
+    @Test
     fun deniedAndPlainFallback() = runBlocking {
         FakeWsServer { peer -> peer.sendText("""{"event":"ms.channel.unauthorized","data":{}}"""); peer.readText() }.use { server ->
             val client = SamsungRemoteClient("127.0.0.1", "CastApp", securePort = false, urlFor = { _, _ -> "ws://127.0.0.1:${server.port}/" })

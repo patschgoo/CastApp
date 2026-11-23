@@ -102,6 +102,9 @@ object SamsungProtocol {
     }
 }
 
+/** Time for the TLS and WebSocket handshake; the TV answers it before it asks "Allow?". */
+private const val HANDSHAKE_TIMEOUT_MS = 6000
+
 class SamsungRemoteClient(
     private val host: String,
     private val appName: String,
@@ -120,13 +123,16 @@ class SamsungRemoteClient(
         promptAfterMs: Int = 2500,
     ): SamsungConnection = withContext(Dispatchers.IO) {
         val first = securePort
+        // The TLS and WebSocket handshake get their own, longer timeout: a slow handshake must not be taken
+        // for "no secure port" (that would fall back to the plain port and lose the token).
         val ws = try {
-            WebSocket.connect(urlFor(first, token), connectTimeoutMs = 4000, readTimeoutMs = promptAfterMs)
+            WebSocket.connect(urlFor(first, token), connectTimeoutMs = 4000, readTimeoutMs = HANDSHAKE_TIMEOUT_MS)
         } catch (e: IOException) {
             if (!first) throw e
             // Older Tizen TVs (2016/2017) have no secure port.
-            WebSocket.connect(urlFor(false, null), connectTimeoutMs = 4000, readTimeoutMs = promptAfterMs)
+            WebSocket.connect(urlFor(false, null), connectTimeoutMs = 4000, readTimeoutMs = HANDSHAKE_TIMEOUT_MS)
         }
+        ws.readTimeoutMs = promptAfterMs
         try {
             var prompted = false
             val started = System.currentTimeMillis()
