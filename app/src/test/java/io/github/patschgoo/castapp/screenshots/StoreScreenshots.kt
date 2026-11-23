@@ -56,7 +56,7 @@ class StoreScreenshots(private val lang: String) {
     }
 
     @Test fun home() = target(1, "home", readme = "home") {
-        compose.shootHome(phone(dark = false), it, data, active = null, showRecent = false)
+        compose.shootHome(phone(dark = false), it, data, active = null, showRecent = false, history = false)
     }
 
     @Test fun player() = target(2, "player", readme = "quality_subtitles") {

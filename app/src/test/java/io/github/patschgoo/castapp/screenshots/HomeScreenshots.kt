@@ -77,13 +77,15 @@ class HomeScreenshots(private val variant: Variant) {
             remote: Boolean = false,
             audioMode: Boolean = false,
             showRecent: Boolean = true,
+            /** "Continue watching" filled (its pictures stay grey here: the videos aren't on the phone). */
+            history: Boolean = true,
             interact: ComposeTestRule.() -> Unit = {},
         ) = shoot(
             variant, file,
             setup = { activity ->
                 // Process-wide state other screenshots may have left behind.
                 setFlow(TvReceiverService::class.java, "_running", null, false)
-                data.fillHistory(activity)
+                if (history) data.fillHistory(activity) else FakeData.clearHistory(activity)
                 if (remote) connectRemote(activity, data)
             },
             interact = interact,
