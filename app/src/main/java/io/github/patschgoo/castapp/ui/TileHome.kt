@@ -246,14 +246,15 @@ fun TileHomeContent(
             )
             if (twoPane) {
                 Row(Modifier.fillMaxSize(), horizontalArrangement = Arrangement.spacedBy(0.dp, Alignment.CenterHorizontally)) {
+                    // fill = false: a filled weight would stretch each pane to half the screen, past paneMax.
                     LazyColumn(
-                        modifier = Modifier.weight(1f).widthIn(max = paneMax),
+                        modifier = Modifier.weight(1f, fill = false).widthIn(max = paneMax).fillMaxWidth(),
                         contentPadding = contentPadding,
                         verticalArrangement = Arrangement.spacedBy(12.dp),
                         content = home,
                     )
                     Column(
-                        Modifier.weight(1f).widthIn(max = paneMax).verticalScroll(rememberScrollState()).padding(contentPadding),
+                        Modifier.weight(1f, fill = false).widthIn(max = paneMax).fillMaxWidth().verticalScroll(rememberScrollState()).padding(contentPadding),
                         verticalArrangement = Arrangement.spacedBy(12.dp),
                     ) {
                         if (active != null) PaneCard { PlayerBody(active, actions) }
@@ -799,13 +800,12 @@ private fun PickerRow(entry: DeviceEntry, selected: Boolean, casting: Boolean, o
         }
         Spacer(Modifier.width(12.dp))
         Column(Modifier.weight(1f)) {
-            Text(
+            // Long names (German TV names, large fonts) get a second line before they are cut.
+            WholeWordsText(
                 d.name,
-                style = MaterialTheme.typography.bodyLarge,
-                fontWeight = FontWeight.SemiBold,
+                style = MaterialTheme.typography.bodyLarge.copy(fontWeight = FontWeight.SemiBold),
                 color = if (entry.online || selected) scheme.onSurface else scheme.onSurfaceVariant,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis,
+                maxLines = 2,
             )
             val parts = buildList {
                 if (casting) add(stringResource(R.string.main_casting_now))

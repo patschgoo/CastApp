@@ -5,6 +5,7 @@ import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.liveRegion
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.stateDescription
+import io.github.patschgoo.castapp.ui.WholeWordsText
 import io.github.patschgoo.castapp.ui.readableWidth
 
 import android.widget.Toast
@@ -83,6 +84,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -641,7 +643,8 @@ private fun BrowseScreen(
         list == null -> Loading()
         list.isEmpty() -> Text(stringResource(R.string.ms_empty), modifier = Modifier.padding(24.dp), color = MaterialTheme.colorScheme.onSurfaceVariant)
         list.any { it.kind in POSTER_KINDS } -> LazyVerticalGrid(
-            columns = GridCells.Adaptive(110.dp),
+            // Wider columns with a large font (from about 1.3), so a title keeps whole words on its two lines.
+            columns = GridCells.Adaptive(110.dp * (LocalDensity.current.fontScale * 0.8f).coerceIn(1f, 1.6f)),
             contentPadding = PaddingValues(16.dp),
             horizontalArrangement = Arrangement.spacedBy(12.dp),
             verticalArrangement = Arrangement.spacedBy(16.dp),
@@ -752,7 +755,7 @@ private fun PosterCard(item: ServerItem, modifier: Modifier, onClick: () -> Unit
             }
         }
         Spacer(Modifier.height(6.dp))
-        Text(item.title, style = MaterialTheme.typography.bodyMedium, maxLines = 2, overflow = TextOverflow.Ellipsis)
+        WholeWordsText(item.title, style = MaterialTheme.typography.bodyMedium, maxLines = 2)
         (item.subtitle ?: item.episodeLabel)?.let {
             Text(it, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1, overflow = TextOverflow.Ellipsis)
         }

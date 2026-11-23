@@ -8,13 +8,18 @@ import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.onClick
 import androidx.compose.ui.semantics.role
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.unit.Constraints
 import androidx.compose.ui.unit.Dp
 
 import android.text.format.DateUtils
 import androidx.compose.foundation.ExperimentalFoundationApi
+import androidx.compose.foundation.LocalIndication
+import androidx.compose.foundation.ScrollState
 import androidx.compose.foundation.background
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.indication
+import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
@@ -33,6 +38,7 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.TextAutoSize
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.KeyboardArrowLeft
 import androidx.compose.material.icons.automirrored.rounded.KeyboardArrowRight
@@ -62,19 +68,25 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.layout.layout
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.zIndex
 import io.github.patschgoo.castapp.R
+import io.github.patschgoo.castapp.ui.WholeWordsText
+import kotlin.math.roundToInt
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 
 private val CHANNEL_WIDTH_BASE = 84.dp
-private val ROW_HEIGHT_BASE = 58.dp
+// Two lines of title and the start time (with the cell's padding).
+private val ROW_HEIGHT_BASE = 60.dp
 private val HEADER_HEIGHT_BASE = 34.dp
 
 // The rows grow with the font size (up to twice as tall), so titles are not cut off with large text.
@@ -87,6 +99,15 @@ private fun gridScale(): Float = LocalDensity.current.fontScale.coerceIn(1f, 2f)
 
 /** How far the "earlier / later" buttons scroll. */
 private const val SCROLL_STEP_MS = 2 * GridSpec.HOUR_MS
+
+/** A programme narrower than this still takes touches over this width (dp). */
+private const val MIN_TOUCH_DP = 48f
+
+/**
+ * Programmes narrower than this (dp, grows with the font) show no text, it would be a lone "…";
+ * TalkBack and the programme's sheet still have the title.
+ */
+private const val MIN_TEXT_DP = 40f
 
 /**
  * The guide as a grid: channels down the side (they stay while the programmes scroll), time across in
@@ -182,6 +203,8 @@ internal fun GuideGrid(
             // Time header, scrolls with the rows.
             Row(Modifier.fillMaxWidth().height(HEADER_HEIGHT)) {
                 Spacer(Modifier.width(CHANNEL_WIDTH))
+                // The times along the top, the "Now" chip along the bottom (on the line): with a large
+                // font they would cover each other on one line.
                 Box(Modifier.weight(1f).fillMaxHeight().horizontalScroll(scroll)) {
                     spec.nowX(now)?.let { x ->
                         Text(
@@ -198,13 +221,16 @@ internal fun GuideGrid(
                     Row {
                         for (i in 0 until spec.slotCount) {
                             val t = spec.slotStart(i)
-                            Box(Modifier.width(spec.slotDp.dp).fillMaxHeight(), contentAlignment = Alignment.CenterStart) {
+                            Box(Modifier.width(spec.slotDp.dp).fillMaxHeight(), contentAlignment = Alignment.TopStart) {
+                                // One line: with a large font a long time ("10:00 AM") gets a little smaller instead of breaking.
                                 Text(
                                     time(t),
                                     style = MaterialTheme.typography.labelSmall,
                                     color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                    modifier = Modifier.padding(start = 6.dp),
+                                    modifier = Modifier.padding(start = 6.dp, top = 1.dp),
                                     maxLines = 1,
+                                    softWrap = false,
+                                    autoSize = TextAutoSize.StepBased(minFontSize = 8.sp, maxFontSize = MaterialTheme.typography.labelSmall.fontSize),
                                 )
                             }
                         }
@@ -302,6 +328,7 @@ private fun GridRow(
                     val key = "${entry.channel.url}|${cell.programme.start}"
                     ProgrammeCell(
                         cell = cell,
+                        scroll = scroll,
                         now = now,
                         time = time,
                         hasReminder = key in reminded,
@@ -314,8 +341,20 @@ private fun GridRow(
     }
 }
 
+/**
+ * One programme. It keeps its exact place and width on the time scale; a short one (under 48 dp)
+ * takes touches over 48 dp anyway, reaching over its neighbours' edges and lying on top of them.
+ */
 @Composable
-private fun ProgrammeCell(cell: GridCell, now: Long, time: (Long) -> String, hasReminder: Boolean, recording: Boolean, onClick: () -> Unit) {
+private fun ProgrammeCell(
+    cell: GridCell,
+    scroll: ScrollState,
+    now: Long,
+    time: (Long) -> String,
+    hasReminder: Boolean,
+    recording: Boolean,
+    onClick: () -> Unit,
+) {
     val p = cell.programme
     val live = p.isOn(now)
     val past = p.stop <= now
@@ -328,42 +367,52 @@ private fun ProgrammeCell(cell: GridCell, now: Long, time: (Long) -> String, has
         if (hasReminder) stringResource(R.string.polish_reminder_set) else null,
         if (recording) stringResource(R.string.polish_recording_planned) else null,
     ).joinToString(", ")
+    val width = (cell.width - 2f).coerceAtLeast(1f)
+    val reach = ((MIN_TOUCH_DP - width) / 2f).coerceAtLeast(0f)
+    val interaction = remember { MutableInteractionSource() }
+    val startPx = with(LocalDensity.current) { cell.left.dp.toPx() }
     Box(
         Modifier
-            .offset(x = cell.left.dp)
-            .width((cell.width - 2f).coerceAtLeast(1f).dp)
+            .offset(x = (cell.left - reach).dp)
+            .width((width + 2 * reach).dp)
             .fillMaxHeight()
-            .padding(vertical = 3.dp)
-            .clip(RoundedCornerShape(6.dp))
-            .background(if (live) colors.primaryContainer else colors.surfaceContainerHigh)
-            .combinedClickable(onClick = onClick, role = Role.Button)
+            .then(if (reach > 0f) Modifier.zIndex(1f) else Modifier)
+            .combinedClickable(interactionSource = interaction, indication = null, role = Role.Button, onClick = onClick)
             .clearAndSetSemantics {
                 contentDescription = description
                 role = Role.Button
                 onClick { onClick(); true }
-            },
+            }
+            // What is drawn: the programme's own width.
+            .padding(horizontal = reach.dp, vertical = 3.dp)
+            .clip(RoundedCornerShape(6.dp))
+            .background(if (live) colors.primaryContainer else colors.surfaceContainerHigh)
+            .indication(interaction, LocalIndication.current),
     ) {
-        Column(Modifier.fillMaxSize().padding(horizontal = 6.dp, vertical = 3.dp)) {
-            Text(
-                p.title,
-                style = MaterialTheme.typography.labelMedium,
-                color = when {
-                    live -> colors.onPrimaryContainer
-                    past -> colors.onSurfaceVariant
-                    else -> colors.onSurface
-                },
-                maxLines = 2,
-                overflow = TextOverflow.Ellipsis,
-            )
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Text(
-                    time(p.start),
-                    style = MaterialTheme.typography.labelSmall,
-                    color = if (live) colors.onPrimaryContainer else colors.onSurfaceVariant,
-                    maxLines = 1,
+        if (width >= MIN_TEXT_DP * gridScale()) {
+            Column(Modifier.fillMaxSize().stickyStart(scroll, startPx).padding(horizontal = 6.dp, vertical = 2.dp)) {
+                // The time is laid out first; the title gets the height that is left (two lines when they fit).
+                WholeWordsText(
+                    p.title,
+                    style = MaterialTheme.typography.labelMedium,
+                    color = when {
+                        live -> colors.onPrimaryContainer
+                        past -> colors.onSurfaceVariant
+                        else -> colors.onSurface
+                    },
+                    maxLines = 2,
+                    modifier = Modifier.weight(1f, fill = false),
                 )
-                if (hasReminder) Icon(Icons.Rounded.Notifications, contentDescription = null, modifier = Modifier.padding(start = 4.dp).size(12.dp), tint = colors.primary)
-                if (recording) Icon(Icons.Rounded.FiberManualRecord, contentDescription = null, modifier = Modifier.padding(start = 4.dp).size(12.dp), tint = colors.error)
+                Row(Modifier.onlyWhole(), verticalAlignment = Alignment.CenterVertically) {
+                    Text(
+                        time(p.start),
+                        style = MaterialTheme.typography.labelSmall,
+                        color = if (live) colors.onPrimaryContainer else colors.onSurfaceVariant,
+                        maxLines = 1,
+                    )
+                    if (hasReminder) Icon(Icons.Rounded.Notifications, contentDescription = null, modifier = Modifier.padding(start = 4.dp).size(12.dp), tint = colors.primary)
+                    if (recording) Icon(Icons.Rounded.FiberManualRecord, contentDescription = null, modifier = Modifier.padding(start = 4.dp).size(12.dp), tint = colors.error)
+                }
             }
         }
         if (live) {
@@ -377,4 +426,28 @@ private fun ProgrammeCell(cell: GridCell, now: Long, time: (Long) -> String, has
             )
         }
     }
+}
+
+/**
+ * For a programme that began left of the visible part of the grid: moves its text to the visible
+ * left edge, so the title stays readable, and leaves it out once less than [MIN_TEXT_DP] of the
+ * block is in view. [startPx] is where the block starts in the scrolled content. The scroll is
+ * read during layout only, so scrolling lays the text out again without recomposing.
+ */
+private fun Modifier.stickyStart(scroll: ScrollState, startPx: Float): Modifier = layout { measurable, constraints ->
+    val width = constraints.maxWidth
+    val hidden = if (layoutDirection == LayoutDirection.Rtl) 0 else (scroll.value - startPx).roundToInt().coerceIn(0, width)
+    val readable = width - hidden >= (MIN_TEXT_DP * fontScale.coerceIn(1f, 2f)).dp.roundToPx()
+    val shift = if (readable) hidden else 0
+    val placeable = measurable.measure(
+        constraints.copy(minWidth = (constraints.minWidth - shift).coerceAtLeast(0), maxWidth = width - shift),
+    )
+    layout(width, placeable.height) { if (readable) placeable.place(shift, 0) }
+}
+
+/** Shows the content only when it fits its width whole: a start time cut to "10:" helps no one. */
+private fun Modifier.onlyWhole(): Modifier = layout { measurable, constraints ->
+    val placeable = measurable.measure(constraints.copy(minWidth = 0, maxWidth = Constraints.Infinity))
+    if (placeable.width <= constraints.maxWidth) layout(placeable.width, placeable.height) { placeable.place(0, 0) }
+    else layout(0, 0) {}
 }

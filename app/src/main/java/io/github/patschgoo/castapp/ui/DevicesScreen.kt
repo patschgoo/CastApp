@@ -267,7 +267,10 @@ internal fun castTitle(state: CastState.Active): String = when {
     else -> stringResource(R.string.casting_to, state.device.name)
 }
 
-/** The line under the title: where it plays and how (phase, queue position, resolution, bitrate…). */
+/**
+ * The line under the title: where it plays and how (phase, queue position, resolution, bitrate…).
+ * The parts are joined with a no-break space before each "·", so a wrapped line never starts with one.
+ */
 @Composable
 internal fun castDetails(state: CastState.Active): String =
     if (state.kind == CastKind.FILE) {
@@ -282,7 +285,7 @@ internal fun castDetails(state: CastState.Active): String =
             )
             if (state.queueSize > 1) add(stringResource(R.string.main_queue_position, state.queueIndex + 1, state.queueSize))
             if (state.converting) add(stringResource(R.string.main_converted_on_phone))
-        }.joinToString(" · ")
+        }.joinToString(DETAILS_SEPARATOR)
     } else {
         buildList {
             add(state.phase.label)
@@ -294,8 +297,10 @@ internal fun castDetails(state: CastState.Active): String =
             if (!state.audioOnly && state.phase != CastPhase.CONNECTING) add(stringResource(if (state.audio) R.string.main_audio_on else R.string.main_audio_off))
             if (state.lowLatencyPlayer) add(stringResource(R.string.main_low_latency))
             if (state.compatibilityMode) add(stringResource(R.string.main_compatible_mode))
-        }.joinToString(" · ")
+        }.joinToString(DETAILS_SEPARATOR)
     }
+
+private const val DETAILS_SEPARATOR = "\u00A0· "
 
 /**
  * Everything about the running cast: what plays where, the playback controls, quality,

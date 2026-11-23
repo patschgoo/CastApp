@@ -58,8 +58,12 @@ object Audit {
             val touch = node.touchBoundsInRoot
             val w = touch.width / density
             val h = touch.height / density
+            // A target partly scrolled out of sight (the edge of a scrolling grid) is not small:
+            // what counts is the whole of it, or its touch area when that is larger.
+            val fullW = maxOf(w, node.size.width / density)
+            val fullH = maxOf(h, node.size.height / density)
             // Zero: scrolled out of sight.
-            if (w > 0f && h > 0f && (w < 47.5f || h < 47.5f)) out += "small target %.0fx%.0f dp: %s".format(w, h, label(node))
+            if (w > 0f && h > 0f && (fullW < 47.5f || fullH < 47.5f)) out += "small target %.0fx%.0f dp: %s".format(fullW, fullH, label(node))
         }
         return out.toList()
     }

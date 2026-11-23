@@ -530,12 +530,14 @@ private fun RemoteControls(state: RemoteUiState, target: RemoteTarget, vm: Remot
         val sideBySide = maxWidth > maxHeight && maxWidth >= 560.dp
         if (sideBySide) {
             val dpadMax = min(maxHeight - 120.dp, 260.dp).coerceAtLeast(168.dp)
+            // Both columns at most 420 dp, centered (fill = false: a filled weight would stretch them
+            // over a tablet's whole width, past widthIn).
             Row(
                 Modifier.fillMaxSize().padding(horizontal = 16.dp),
                 horizontalArrangement = Arrangement.spacedBy(24.dp, Alignment.CenterHorizontally),
             ) {
                 Column(
-                    Modifier.weight(1f).widthIn(max = 420.dp).fillMaxHeight().verticalScroll(rememberScrollState()).padding(vertical = 8.dp),
+                    Modifier.weight(1f, fill = false).widthIn(max = 420.dp).fillMaxWidth().fillMaxHeight().verticalScroll(rememberScrollState()).padding(vertical = 8.dp),
                     horizontalAlignment = Alignment.CenterHorizontally,
                 ) {
                     banners()
@@ -545,7 +547,7 @@ private fun RemoteControls(state: RemoteUiState, target: RemoteTarget, vm: Remot
                     Spacer(Modifier.height(16.dp))
                 }
                 Column(
-                    Modifier.weight(1f).widthIn(max = 420.dp).fillMaxHeight().verticalScroll(rememberScrollState()).padding(vertical = 8.dp),
+                    Modifier.weight(1f, fill = false).widthIn(max = 420.dp).fillMaxWidth().fillMaxHeight().verticalScroll(rememberScrollState()).padding(vertical = 8.dp),
                     horizontalAlignment = Alignment.CenterHorizontally,
                 ) {
                     topKeys()

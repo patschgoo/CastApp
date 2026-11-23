@@ -14,6 +14,7 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
@@ -78,6 +79,7 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -326,79 +328,106 @@ internal fun ChannelsScreen(repo: IptvRepository, onBack: () -> Unit) {
 
     Scaffold(
         topBar = {
-            TopAppBar(
-                title = { Text(stringResource(R.string.tvc_title), maxLines = 1, overflow = TextOverflow.Ellipsis) },
-                navigationIcon = {
-                    IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Rounded.ArrowBack, contentDescription = stringResource(R.string.back)) }
-                },
-                actions = {
-                    IconButton(onClick = { showAdd = true }) { Icon(Icons.Rounded.Add, contentDescription = stringResource(R.string.tvc_add_cd)) }
-                    IconButton(onClick = { extras.showParental = true }) {
-                        Icon(Icons.Rounded.Lock, contentDescription = stringResource(R.string.iptvx_menu_parental))
-                    }
-                    IconButton(onClick = { context.startActivity(Intent(context, RecordingsActivity::class.java)) }) {
-                        Icon(Icons.Rounded.FiberManualRecord, contentDescription = stringResource(R.string.iptvx_menu_recordings))
-                    }
-                    if (selected != null) {
-                        Box {
-                            if (confirmRemove) {
-                                AlertDialog(
-                                    onDismissRequest = { confirmRemove = false },
-                                    title = { Text(stringResource(R.string.polish_remove_title, selected.name)) },
-                                    text = { Text(stringResource(R.string.polish_remove_list_text)) },
-                                    confirmButton = {
-                                        TextButton(onClick = {
-                                            confirmRemove = false
-                                            repo.remove(selected.id)
-                                            selectedId = null
-                                        }) { Text(stringResource(R.string.net_remove)) }
-                                    },
-                                    dismissButton = { TextButton(onClick = { confirmRemove = false }) { Text(stringResource(R.string.cancel)) } },
-                                )
+            // On a narrow phone (or with a large font) four icons leave the title too little room
+            // ("TV chan…"): the parental lock and the recordings then move into the ⋮ menu.
+            BoxWithConstraints {
+                val compactBar = maxWidth / LocalDensity.current.fontScale.coerceAtLeast(1f) < 400.dp
+                TopAppBar(
+                    title = { Text(stringResource(R.string.tvc_title), maxLines = 1, overflow = TextOverflow.Ellipsis) },
+                    navigationIcon = {
+                        IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Rounded.ArrowBack, contentDescription = stringResource(R.string.back)) }
+                    },
+                    actions = {
+                        IconButton(onClick = { showAdd = true }) { Icon(Icons.Rounded.Add, contentDescription = stringResource(R.string.tvc_add_cd)) }
+                        if (!compactBar) {
+                            IconButton(onClick = { extras.showParental = true }) {
+                                Icon(Icons.Rounded.Lock, contentDescription = stringResource(R.string.iptvx_menu_parental))
                             }
-                            IconButton(onClick = { menu = true }) { Icon(Icons.Rounded.MoreVert, contentDescription = stringResource(R.string.net_more)) }
-                            DropdownMenu(expanded = menu, onDismissRequest = { menu = false }) {
-                                DropdownMenuItem(
-                                    text = { Text(stringResource(R.string.tvc_update_list)) },
-                                    leadingIcon = { Icon(Icons.Rounded.Refresh, contentDescription = null) },
-                                    onClick = {
-                                        menu = false
-                                        refreshNext = true
-                                        xtream?.clearCache()
-                                        vodReload++
-                                        reload++
-                                    },
-                                )
-                                DropdownMenuItem(
-                                    text = { Text(stringResource(R.string.iptvg_menu_update_guide)) },
-                                    leadingIcon = { Icon(Icons.Rounded.Schedule, contentDescription = null) },
-                                    onClick = {
-                                        menu = false
-                                        forceGuide = true
-                                        guideReload++
-                                    },
-                                )
-                                DropdownMenuItem(
-                                    text = { Text(stringResource(R.string.iptvg_menu_guide_address)) },
-                                    leadingIcon = { Icon(Icons.Rounded.Link, contentDescription = null) },
-                                    onClick = {
-                                        menu = false
-                                        showGuideAddress = true
-                                    },
-                                )
-                                DropdownMenuItem(
-                                    text = { Text(stringResource(R.string.tvc_remove_list, selected.name)) },
-                                    leadingIcon = { Icon(Icons.Rounded.Delete, contentDescription = null) },
-                                    onClick = {
-                                        menu = false
-                                        confirmRemove = true
-                                    },
-                                )
+                            IconButton(onClick = { context.startActivity(Intent(context, RecordingsActivity::class.java)) }) {
+                                Icon(Icons.Rounded.FiberManualRecord, contentDescription = stringResource(R.string.iptvx_menu_recordings))
                             }
                         }
-                    }
-                },
-            )
+                        if (compactBar || selected != null) {
+                            Box {
+                                if (confirmRemove && selected != null) {
+                                    AlertDialog(
+                                        onDismissRequest = { confirmRemove = false },
+                                        title = { Text(stringResource(R.string.polish_remove_title, selected.name)) },
+                                        text = { Text(stringResource(R.string.polish_remove_list_text)) },
+                                        confirmButton = {
+                                            TextButton(onClick = {
+                                                confirmRemove = false
+                                                repo.remove(selected.id)
+                                                selectedId = null
+                                            }) { Text(stringResource(R.string.net_remove)) }
+                                        },
+                                        dismissButton = { TextButton(onClick = { confirmRemove = false }) { Text(stringResource(R.string.cancel)) } },
+                                    )
+                                }
+                                IconButton(onClick = { menu = true }) { Icon(Icons.Rounded.MoreVert, contentDescription = stringResource(R.string.net_more)) }
+                                DropdownMenu(expanded = menu, onDismissRequest = { menu = false }) {
+                                    if (compactBar) {
+                                        DropdownMenuItem(
+                                            text = { Text(stringResource(R.string.iptvx_menu_recordings)) },
+                                            leadingIcon = { Icon(Icons.Rounded.FiberManualRecord, contentDescription = null) },
+                                            onClick = {
+                                                menu = false
+                                                context.startActivity(Intent(context, RecordingsActivity::class.java))
+                                            },
+                                        )
+                                        DropdownMenuItem(
+                                            text = { Text(stringResource(R.string.iptvx_menu_parental)) },
+                                            leadingIcon = { Icon(Icons.Rounded.Lock, contentDescription = null) },
+                                            onClick = {
+                                                menu = false
+                                                extras.showParental = true
+                                            },
+                                        )
+                                    }
+                                    if (selected != null) {
+                                        DropdownMenuItem(
+                                            text = { Text(stringResource(R.string.tvc_update_list)) },
+                                            leadingIcon = { Icon(Icons.Rounded.Refresh, contentDescription = null) },
+                                            onClick = {
+                                                menu = false
+                                                refreshNext = true
+                                                xtream?.clearCache()
+                                                vodReload++
+                                                reload++
+                                            },
+                                        )
+                                        DropdownMenuItem(
+                                            text = { Text(stringResource(R.string.iptvg_menu_update_guide)) },
+                                            leadingIcon = { Icon(Icons.Rounded.Schedule, contentDescription = null) },
+                                            onClick = {
+                                                menu = false
+                                                forceGuide = true
+                                                guideReload++
+                                            },
+                                        )
+                                        DropdownMenuItem(
+                                            text = { Text(stringResource(R.string.iptvg_menu_guide_address)) },
+                                            leadingIcon = { Icon(Icons.Rounded.Link, contentDescription = null) },
+                                            onClick = {
+                                                menu = false
+                                                showGuideAddress = true
+                                            },
+                                        )
+                                        DropdownMenuItem(
+                                            text = { Text(stringResource(R.string.tvc_remove_list, selected.name)) },
+                                            leadingIcon = { Icon(Icons.Rounded.Delete, contentDescription = null) },
+                                            onClick = {
+                                                menu = false
+                                                confirmRemove = true
+                                            },
+                                        )
+                                    }
+                                }
+                            }
+                        }
+                    },
+                )
+            }
         },
         bottomBar = {
             val live = (castState as? CastState.Active)?.takeIf { it.kind == CastKind.FILE }

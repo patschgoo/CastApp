@@ -3,8 +3,8 @@
     <string name="main_video">Video</string>
     <string name="main_slideshow_paused">Diashow pausiert</string>
     <string name="main_paused_on">Pausiert auf %1$s</string>
-    <string name="main_on_device_screen_off">Auf %1$s · Bildschirm darf aus sein</string>
-    <string name="main_queue_position">%1$d von %2$d</string>
+    <string name="main_on_device_screen_off">Auf %1$s\u00A0· Bildschirm darf aus\u00A0sein</string>
+    <string name="main_queue_position">%1$d\u00A0von\u00A0%2$d</string>
     <string name="main_converted_on_phone">auf dem Handy umgewandelt</string>
     <string name="main_phone_sound">Handy-Ton</string>
     <string name="main_bitrate">%1$.1f MBit/s</string>

@@ -181,7 +181,8 @@ class FakeServer(context: Context, private val de: Boolean = false) : AutoClosea
             Episode("e3", "A Light in the Archive", "The Lantern Society", 1, 2),
         )
 
-        private val LENGTHS = listOf(30, 60, 45, 90, 30, 60, 120, 30)
+        /** Programme lengths in minutes; the 10-minute ones are narrower than a finger (48 dp) in the grid. */
+        private val LENGTHS = listOf(10, 60, 45, 90, 30, 60, 120, 30)
 
         val CHANNELS = listOf(
             Station("ch1", "Harbor One", "H1", "Entertainment", listOf("Morning Harbor", "Quiz Night", "The Big Bake-Off", "Late Talk", "Garden Rescue")),
