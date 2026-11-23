@@ -198,17 +198,17 @@ body.glance-only section.block:not(#glance) { display: none; }
     <p class="lead">CastApp is the Android app that sends your phone's screen, its videos, music and photos, network folders, Plex and Jellyfin, TV channels and web videos to the TVs and speakers in your home, and works as their remote. The same app on a Fire TV, Shield or Android TV box becomes <b>CastApp TV</b>, a receiver with lower delay and extras. No ads, no tracking, no account.</p>
     <div class="castbar" role="group" aria-label="Versions">
       <span class="cb-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path class="cb-stroke" d="M2 8V6a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2h-6M2 12a8 8 0 0 1 8 8M2 16a4 4 0 0 1 4 4M2 20h.01"/></svg></span>
-      <span class="cb-item"><span class="cb-label">Released</span><span class="cb-value">4.1.0 <span>GitHub release v4.1.0, 23 Nov 2026</span></span></span>
-      <span class="cb-item"><span class="cb-label">Next</span><span class="cb-value">4.2.0 <span>nothing merged yet</span></span></span>
+      <span class="cb-item"><span class="cb-label">Released</span><span class="cb-value">4.2.0 <span>GitHub release v4.2.0, 23 Nov 2026 (new signing key: uninstall once)</span></span></span>
+      <span class="cb-item"><span class="cb-label">Next</span><span class="cb-value">4.3.0 <span>nothing merged yet</span></span></span>
     </div>
     <div class="facts">
-      <span>Last updated: <b>2026-11-23</b>, matching CastApp main <b>9fc843c</b> (release v4.1.0)</span>
+      <span>Last updated: <b>2026-11-23</b>, matching CastApp main <b>4f97434</b> (release v4.2.0)</span>
       <span>Feature IDs like <b>H9</b> are stable: use them when you add to or check this page.</span>
       <span>Kept current: source <code>docs/feature-map.html</code> in the CastApp repository.</span>
     </div>
     <div class="legend">
-      <span class="item"><span class="pill s-ok">Released</span><span>in 4.1.0 or earlier (the card says which version)</span></span>
-      <span class="item"><span class="pill s-new">Ready for 4.2.0</span><span>merged on main, not released yet</span></span>
+      <span class="item"><span class="pill s-ok">Released</span><span>in 4.2.0 or earlier (the card says which version)</span></span>
+      <span class="item"><span class="pill s-new">Ready for 4.3.0</span><span>merged on main, not released yet</span></span>
       <span class="item"><span class="pill s-later">Later</span><span>planned, not started</span></span>
       <span class="item"><span class="pill s-no">Not in CastApp</span><span>on purpose; another app does it</span></span>
       <span class="item"><span class="pill s-dec">Decided</span><span>your decisions</span></span>
@@ -355,12 +355,12 @@ body.glance-only section.block:not(#glance) { display: none; }
     <p>Sending what the phone shows or plays to a TV or speaker, and how the picture and sound get there.</p></header>
   <div class="grid">
     <article class="f" id="A1" data-s="ok"><div class="top"><div><div class="id">A1</div><h3>Mirror the whole screen</h3></div><span class="pill s-ok">Released</span></div>
-      <p>One tap on Mirror screen sends everything the phone shows, with its sound, to the TV in Cast to. Android asks "Start casting?" each time. On Google Cast the TV stays under a second behind the phone.</p>
+      <p>One tap on Mirror screen sends everything the phone shows, with its sound, to the TV in Cast to. Android asks "Start casting?" each time. Google Cast's standard player stays 1 to 3 seconds behind the phone, CastApp TV under half a second (<a href="#A16">A16</a>).</p>
       <div class="links"><a href="#A4">A4</a><a href="#A5">A5</a><a href="#A9">A9</a><a href="#H3">H3</a></div>
       <div class="files">capture/ScreenEncoder.kt · service/CastSession.kt · stream/StreamServer.kt · stream/FragmentedMp4.kt</div><div class="ver">1.0</div></article>
     <article class="f" id="A2" data-s="ok"><div class="top"><div><div class="id">A2</div><h3>Cast one app</h3></div><span class="pill s-ok">Released</span></div>
-      <p>On Android 14 and newer, Android's own picker shares only the app you choose. On older phones the screen is mirrored and the app you pick opens.</p>
-      <div class="links"><a href="#A1">A1</a><a href="#A11">A11</a></div>
+      <p>On Android 14 and newer, Android's own picker shares only the app you choose. On older phones the screen is mirrored and the app you pick opens. Since 4.2.0 you can switch to and from the whole screen without stopping (<a href="#A14">A14</a>).</p>
+      <div class="links"><a href="#A1">A1</a><a href="#A11">A11</a><a href="#A14">A14</a></div>
       <div class="files">ui/AppPickerScreen.kt · ProjectionActivity.kt</div><div class="ver">1.0</div></article>
     <article class="f" id="A3" data-s="ok"><div class="top"><div><div class="id">A3</div><h3>Phone sound</h3></div><span class="pill s-ok">Released</span></div>
       <p>Whatever plays on the phone plays on a TV or speaker (Android 10 and newer). The microphone stays off unless you switch it on for mirroring.</p>
@@ -406,6 +406,18 @@ body.glance-only section.block:not(#glance) { display: none; }
       <p>An optional own TV player keeps the picture about 0.3 s behind the phone on Google Cast. It needs a one-time setup (a web host and a registered App ID); if it doesn't start, Google's player takes over. Settings → Stream mode also offers Compatible (HLS) for difficult TVs.</p>
       <div class="links"><a href="#A1">A1</a><a href="#B3">B3</a></div>
       <div class="files">receiver/index.html · .github/workflows/receiver-pages.yml · render/CastRenderer.kt · stream/HlsSegmenter.kt</div><div class="ver">stream modes 1.0 · own player 2.0</div></article>
+    <article class="f" id="A14" data-s="ok"><div class="top"><div><div class="id">A14</div><h3>Switch between the whole screen and one app</h3></div><span class="pill s-ok">Released in 4.2.0</span></div>
+      <p>While mirroring (Android 14+), the other picture button switches: Switch to one app, Switch to whole screen. Android asks again; the encoder, the stream and the TV's player go on, so the TV only sees the picture change, and the sound moves over too. Dark screen turns off when the whole screen is shared.</p>
+      <div class="links"><a href="#A1">A1</a><a href="#A2">A2</a><a href="#N1">N1</a></div>
+      <div class="files">capture/ScreenEncoder.kt · capture/AudioEncoder.kt · service/CastSession.kt · service/CastService.kt</div><div class="ver">4.2.0</div></article>
+    <article class="f" id="A15" data-s="ok"><div class="top"><div><div class="id">A15</div><h3>Sound that can't be recorded</h3></div><span class="pill s-ok">Released in 4.2.0</span></div>
+      <p>If the phone plays sound for 10 seconds but none of it reaches the capture (the app forbids recording, or a call), CastApp says that app's sound stays on the phone. A capture that stops delivering is restarted up to five times before it settles for silence.</p>
+      <div class="links"><a href="#A3">A3</a><a href="#A1">A1</a></div>
+      <div class="files">capture/AudioEncoder.kt · capture/PcmLevel.kt</div><div class="ver">4.2.0</div></article>
+    <article class="f" id="A16" data-s="ok"><div class="top"><div><div class="id">A16</div><h3>Less delay: use CastApp TV</h3></div><span class="pill s-ok">Released in 4.2.0</span></div>
+      <p>The same box can show up twice: as Google Cast (1 to 3 seconds behind) and as CastApp TV (under half a second). Mirroring to the Google Cast entry while CastApp TV answers on that box, the casting card offers Use CastApp TV; a Shield or Google TV box without CastApp gets a hint to install it. Moving between the two players on one box closes the other one.</p>
+      <div class="links"><a href="#A1">A1</a><a href="#H3">H3</a></div>
+      <div class="files">discovery/MirrorLatency.kt · ui/MirrorHints.kt · service/CastService.kt</div><div class="ver">4.2.0</div></article>
   </div></div>
 
   <!-- B: devices -->
@@ -813,9 +825,9 @@ body.glance-only section.block:not(#glance) { display: none; }
     <p>The main screen, looks, languages, help tools, updates and how the app is built and licensed.</p></header>
   <div class="grid">
     <article class="f" id="N1" data-s="ok"><div class="top"><div><div class="id">N1</div><h3>Main screen</h3></div><span class="pill s-ok">Released</span></div>
-      <p>Cast to at the top (the TV everything goes to), three big buttons (Mirror screen, One app, Phone sound), tiles for videos, photos, music, Plex, Jellyfin, network, TV channels and web videos, and a cast bar at the bottom that opens the casting card.</p>
+      <p>Cast to at the top (the TV everything goes to), three big buttons (Mirror screen, One app, Phone sound), tiles for videos, photos, music, Plex, Jellyfin, network, TV channels and web videos, and a cast bar at the bottom that opens the casting card. While one button's mode runs, the buttons keep their places: that one is highlighted (● Whole screen, ● One app, ● Phone sound) and stops it, the other picture button switches (4.2.0); the casting card and the notification say whole screen or one app.</p>
       <div class="links"><a href="#C3">C3</a><a href="#K4">K4</a><a href="#N2">N2</a></div>
-      <div class="files">ui/TileHome.kt · ui/DevicesScreen.kt · ui/HomeLogic.kt · ui/PlaybackPanel.kt</div><div class="ver">4.0</div></article>
+      <div class="files">ui/TileHome.kt · ui/DevicesScreen.kt · ui/HomeLogic.kt · ui/PlaybackPanel.kt</div><div class="ver">4.0 · live mode 4.2.0</div></article>
     <article class="f" id="N2" data-s="ok"><div class="top"><div><div class="id">N2</div><h3>Violet look and its own font</h3></div><span class="pill s-ok">Released</span></div>
       <p>CastApp's own violet colours and the bundled Plus Jakarta Sans, the same on every phone. Light and dark follow the system, or force one in Settings.</p>
       <div class="links"><a href="#Y2">Y2</a><a href="#N1">N1</a></div>
@@ -841,9 +853,9 @@ body.glance-only section.block:not(#glance) { display: none; }
       <div class="links"><a href="#B1">B1</a><a href="#N6">N6</a></div>
       <div class="files">support/NetworkCheck.kt · support/NetworkProbe.kt</div><div class="ver">4.0</div></article>
     <article class="f" id="N8" data-s="ok"><div class="top"><div><div class="id">N8</div><h3>Debug log and battery help</h3></div><span class="pill s-ok">Released</span></div>
-      <p>Send debug log opens the share sheet; nothing is sent by itself. Battery &amp; background asks to be left alone and shows tips for your phone's brand.</p>
+      <p>Send debug log makes the report (it says Preparing while it reads the log), then offers Share…, Save as file… and Copy short version (no log lines, to paste into a chat), because sharing alone failed on a test phone; nothing is sent by itself. Battery &amp; background asks to be left alone and shows tips for your phone's brand. The self-test's notes on notifications and battery have buttons straight to Android's settings (4.2.0).</p>
       <div class="links"><a href="#N6">N6</a></div>
-      <div class="files">support/DebugLog.kt · support/BatteryHelp.kt</div><div class="ver">4.0</div></article>
+      <div class="files">support/DebugLog.kt · support/SendLogUi.kt · support/BatteryHelp.kt · support/SelfTestUi.kt</div><div class="ver">4.0 · save/copy 4.2.0</div></article>
     <article class="f" id="N9" data-s="ok"><div class="top"><div><div class="id">N9</div><h3>Updates from GitHub releases</h3></div><span class="pill s-ok">Released</span></div>
       <p>Looks at the GitHub releases once a day at start (can be off) or when you tap Check for updates, shows the release notes, and Install downloads CastApp.apk and starts Android's installer. A tag like v4.1.0 makes the release.</p>
       <div class="links"><a href="#N10">N10</a><a href="#Y4">Y4</a></div>
@@ -1070,14 +1082,15 @@ body.glance-only section.block:not(#glance) { display: none; }
       <li>The redesigned main screen has never been seen on a real phone (<a href="#N1">N1</a>), nor Recent on this phone and its permission answers (<a href="#C3">C3</a>).</li>
       <li>Screen capture and Android's prompt on each Android version; hardware encoders and decoders (<a href="#A1">A1</a>, <a href="#G1">G1</a>).</li>
       <li>Dark screen, Turn apps sideways, lock-screen controls (<a href="#A11">A11</a>, <a href="#A6">A6</a>, <a href="#E6">E6</a>).</li>
+      <li>Switching between the whole screen and one app while mirroring, and the note for an app whose sound can't be recorded (<a href="#A14">A14</a>, <a href="#A15">A15</a>). First test, 23 Nov: the sound was missing once (cause unknown), and Send debug log didn't work: now with Save as file and Copy (<a href="#N8">N8</a>).</li>
       <li>Repackaged recordings and AVI on a Pixel (<a href="#G2">G2</a>, <a href="#G3">G3</a>); Vosk and Whisper speed (<a href="#F4">F4</a>, <a href="#F5">F5</a>).</li>
       <li>Large text, German, TalkBack (<a href="#N4">N4</a>, <a href="#N5">N5</a>).</li>
     </ul></div>
     <div class="box"><h3>NVIDIA Shield (CastApp TV and Plex server)</h3><ul>
       <li>Found from the phone and from a PC, also after the Shield slept (<a href="#H5">H5</a>).</li>
-      <li>Mirroring with under half a second of delay (<a href="#H3">H3</a>).</li>
+      <li>Mirroring with under half a second of delay (<a href="#H3">H3</a>). First test, 23 Nov: it works and the Shield shows up as CastApp TV, but the delay was bigger than expected; check it ran on the CastApp TV entry, not the plain Google Cast one (<a href="#A16">A16</a>).</li>
       <li>A Plex anime episode: the file plays itself, the full subtitle track shows once, a dual-audio file plays your language (<a href="#D4">D4</a>, <a href="#D6">D6</a>, <a href="#D7">D7</a>).</li>
-      <li>The real format list at <code>/castapp/capabilities</code>, and the reason for a 10-bit H.264 file (<a href="#H7">H7</a>, <a href="#H8">H8</a>).</li>
+      <li>The real format list at <code>/castapp/capabilities</code> came on 23 Nov: hardware H.264, HEVC (also 10-bit), VP9, VP8, MPEG-2; no decoder at all for Hi10P (10-bit H.264) and AV1; no DTS or TrueHD, neither decoded nor passed through, so a file with only a DTS track plays without sound. Still to see: the reason shown for a 10-bit H.264 file (<a href="#H7">H7</a>, <a href="#H8">H8</a>).</li>
       <li>The Shield's shares over SMB 2/3, also from standby (<a href="#C4">C4</a>); the Wi-Fi remote's pairing (<a href="#K1">K1</a>).</li>
       <li>From the PC with AniBox 1.11.2: a dual-audio file plays the exact sound track AniBox names, and CastApp TV's reason for a file it can't play shows in AniBox (<a href="#H8">H8</a>, <a href="#H9">H9</a>).</li>
     </ul></div>

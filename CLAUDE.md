@@ -32,9 +32,9 @@ test checklist is [TESTING.md](TESTING.md); the intent API is [AUTOMATION.md](AU
   map, and tell the user. Cloud sessions can't push tags (the proxy answers 403); the user may still tag a
   release by hand on GitHub.
   Signing: since 2026-11-23 CI signs with the user's own key from the repository secrets (certificate SHA-256
-  `50c0d1fe…`); 4.0.0 and 4.1.0 were signed with the committed test key (`b292cebc…`). So the **first release
-  after 4.1.0** can't update an installed 4.x: say so in its release notes (EN + DE) and remind the user to
-  uninstall CastApp once on every device (phone, Shield, watch app) before installing it.
+  `50c0d1fe…`); 4.0.0 and 4.1.0 were signed with the committed test key (`b292cebc…`). 4.2.0 (2026-11-23) is
+  the first release with the user's key (checked with apksigner); its notes say to uninstall CastApp once on every
+  device (phone, Shield, watch app). Later releases update normally.
 
 ## Conventions
 
@@ -78,9 +78,17 @@ Wear OS remote.
 feature is added, changed, released or dropped, update that file (status, IDs, links, the "Last updated" line
 with the commit) and republish it to the same link. AniBox has its own map (linked from its CastApp section).
 
-## State (version 4.1.0)
+## State (version 4.2.0)
 
 Everything is built and unit-tested, but most features since 3.1 have **not been tried on real devices yet**.
+First device test (2026-11-23, an Android 14+ phone with a MediaTek chip + the Shield): the self-test had no problems (notes:
+notifications off, battery optimization, no speech model); the Shield shows up as CastApp TV; mirroring works but
+the delay felt bigger than expected (unclear whether the Google Cast or the CastApp TV entry was used); sound was
+missing once; "Send debug log" didn't work (cause unknown; 4.2.0 adds Save as file / Copy). The Shield's real
+`/castapp/capabilities`: no decoder for Hi10P or AV1 (not even software), no DTS/TrueHD (no decoder, no passthrough
+on the user's TV), AC-3/E-AC-3 decoded and passed through. 4.2.0 answered the test: switch whole screen <-> one app
+in the running session, the live mode on the main screen, the debug log dialog, "Use CastApp TV" for Google Cast
+entries of boxes that run it, a note when an app's sound can't be recorded.
 The redesigned main screen (violet theme and bundled Plus Jakarta Sans font, no Material You colors any more;
 "Recent on this phone" behind the optional video permission) hasn't been seen on a real phone at all.
 Reports from the TESTING.md round are the next input: expect fixes in device handshakes (Cast, DLNA, AirPlay,
