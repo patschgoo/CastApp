@@ -1,0 +1,1168 @@
+<title>CastApp Feature Map</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap">
+<style>
+/* Layout: a reference page in CastApp's own violet look: cast-bar version strip, sticky section nav, connection map, feature cards by area, tables, walk-throughs; one column on phones. */
+:root {
+  --bg: #FAFAFB; --panel: #FFFFFF; --panel2: #F4F3F7; --line: #E4E4E7; --line2: #D6D3E0;
+  --fg: #18181B; --soft: #3F3F46; --muted: #5B5B66;
+  --acc: #6D28D9; --acc-ink: #FFFFFF; --acc-soft: #EDE9FE; --acc-deep: #4C1D95;
+  --tonal: #E7E3F2; --on-tonal: #18181B;
+  --ok: #15803D; --ok-soft: #DCFCE7;
+  --new: #6D28D9; --new-soft: #EDE9FE;
+  --later: #52525B; --later-soft: #EBEAF0;
+  --no: #0F766E; --no-soft: #CCFBF1;
+  --dec: #92400E; --dec-soft: #FEF3C7;
+  --bar: #18181B; --on-bar: #FFFFFF; --bar-muted: #A1A1AA; --bar-acc: #C4B5FD; --bar-line: #2E2A3D;
+  --shadow: rgba(24, 24, 27, 0.06);
+  --font-head: "Plus Jakarta Sans", system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  --font-body: "Plus Jakarta Sans", system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  --font-mono: ui-monospace, "SFMono-Regular", "Cascadia Mono", Menlo, Consolas, "Roboto Mono", monospace;
+}
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) {
+  --bg: #0F0E13; --panel: #1B1A22; --panel2: #262430; --line: #2E2C39; --line2: #45414F;
+  --fg: #F4F4F5; --soft: #D4D4D8; --muted: #A1A1AA;
+  --acc: #A78BFA; --acc-ink: #1A1033; --acc-soft: #2A2440; --acc-deep: #DDD6FE;
+  --tonal: #34304A; --on-tonal: #F4F4F5;
+  --ok: #4ADE80; --ok-soft: rgba(74, 222, 128, 0.13);
+  --new: #C4B5FD; --new-soft: #2A2440;
+  --later: #A1A1AA; --later-soft: rgba(161, 161, 170, 0.13);
+  --no: #5EEAD4; --no-soft: rgba(94, 234, 212, 0.12);
+  --dec: #FCD34D; --dec-soft: rgba(252, 211, 77, 0.12);
+  --bar: #262433; --on-bar: #F4F4F5; --bar-muted: #A1A1AA; --bar-acc: #C4B5FD; --bar-line: #34304A;
+  --shadow: rgba(0, 0, 0, 0.3);
+  color-scheme: dark;
+} }
+:root[data-theme="dark"] {
+  --bg: #0F0E13; --panel: #1B1A22; --panel2: #262430; --line: #2E2C39; --line2: #45414F;
+  --fg: #F4F4F5; --soft: #D4D4D8; --muted: #A1A1AA;
+  --acc: #A78BFA; --acc-ink: #1A1033; --acc-soft: #2A2440; --acc-deep: #DDD6FE;
+  --tonal: #34304A; --on-tonal: #F4F4F5;
+  --ok: #4ADE80; --ok-soft: rgba(74, 222, 128, 0.13);
+  --new: #C4B5FD; --new-soft: #2A2440;
+  --later: #A1A1AA; --later-soft: rgba(161, 161, 170, 0.13);
+  --no: #5EEAD4; --no-soft: rgba(94, 234, 212, 0.12);
+  --dec: #FCD34D; --dec-soft: rgba(252, 211, 77, 0.12);
+  --bar: #262433; --on-bar: #F4F4F5; --bar-muted: #A1A1AA; --bar-acc: #C4B5FD; --bar-line: #34304A;
+  --shadow: rgba(0, 0, 0, 0.3);
+  color-scheme: dark;
+}
+* { box-sizing: border-box; }
+body { background: var(--bg); color: var(--fg); font: 15px/1.6 var(--font-body); }
+@media (prefers-reduced-motion: no-preference) { html { scroll-behavior: smooth; } }
+[id] { scroll-margin-top: 72px; }
+.wrap { max-width: 1180px; margin: 0 auto; padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); padding-block: 0; }
+.wrap.main { padding-block: 0 64px; }
+h1, h2, h3 { font-family: var(--font-head); text-wrap: balance; margin: 0; letter-spacing: -0.01em; }
+h1 { font-size: clamp(30px, 5vw, 44px); line-height: 1.1; font-weight: 800; }
+h2 { font-size: clamp(22px, 3vw, 28px); line-height: 1.2; font-weight: 800; }
+h3 { font-size: 16px; line-height: 1.35; font-weight: 700; }
+p { margin: 0; }
+a { color: var(--acc); text-underline-offset: 2px; }
+a:focus-visible, button:focus-visible { outline: 2px solid var(--acc); outline-offset: 2px; border-radius: 6px; }
+code, .mono { font-family: var(--font-mono); font-size: 0.86em; overflow-wrap: anywhere; }
+.kicker { font: 700 11.5px/1 var(--font-body); letter-spacing: 0.14em; text-transform: uppercase; color: var(--acc); }
+.muted { color: var(--muted); }
+
+/* header */
+.hero { padding-block: 40px 28px; display: grid; gap: 16px; border-bottom: 1px solid var(--line); }
+.hero p.lead { max-width: 68ch; color: var(--soft); font-size: 16.5px; }
+.castbar { display: flex; flex-wrap: wrap; align-items: center; gap: 10px 22px; background: var(--bar); color: var(--on-bar); border-radius: 18px; padding: 12px 18px; max-width: 760px; font-variant-numeric: tabular-nums; box-shadow: 0 6px 20px var(--shadow); }
+.castbar .cb-icon { width: 36px; height: 36px; border-radius: 10px; background: var(--bar-line); display: grid; place-items: center; flex: none; }
+.castbar .cb-icon svg { width: 20px; height: 20px; }
+.cb-icon .cb-stroke { fill: none; stroke: var(--bar-acc); stroke-width: 2; stroke-linecap: round; }
+.castbar .cb-item { display: grid; gap: 2px; min-width: 0; }
+.castbar .cb-label { font: 600 11px/1.2 var(--font-body); letter-spacing: 0.08em; text-transform: uppercase; color: var(--bar-muted); }
+.castbar .cb-value { font: 700 15px/1.3 var(--font-head); color: var(--on-bar); }
+.castbar .cb-value span { font-weight: 500; color: var(--bar-acc); font-size: 13.5px; }
+.facts { display: flex; flex-wrap: wrap; gap: 8px 18px; color: var(--muted); font-size: 13.5px; font-variant-numeric: tabular-nums; }
+.facts b { color: var(--fg); font-weight: 600; }
+.legend { display: flex; flex-wrap: wrap; gap: 10px 16px; align-items: center; font-size: 13px; color: var(--muted); }
+.legend > span.item { display: inline-flex; gap: 8px; align-items: center; }
+
+/* sticky nav */
+.nav { position: sticky; top: env(safe-area-inset-top, 0px); z-index: 5; background: var(--bg); border-bottom: 1px solid var(--line); }
+body::before { content: ""; position: fixed; inset: 0 0 auto; height: env(safe-area-inset-top, 0px); z-index: 10; background: var(--bg); }
+.nav .in { display: flex; gap: 6px; overflow-x: auto; padding-block: 10px; scrollbar-width: thin; }
+.nav a { flex: none; text-decoration: none; color: var(--soft); font-size: 13.5px; font-weight: 500; padding: 6px 12px; border-radius: 999px; border: 1px solid transparent; }
+.nav a:hover, .nav a:focus-visible { border-color: var(--line2); color: var(--fg); background: var(--panel); }
+
+section.block { padding-top: 44px; display: grid; gap: 18px; }
+.intro { max-width: 74ch; color: var(--soft); }
+
+/* status pills */
+.pill { display: inline-flex; align-items: center; gap: 6px; font: 600 11.5px/1 var(--font-body); padding: 5px 9px; border-radius: 999px; white-space: nowrap; }
+.pill::before { content: ""; width: 6px; height: 6px; border-radius: 50%; background: currentColor; }
+.s-ok { color: var(--ok); background: var(--ok-soft); }
+.s-new { color: var(--new); background: var(--new-soft); }
+.s-later { color: var(--later); background: var(--later-soft); }
+.s-no { color: var(--no); background: var(--no-soft); }
+.s-dec { color: var(--dec); background: var(--dec-soft); }
+
+/* map */
+.mapbox { background: var(--panel); border: 1px solid var(--line); border-radius: 18px; padding: 14px; overflow-x: auto; }
+.mapbox svg { display: block; width: 100%; min-width: 880px; height: auto; }
+.m-node rect { fill: var(--panel2); stroke: var(--line2); stroke-width: 1.2; }
+.m-core rect { fill: var(--acc-soft); stroke: var(--acc); stroke-width: 1.8; }
+.m-tv rect { fill: var(--panel2); stroke: var(--acc); stroke-width: 1.2; }
+.m-side rect { fill: var(--panel); stroke: var(--line2); stroke-width: 1.2; stroke-dasharray: 6 5; }
+.m-t { fill: var(--fg); font: 700 15px var(--font-head); }
+.m-core .m-t { font-size: 19px; font-weight: 800; }
+.m-s { fill: var(--soft); font: 12.5px var(--font-body); }
+.m-r { fill: var(--acc); font: 600 11.5px var(--font-body); }
+.m-d { fill: var(--muted); font: italic 11.5px var(--font-body); }
+.m-l { stroke: var(--acc); stroke-width: 1.8; fill: none; }
+.m-l2 { stroke: var(--muted); stroke-width: 1.4; fill: none; stroke-dasharray: 6 5; }
+.m-arrow { fill: var(--acc); }
+.m-arrow2 { fill: var(--muted); }
+.map-key { display: flex; flex-wrap: wrap; gap: 8px 20px; font-size: 13px; color: var(--muted); }
+.map-key svg { width: 34px; height: 10px; vertical-align: middle; margin-right: 6px; }
+
+/* filters */
+.filters { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+.filters button { font: 600 13px var(--font-body); color: var(--on-tonal); background: var(--tonal); border: 1px solid transparent; padding: 7px 14px; border-radius: 999px; cursor: pointer; }
+.filters button:hover { border-color: var(--line2); }
+.filters button[aria-pressed="true"] { background: var(--acc); color: var(--acc-ink); }
+.filters .count { color: var(--muted); font-size: 13px; margin-left: 4px; font-variant-numeric: tabular-nums; }
+
+/* areas and feature cards */
+.area { display: grid; gap: 12px; padding-top: 26px; }
+.area > header { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 12px; }
+.area > header .letter { width: 30px; height: 30px; border-radius: 9px; display: grid; place-items: center; background: var(--acc-soft); color: var(--acc-deep); font: 800 14px var(--font-head); flex: none; }
+.area > header h3 { font-size: 19px; }
+.area > header p { color: var(--muted); font-size: 14px; flex-basis: 100%; max-width: 78ch; }
+.grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 12px; }
+.f { background: var(--panel); border: 1px solid var(--line); border-radius: 16px; padding: 16px 18px; display: grid; gap: 8px; align-content: start; min-width: 0; }
+.f .top { display: flex; gap: 10px; align-items: flex-start; justify-content: space-between; }
+.f .top > div { min-width: 0; }
+.f .id { font: 700 11px var(--font-mono); color: var(--muted); letter-spacing: 0.04em; }
+.f p { color: var(--soft); font-size: 14px; }
+.f .links { display: flex; flex-wrap: wrap; gap: 6px; }
+.f .links a { text-decoration: none; color: var(--acc-deep); background: var(--acc-soft); padding: 2px 8px; border-radius: 6px; font: 600 11.5px var(--font-mono); }
+.f .links a:hover { background: var(--tonal); }
+.f .files { color: var(--muted); font: 11.5px/1.55 var(--font-mono); overflow-wrap: anywhere; }
+.f .ver { color: var(--muted); font-size: 12px; font-variant-numeric: tabular-nums; }
+.f:target { border-color: var(--acc); box-shadow: 0 0 0 3px var(--acc-soft); }
+
+/* tables */
+.tw { overflow-x: auto; border: 1px solid var(--line); border-radius: 16px; background: var(--panel); }
+table { border-collapse: collapse; width: 100%; min-width: 860px; font-size: 13.5px; }
+th, td { text-align: left; vertical-align: top; padding: 11px 14px; border-top: 1px solid var(--line); }
+thead th { border-top: 0; font: 700 11.5px var(--font-body); letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted); background: var(--panel2); }
+td:first-child { font-weight: 600; color: var(--fg); }
+td { color: var(--soft); }
+td .pill { margin-top: 6px; }
+td a:not(.plain) { font-family: var(--font-mono); font-size: 12px; }
+
+/* walk-throughs */
+.flows { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 12px; }
+.flow { background: var(--panel); border: 1px solid var(--line); border-radius: 16px; padding: 18px 20px; display: grid; gap: 10px; align-content: start; min-width: 0; }
+.flow ol { margin: 0; padding-left: 20px; display: grid; gap: 6px; color: var(--soft); font-size: 14px; }
+.flow ol li::marker { color: var(--acc); font-weight: 700; }
+.flow .ids { font: 11.5px var(--font-mono); color: var(--muted); overflow-wrap: anywhere; }
+
+/* rules + open checks */
+.two { display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 12px; }
+.box { background: var(--panel); border: 1px solid var(--line); border-radius: 16px; padding: 18px 20px; display: grid; gap: 10px; align-content: start; min-width: 0; }
+.box ul { margin: 0; padding-left: 18px; display: grid; gap: 7px; color: var(--soft); font-size: 14px; }
+.box.risk { background: var(--dec-soft); border-color: transparent; }
+.note { border-left: 3px solid var(--acc); padding: 10px 14px; background: var(--acc-soft); border-radius: 0 12px 12px 0; color: var(--soft); font-size: 14px; }
+footer { margin-top: 48px; padding-top: 18px; border-top: 1px solid var(--line); color: var(--muted); font-size: 13px; display: grid; gap: 6px; }
+
+/* at a glance */
+.glance-head { display: flex; flex-wrap: wrap; gap: 12px; align-items: flex-end; justify-content: space-between; }
+.viewsw { display: inline-flex; border-radius: 999px; padding: 3px; background: var(--tonal); }
+.viewsw button { font: 600 13px var(--font-body); color: var(--on-tonal); background: transparent; border: 0; padding: 6px 14px; border-radius: 999px; cursor: pointer; }
+.viewsw button[aria-pressed="true"] { background: var(--acc); color: var(--acc-ink); }
+.glance { display: grid; grid-template-columns: repeat(auto-fill, minmax(270px, 1fr)); gap: 12px; }
+.g-area { background: var(--panel); border: 1px solid var(--line); border-radius: 16px; padding: 14px 16px; display: grid; gap: 2px; align-content: start; min-width: 0; }
+.g-area h3 { font-size: 14px; margin-bottom: 6px; display: flex; gap: 8px; align-items: baseline; }
+.g-area h3 .k { color: var(--acc); font: 700 12px var(--font-mono); }
+.g-row { display: grid; grid-template-columns: 40px 1fr auto; gap: 8px; align-items: center; text-decoration: none; color: var(--fg); font-size: 13.5px; padding: 3px 4px; border-radius: 6px; }
+.g-row:hover, .g-row:focus-visible { background: var(--acc-soft); }
+.g-row .gid { color: var(--muted); font: 700 11px var(--font-mono); }
+.g-row .gname { min-width: 0; overflow-wrap: anywhere; }
+.dot { width: 9px; height: 9px; border-radius: 50%; }
+.dot.ok { background: var(--ok); } .dot.new { background: var(--new); } .dot.later { background: var(--later); } .dot.no { background: var(--no); }
+.dot.dec { background: transparent; border: 2px solid var(--dec); }
+body.glance-only section.block:not(#glance) { display: none; }
+@media (max-width: 520px) { .grid { grid-template-columns: 1fr; } .castbar { border-radius: 16px; } }
+</style>
+
+<div class="wrap">
+  <header class="hero">
+    <span class="kicker">CastApp · how everything fits together</span>
+    <h1>CastApp Feature Map</h1>
+    <p class="lead">CastApp is the Android app that sends your phone's screen, its videos, music and photos, network folders, Plex and Jellyfin, TV channels and web videos to the TVs and speakers in your home, and works as their remote. The same app on a Fire TV, Shield or Android TV box becomes <b>CastApp TV</b>, a receiver with lower delay and extras. No ads, no tracking, no account.</p>
+    <div class="castbar" role="group" aria-label="Versions">
+      <span class="cb-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path class="cb-stroke" d="M2 8V6a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2h-6M2 12a8 8 0 0 1 8 8M2 16a4 4 0 0 1 4 4M2 20h.01"/></svg></span>
+      <span class="cb-item"><span class="cb-label">Released</span><span class="cb-value">4.0.0 <span>GitHub release v4.0.0</span></span></span>
+      <span class="cb-item"><span class="cb-label">Next</span><span class="cb-value">4.1.0 <span>ready on main, not released yet</span></span></span>
+    </div>
+    <div class="facts">
+      <span>Last updated: <b>2026-11-23</b>, matching CastApp main <b>b861386</b></span>
+      <span>Feature IDs like <b>H9</b> are stable: use them when you add to or check this page.</span>
+      <span>Kept current: source <code>docs/feature-map.html</code> in the CastApp repository.</span>
+    </div>
+    <div class="legend">
+      <span class="item"><span class="pill s-ok">Released</span><span>in 4.0.0 or earlier</span></span>
+      <span class="item"><span class="pill s-new">Ready in 4.1.0</span><span>merged on main, not released yet</span></span>
+      <span class="item"><span class="pill s-later">Later</span><span>planned, not started</span></span>
+      <span class="item"><span class="pill s-no">Not in CastApp</span><span>on purpose; another app does it</span></span>
+      <span class="item"><span class="pill s-dec">Decided</span><span>your decisions</span></span>
+    </div>
+  </header>
+</div>
+
+<nav class="nav" aria-label="Sections"><div class="in wrap">
+  <a href="#glance">At a glance</a><a href="#map">Map</a><a href="#features">Features</a><a href="#area-p">Coming later</a><a href="#area-x">Not in CastApp</a><a href="#area-y">Your decisions</a><a href="#services">Services</a><a href="#anibox">AniBox</a><a href="#flows">Walk-throughs</a><a href="#rules">Rules</a><a href="#check">To test</a>
+</div></nav>
+
+<div class="wrap main">
+
+<section class="block" id="glance">
+  <div class="glance-head">
+    <div><span class="kicker">Quick view</span><h2>All features at a glance</h2></div>
+    <div class="viewsw" role="group" aria-label="View">
+      <button type="button" id="vGlance" aria-pressed="false">Only this list</button>
+      <button type="button" id="vAll" aria-pressed="true">Everything</button>
+    </div>
+  </div>
+  <p class="intro">Every feature with its status, one line each. Click a name for its full card.</p>
+  <div class="glance" id="glanceList"><p class="muted">The list fills in from the cards below.</p></div>
+</section>
+
+<section class="block" id="map">
+  <span class="kicker">The big picture</span>
+  <h2>What CastApp connects to</h2>
+  <p class="intro">CastApp on your phone is in the middle. Solid lines are connections CastApp makes itself. Dashed lines are connections other apps or devices make on their own; they're shown so the whole picture makes sense. Each box says what CastApp does with it.</p>
+  <div class="map-key" aria-hidden="true">
+    <span><svg viewBox="0 0 34 10"><path class="m-l" d="M1,5 L33,5"/></svg>CastApp makes this connection</span>
+    <span><svg viewBox="0 0 34 10"><path class="m-l2" d="M1,5 L33,5"/></svg>made by another app or device</span>
+  </div>
+  <div class="mapbox" role="img" aria-label="CastApp on the phone in the middle, connected to TVs and speakers, CastApp TV, media servers, network shares and cloud, the internet, other phones with CastApp, TV remotes, and the watch and other apps. Other DLNA senders such as AniBox reach CastApp TV directly, and media servers send files to the TVs themselves.">
+    <svg viewBox="0 0 1120 770" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+      <defs>
+        <marker id="ar" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path class="m-arrow" d="M0,0 L10,5 L0,10 z"/></marker>
+        <marker id="ar2" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path class="m-arrow2" d="M0,0 L10,5 L0,10 z"/></marker>
+      </defs>
+      <!-- connections CastApp makes (core centre 560,435) -->
+      <path class="m-l" d="M450,360 L335,302" marker-start="url(#ar)" marker-end="url(#ar)"/>
+      <path class="m-l" d="M560,360 L560,302" marker-start="url(#ar)" marker-end="url(#ar)"/>
+      <path class="m-l" d="M670,360 L790,312" marker-start="url(#ar)" marker-end="url(#ar)"/>
+      <path class="m-l" d="M710,437 L798,437" marker-start="url(#ar)" marker-end="url(#ar)"/>
+      <path class="m-l" d="M670,510 L790,598" marker-start="url(#ar)" marker-end="url(#ar)"/>
+      <path class="m-l" d="M560,510 L560,608" marker-start="url(#ar)" marker-end="url(#ar)"/>
+      <path class="m-l" d="M450,510 L335,598" marker-end="url(#ar)"/>
+      <path class="m-l" d="M410,437 L322,437" marker-start="url(#ar)" marker-end="url(#ar)"/>
+      <!-- connections other apps and devices make -->
+      <path class="m-l2" d="M560,128 L560,168" marker-end="url(#ar2)"/>
+      <path class="m-l2" d="M770,236 L717,236" marker-end="url(#ar2)"/>
+
+      <!-- other senders -->
+      <g class="m-side"><rect x="405" y="20" width="310" height="106" rx="14"/>
+        <text class="m-t" x="425" y="50">Other senders to CastApp TV</text>
+        <text class="m-s" x="425" y="73">AniBox on your PC, VLC, BubbleUPnP</text>
+        <text class="m-s" x="425" y="91">and any other DLNA app</text>
+        <text class="m-d" x="425" y="113">they talk to the TV, not to the phone</text></g>
+
+      <!-- TVs and speakers -->
+      <g class="m-node"><rect x="30" y="160" width="320" height="140" rx="14"/>
+        <text class="m-t" x="50" y="190">TVs and speakers</text>
+        <text class="m-s" x="50" y="213">Chromecast, Shield, Google TV, Nest</text>
+        <text class="m-s" x="50" y="231">DLNA TVs (Samsung, LG, Sony), Kodi</text>
+        <text class="m-s" x="50" y="249">Apple TV (AirPlay), Roku</text>
+        <text class="m-r" x="50" y="280">sends the video and controls it</text></g>
+
+      <!-- CastApp TV -->
+      <g class="m-tv"><rect x="405" y="170" width="310" height="130" rx="14"/>
+        <text class="m-t" x="425" y="200">CastApp TV</text>
+        <text class="m-s" x="425" y="223">this app on a Fire TV, Shield</text>
+        <text class="m-s" x="425" y="241">or Android TV box</text>
+        <text class="m-r" x="425" y="276">low delay · says what it can play</text></g>
+
+      <!-- media servers -->
+      <g class="m-node"><rect x="770" y="160" width="320" height="150" rx="14"/>
+        <text class="m-t" x="790" y="190">Media servers</text>
+        <text class="m-s" x="790" y="213">Plex, Jellyfin, Emby (signed in)</text>
+        <text class="m-s" x="790" y="231">DLNA servers on your Wi-Fi</text>
+        <text class="m-r" x="790" y="262">reads libraries · reports progress</text>
+        <text class="m-d" x="790" y="288">TVs fetch the files themselves</text></g>
+
+      <!-- CastApp core -->
+      <g class="m-core"><rect x="410" y="360" width="300" height="150" rx="18"/>
+        <text class="m-t" x="560" y="405" text-anchor="middle">CastApp on your phone</text>
+        <text class="m-s" x="560" y="431" text-anchor="middle">mirrors, casts, converts, controls TVs</text>
+        <text class="m-s" x="560" y="450" text-anchor="middle">small servers only while casting</text>
+        <text class="m-r" x="560" y="480" text-anchor="middle">every address carries a secret token</text></g>
+
+      <!-- watch and apps -->
+      <g class="m-node"><rect x="30" y="370" width="292" height="135" rx="14"/>
+        <text class="m-t" x="50" y="400">Watch and other apps</text>
+        <text class="m-s" x="50" y="423">Wear OS remote (Data Layer)</text>
+        <text class="m-s" x="50" y="441">Tasker, Home Assistant, CAST_QUEUE</text>
+        <text class="m-r" x="50" y="472">they ask, CastApp casts</text></g>
+
+      <!-- shares -->
+      <g class="m-node"><rect x="798" y="370" width="292" height="135" rx="14"/>
+        <text class="m-t" x="818" y="400">Network shares and cloud</text>
+        <text class="m-s" x="818" y="423">Windows/Samba (SMB 2/3), WebDAV,</text>
+        <text class="m-s" x="818" y="441">Nextcloud, cloud apps' file picker</text>
+        <text class="m-r" x="818" y="472">reads · writes only recordings</text></g>
+
+      <!-- remotes -->
+      <g class="m-node"><rect x="30" y="598" width="320" height="140" rx="14"/>
+        <text class="m-t" x="50" y="628">TV remotes</text>
+        <text class="m-s" x="50" y="651">Wi-Fi: Google TV, Shield, Roku,</text>
+        <text class="m-s" x="50" y="669">Samsung, LG · Bluetooth · infrared</text>
+        <text class="m-r" x="50" y="700">sends keys and voice search</text></g>
+
+      <!-- peers -->
+      <g class="m-node"><rect x="415" y="608" width="290" height="130" rx="14"/>
+        <text class="m-t" x="435" y="638">Other phones with CastApp</text>
+        <text class="m-s" x="435" y="661">join, hand over, synced playback,</text>
+        <text class="m-s" x="435" y="679">receive on a phone, swap direction</text>
+        <text class="m-r" x="435" y="710">short timeouts, silent fallback</text></g>
+
+      <!-- internet -->
+      <g class="m-node"><rect x="770" y="598" width="320" height="150" rx="14"/>
+        <text class="m-t" x="790" y="628">Internet</text>
+        <text class="m-s" x="790" y="651">web videos, IPTV and guides, YouTube,</text>
+        <text class="m-s" x="790" y="669">plex.tv sign-in, OpenSubtitles,</text>
+        <text class="m-s" x="790" y="687">speech models, GitHub releases</text>
+        <text class="m-r" x="790" y="718">only what you open or switch on</text></g>
+    </svg>
+  </div>
+</section>
+
+<section class="block" id="features">
+  <span class="kicker">Everything CastApp does</span>
+  <h2>Features by area</h2>
+  <p class="intro">Each card says what the feature does for you, which other features it works with, where the code lives and the version it arrived in. Paths are inside <code>app/src/main/java/io/github/patschgoo/castapp/</code> unless they start with a top-level folder such as <code>receiver/</code>, <code>wear/</code> or <code>tools/</code>.</p>
+  <div class="filters" role="group" aria-label="Show features by status">
+    <button type="button" data-f="all" aria-pressed="true">All</button>
+    <button type="button" data-f="ok" aria-pressed="false">Released</button>
+    <button type="button" data-f="new" aria-pressed="false">Ready in 4.1.0</button>
+    <button type="button" data-f="later" aria-pressed="false">Later</button>
+    <button type="button" data-f="no" aria-pressed="false">Not in CastApp</button>
+    <span class="count" id="fcount" aria-live="polite"></span>
+  </div>
+
+  <!-- A: casting and mirroring -->
+  <div class="area" id="area-a"><header><span class="letter">A</span><h3>Casting and mirroring</h3>
+    <p>Sending what the phone shows or plays to a TV or speaker, and how the picture and sound get there.</p></header>
+  <div class="grid">
+    <article class="f" id="A1" data-s="ok"><div class="top"><div><div class="id">A1</div><h3>Mirror the whole screen</h3></div><span class="pill s-ok">Released</span></div>
+      <p>One tap on Mirror screen sends everything the phone shows, with its sound, to the TV in Cast to. Android asks "Start casting?" each time. On Google Cast the TV stays under a second behind the phone.</p>
+      <div class="links"><a href="#A4">A4</a><a href="#A5">A5</a><a href="#A9">A9</a><a href="#H3">H3</a></div>
+      <div class="files">capture/ScreenEncoder.kt · service/CastSession.kt · stream/StreamServer.kt · stream/FragmentedMp4.kt</div><div class="ver">1.0</div></article>
+    <article class="f" id="A2" data-s="ok"><div class="top"><div><div class="id">A2</div><h3>Cast one app</h3></div><span class="pill s-ok">Released</span></div>
+      <p>On Android 14 and newer, Android's own picker shares only the app you choose. On older phones the screen is mirrored and the app you pick opens.</p>
+      <div class="links"><a href="#A1">A1</a><a href="#A11">A11</a></div>
+      <div class="files">ui/AppPickerScreen.kt · ProjectionActivity.kt</div><div class="ver">1.0</div></article>
+    <article class="f" id="A3" data-s="ok"><div class="top"><div><div class="id">A3</div><h3>Phone sound</h3></div><span class="pill s-ok">Released</span></div>
+      <p>Whatever plays on the phone plays on a TV or speaker (Android 10 and newer). The microphone stays off unless you switch it on for mirroring.</p>
+      <div class="links"><a href="#B4">B4</a><a href="#A10">A10</a></div>
+      <div class="files">capture/AudioEncoder.kt · stream/Adts.kt</div><div class="ver">2.0</div></article>
+    <article class="f" id="A4" data-s="ok"><div class="top"><div><div class="id">A4</div><h3>Change the quality at any moment</h3></div><span class="pill s-ok">Released</span></div>
+      <p>The Quality button on the casting card switches mirroring between 480p and 4K on the fly, shrinks a file to 1080p, 720p or 480p, or fixes a web stream or channel at one level. Playback goes on where it was.</p>
+      <div class="links"><a href="#A5">A5</a><a href="#G1">G1</a><a href="#J1">J1</a></div>
+      <div class="files">service/CastSession.kt · service/MediaCastSession.kt · stream/HlsVariants.kt</div><div class="ver">3.0</div></article>
+    <article class="f" id="A5" data-s="ok"><div class="top"><div><div class="id">A5</div><h3>Automatic quality</h3></div><span class="pill s-ok">Released</span></div>
+      <p>When the Wi-Fi can't keep up, the bitrate drops and frames that piled up are skipped, so the delay stays short. When the connection is good again, the bitrate rises.</p>
+      <div class="links"><a href="#A4">A4</a><a href="#I1">I1</a></div>
+      <div class="files">stream/AdaptiveBitrate.kt · stream/InterleavingQueue.kt</div><div class="ver">2.0</div></article>
+    <article class="f" id="A6" data-s="ok"><div class="top"><div><div class="id">A6</div><h3>Picture shape</h3></div><span class="pill s-ok">Released</span></div>
+      <p>Fit (black bars), Fill the TV (zooms in, edges cut off) or Turn apps sideways, which rotates the phone's apps to landscape so they fill the TV.</p>
+      <div class="links"><a href="#A1">A1</a></div>
+      <div class="files">capture/GlScaler.kt · service/OrientationLock.kt</div><div class="ver">2.0</div></article>
+    <article class="f" id="A7" data-s="ok"><div class="top"><div><div class="id">A7</div><h3>Sound sync</h3></div><span class="pill s-ok">Released</span></div>
+      <p>Shifts the sound up to 500 ms either way when lips and sound don't match. The change applies at once while casting.</p>
+      <div class="links"><a href="#A1">A1</a></div>
+      <div class="files">service/CastSession.kt · settings/AppSettings.kt</div><div class="ver">2.0</div></article>
+    <article class="f" id="A8" data-s="ok"><div class="top"><div><div class="id">A8</div><h3>Reconnects by itself</h3></div><span class="pill s-ok">Released</span></div>
+      <p>If the Wi-Fi drops or the TV restarts, CastApp keeps trying for 2 minutes and finds a TV that got a new address. A file goes on where it stopped.</p>
+      <div class="links"><a href="#B2">B2</a></div>
+      <div class="files">service/CastController.kt · service/MediaCastSession.kt</div><div class="ver">2.0</div></article>
+    <article class="f" id="A9" data-s="ok"><div class="top"><div><div class="id">A9</div><h3>HEVC for a sharper picture</h3></div><span class="pill s-ok">Released</span></div>
+      <p>Settings → Video codec. Automatic uses HEVC only where it is known to work (CastApp TVs that report it, Chromecast Ultra and HD, Google TV Streamer, Shield) and switches back to H.264 by itself if a TV can't play it.</p>
+      <div class="links"><a href="#A1">A1</a><a href="#H7">H7</a></div>
+      <div class="files">capture/VideoCodecs.kt · stream/HevcUtils.kt</div><div class="ver">4.0</div></article>
+    <article class="f" id="A10" data-s="ok"><div class="top"><div><div class="id">A10</div><h3>Phone microphone</h3></div><span class="pill s-ok">Released</span></div>
+      <p>Optional: your voice is mixed into the sound on the TV, for presentations or karaoke. CastApp warns you when the TV is loud enough to echo.</p>
+      <div class="links"><a href="#A3">A3</a></div>
+      <div class="files">capture/PcmMixer.kt · ui/MirroringExtraSettings.kt</div><div class="ver">4.0</div></article>
+    <article class="f" id="A11" data-s="ok"><div class="top"><div><div class="id">A11</div><h3>Dark screen</h3></div><span class="pill s-ok">Released</span></div>
+      <p>While one app is cast (Android 14+), the phone goes black at the lowest brightness and the app keeps playing on the TV. Tap once for controls, double-tap to wake.</p>
+      <div class="links"><a href="#A2">A2</a></div>
+      <div class="files">service/DarkScreenOverlay.kt</div><div class="ver">1.1</div></article>
+    <article class="f" id="A12" data-s="ok"><div class="top"><div><div class="id">A12</div><h3>Do Not Disturb while mirroring</h3></div><span class="pill s-ok">Released</span></div>
+      <p>Turns on Do Not Disturb while the screen is mirrored, so no notification pops up on the TV, and puts your own setting back afterwards.</p>
+      <div class="links"><a href="#A1">A1</a></div>
+      <div class="files">support/DoNotDisturb.kt</div><div class="ver">4.0</div></article>
+    <article class="f" id="A13" data-s="ok"><div class="top"><div><div class="id">A13</div><h3>Low-latency player and stream modes</h3></div><span class="pill s-ok">Released</span></div>
+      <p>An optional own TV player keeps the picture about 0.3 s behind the phone on Google Cast. It needs a one-time setup (a web host and a registered App ID); if it doesn't start, Google's player takes over. Settings → Stream mode also offers Compatible (HLS) for difficult TVs.</p>
+      <div class="links"><a href="#A1">A1</a><a href="#B3">B3</a></div>
+      <div class="files">receiver/index.html · .github/workflows/receiver-pages.yml · render/CastRenderer.kt · stream/HlsSegmenter.kt</div><div class="ver">stream modes 1.0 · own player 2.0</div></article>
+  </div></div>
+
+  <!-- B: devices -->
+  <div class="area" id="area-b"><header><span class="letter">B</span><h3>Devices and how CastApp finds them</h3>
+    <p>TVs and speakers don't need CastApp installed. CastApp talks to each kind in its own language, directly over your Wi-Fi.</p></header>
+  <div class="grid">
+    <article class="f" id="B1" data-s="ok"><div class="top"><div><div class="id">B1</div><h3>Finds devices five ways</h3></div><span class="pill s-ok">Released</span></div>
+      <p>Android's own search, CastApp's own mDNS search, a DLNA search, a scan of every address on the Wi-Fi (starts by itself after 4 seconds without results) and Add by IP. That is why it finds TVs the built-in Cast menu misses.</p>
+      <div class="links"><a href="#B2">B2</a><a href="#N7">N7</a></div>
+      <div class="files">discovery/NsdBrowser.kt · discovery/MdnsBrowser.kt · dlna/SsdpBrowser.kt · discovery/NetworkScanner.kt</div><div class="ver">1.0 · DLNA search 2.0</div></article>
+    <article class="f" id="B2" data-s="ok"><div class="top"><div><div class="id">B2</div><h3>Remembered TVs, one entry each</h3></div><span class="pill s-ok">Released</span></div>
+      <p>Every TV you cast to is remembered and found again when its address changes. A TV that answers in several ways is listed once, the best way first: Google Cast, then DLNA, Roku, AirPlay. A CastApp TV is always listed.</p>
+      <div class="links"><a href="#B1">B1</a><a href="#A8">A8</a><a href="#H1">H1</a></div>
+      <div class="files">discovery/DeviceRepository.kt · discovery/CastDevice.kt</div><div class="ver">1.0 · one entry per TV 3.1</div></article>
+    <article class="f" id="B3" data-s="ok"><div class="top"><div><div class="id">B3</div><h3>Google Cast</h3></div><span class="pill s-ok">Released</span></div>
+      <p>Chromecast, Google TV Streamer, the Shield and TVs with Google TV or Android TV. CastApp speaks the Cast protocol itself, so it needs neither Google Play services nor the phone's Cast menu.</p>
+      <div class="links"><a href="#A13">A13</a><a href="#B1">B1</a></div>
+      <div class="files">cast/CastClient.kt · cast/CastMessage.kt · render/CastRenderer.kt</div><div class="ver">1.0</div></article>
+    <article class="f" id="B4" data-s="ok"><div class="top"><div><div class="id">B4</div><h3>Speakers and speaker groups</h3></div><span class="pill s-ok">Released</span></div>
+      <p>Switch Cast to → Audio and Google/Nest speakers and speaker groups appear. Send the phone's sound, music files or radio to them.</p>
+      <div class="links"><a href="#A3">A3</a><a href="#C1">C1</a></div>
+      <div class="files">render/CastRenderer.kt · ui/DevicesScreen.kt</div><div class="ver">2.0</div></article>
+    <article class="f" id="B5" data-s="ok"><div class="top"><div><div class="id">B5</div><h3>DLNA TVs and Kodi</h3></div><span class="pill s-ok">Released</span></div>
+      <p>Samsung, LG, Sony and other smart TVs without Chromecast, and Kodi with UPnP turned on. Files, photos, music and web videos work well; Samsung TVs also show .srt subtitles. Mirroring is experimental with a few seconds of delay.</p>
+      <div class="links"><a href="#B8">B8</a><a href="#K1">K1</a><a href="#G1">G1</a></div>
+      <div class="files">dlna/Dlna.kt · render/DlnaRenderer.kt · stream/TsMuxer.kt</div><div class="ver">2.0 · Kodi label 3.1</div></article>
+    <article class="f" id="B6" data-s="ok"><div class="top"><div><div class="id">B6</div><h3>Apple TV (AirPlay)</h3></div><span class="pill s-ok">Released</span></div>
+      <p>Videos, music, web videos and HLS channels; mirroring as HLS with a few seconds of delay. The first time you type the 4-digit code from the TV; the pairing is kept encrypted. No subtitles or photos over AirPlay.</p>
+      <div class="links"><a href="#G4">G4</a></div>
+      <div class="files">airplay/AirPlayClient.kt · airplay/HapCrypto.kt · airplay/AndroidAirPlayStore.kt · render/AirPlayRenderer.kt · PinActivity.kt</div><div class="ver">3.1</div></article>
+    <article class="f" id="B7" data-s="ok"><div class="top"><div><div class="id">B7</div><h3>Roku (experimental)</h3></div><span class="pill s-ok">Released</span></div>
+      <p>Videos, music and HLS channels through Roku's "Play on Roku". Roku offers no way to jump to a position, and volume only changes on Roku TVs.</p>
+      <div class="links"><a href="#G4">G4</a><a href="#K1">K1</a></div>
+      <div class="files">render/RokuRenderer.kt</div><div class="ver">3.1</div></article>
+    <article class="f" id="B8" data-s="ok"><div class="top"><div><div class="id">B8</div><h3>Wake-on-LAN</h3></div><span class="pill s-ok">Released</span></div>
+      <p>Wake a remembered TV from standby with Wake up in its ⋮ menu. A Samsung TV's network card address is filled in by itself.</p>
+      <div class="links"><a href="#B2">B2</a><a href="#B5">B5</a></div>
+      <div class="files">support/WakeOnLan.kt</div><div class="ver">4.0</div></article>
+  </div></div>
+
+  <!-- C: sources -->
+  <div class="area" id="area-c"><header><span class="letter">C</span><h3>What you can cast</h3>
+    <p>Files from the phone, network folders, media servers on the Wi-Fi, web pages and YouTube links. Plex and Jellyfin have their own area (D), TV channels too (J).</p></header>
+  <div class="grid">
+    <article class="f" id="C1" data-s="ok"><div class="top"><div><div class="id">C1</div><h3>Phone videos, music and photos</h3></div><span class="pill s-ok">Released</span></div>
+      <p>Pick one or several files for a play list. Photos become a slideshow shrunk to TV size, HEIC and huge photos included. The TV fetches the files itself, so you can lock the phone.</p>
+      <div class="links"><a href="#E1">E1</a><a href="#F1">F1</a><a href="#C3">C3</a></div>
+      <div class="files">CastFileActivity.kt · service/MediaItem.kt · stream/MediaServer.kt</div><div class="ver">1.1 · photos 2.0</div></article>
+    <article class="f" id="C2" data-s="ok"><div class="top"><div><div class="id">C2</div><h3>Share → Cast to TV</h3></div><span class="pill s-ok">Released</span></div>
+      <p>From any gallery, file manager or browser, Share → Cast to TV sends the file, or opens the web page in CastApp's browser.</p>
+      <div class="links"><a href="#C1">C1</a><a href="#C7">C7</a></div>
+      <div class="files">CastFileActivity.kt · BrowserActivity.kt</div><div class="ver">1.1 · web pages 2.0</div></article>
+    <article class="f" id="C3" data-s="ok"><div class="top"><div><div class="id">C3</div><h3>Recent on this phone</h3></div><span class="pill s-ok">Released</span></div>
+      <p>Your newest videos with their pictures under the tiles; a tap plays one on the TV in Cast to. It needs Android's video permission, so it first only offers Show videos. Not now removes the row.</p>
+      <div class="links"><a href="#N1">N1</a><a href="#E3">E3</a></div>
+      <div class="files">ui/RecentVideos.kt · artwork/PhoneThumbnails.kt</div><div class="ver">4.0</div></article>
+    <article class="f" id="C4" data-s="ok"><div class="top"><div><div class="id">C4</div><h3>Network shares (SMB and WebDAV)</h3></div><span class="pill s-ok">Released</span></div>
+      <p>Windows/Samba shares (SMB 2/3: a NAS, a PC's shared folder, a Shield's drives) and WebDAV such as Nextcloud. Paste the address from File Explorer and a folder inside the share becomes the starting folder. Episodes are listed counted (2 before 10); passwords are stored encrypted.</p>
+      <div class="links"><a href="#C5">C5</a><a href="#F1">F1</a><a href="#G2">G2</a><a href="#J6">J6</a></div>
+      <div class="files">network/Smb.kt · network/WebDav.kt · network/NetworkSources.kt · network/NaturalOrder.kt · NetworkActivity.kt</div><div class="ver">3.0 · pasted addresses and counted order 4.0</div></article>
+    <article class="f" id="C5" data-s="ok"><div class="top"><div><div class="id">C5</div><h3>Cloud apps</h3></div><span class="pill s-ok">Released</span></div>
+      <p>Phone &amp; cloud opens Android's file picker, which also shows Google Drive, OneDrive, Dropbox, Nextcloud and other cloud apps you have installed.</p>
+      <div class="links"><a href="#C4">C4</a></div>
+      <div class="files">NetworkActivity.kt</div><div class="ver">3.0</div></article>
+    <article class="f" id="C6" data-s="ok"><div class="top"><div><div class="id">C6</div><h3>Media servers on the Wi-Fi (DLNA)</h3></div><span class="pill s-ok">Released</span></div>
+      <p>Plex, Jellyfin, Emby, Synology/QNAP, Kodi, Windows Media sharing and other DLNA servers are found by themselves. Browse their folders; the TV plays straight from the server.</p>
+      <div class="links"><a href="#D1">D1</a><a href="#D2">D2</a></div>
+      <div class="files">dlna/Dlna.kt (ContentDirectory) · dlna/SsdpBrowser.kt</div><div class="ver">3.0</div></article>
+    <article class="f" id="C7" data-s="ok"><div class="top"><div><div class="id">C7</div><h3>Web videos</h3></div><span class="pill s-ok">Released</span></div>
+      <p>The built-in browser spots the videos a page plays and sends them to the TV, which then plays them on its own. If the TV can't fetch one directly, the phone passes it on with the site's cookies and referrer.</p>
+      <div class="links"><a href="#C2">C2</a><a href="#C8">C8</a><a href="#A4">A4</a></div>
+      <div class="files">BrowserActivity.kt · browser/VideoDetector.kt · stream/WebProxy.kt</div><div class="ver">2.0</div></article>
+    <article class="f" id="C8" data-s="ok"><div class="top"><div><div class="id">C8</div><h3>YouTube links</h3></div><span class="pill s-ok">Released</span></div>
+      <p>Share a YouTube link to CastApp, or tap YouTube on the TV in the browser. Chromecasts and Google TVs play it in their YouTube app; a CastApp TV opens the TV's YouTube app.</p>
+      <div class="links"><a href="#H12">H12</a><a href="#C7">C7</a></div>
+      <div class="files">youtube/YouTubeLounge.kt · youtube/YouTubeCast.kt · youtube/YouTubeSheet.kt · youtube/YouTubeLink.kt</div><div class="ver">4.0</div></article>
+  </div></div>
+
+  <!-- D: Plex and Jellyfin -->
+  <div class="area" id="area-d"><header><span class="letter">D</span><h3>Plex and Jellyfin</h3>
+    <p>Built-in clients with sign-in, posters and resume synced with the server. CastApp reads; it only tells the server what you watched.</p></header>
+  <div class="grid">
+    <article class="f" id="D1" data-s="ok"><div class="top"><div><div class="id">D1</div><h3>Plex sign-in with a code</h3></div><span class="pill s-ok">Released</span></div>
+      <p>Sign in with a code at plex.tv/link. Your servers are listed with local addresses first; remote ones work away from home. CastApp only talks to plex.tv for the sign-in and Refresh servers.</p>
+      <div class="links"><a href="#D3">D3</a><a href="#D5">D5</a></div>
+      <div class="files">mediaservers/PlexTv.kt · mediaservers/PlexClient.kt · mediaservers/LanDiscovery.kt</div><div class="ver">4.0</div></article>
+    <article class="f" id="D2" data-s="ok"><div class="top"><div><div class="id">D2</div><h3>Jellyfin and Emby</h3></div><span class="pill s-ok">Released</span></div>
+      <p>Servers on your Wi-Fi are found by themselves, or type the address. Sign in with user name and password; only the server's access token is kept, encrypted.</p>
+      <div class="links"><a href="#D3">D3</a></div>
+      <div class="files">mediaservers/JellyfinClient.kt · mediaservers/LanDiscovery.kt · mediaservers/MediaServers.kt</div><div class="ver">4.0</div></article>
+    <article class="f" id="D3" data-s="ok"><div class="top"><div><div class="id">D3</div><h3>Libraries, Continue watching, Next up</h3></div><span class="pill s-ok">Released</span></div>
+      <p>Posters, series, seasons, episodes and music, with Continue watching and Next up as in the server's own apps. You can mark an episode as watched or not watched by hand.</p>
+      <div class="links"><a href="#D4">D4</a><a href="#D5">D5</a></div>
+      <div class="files">mediaservers/MediaServersUi.kt · mediaservers/MediaServerClient.kt · mediaservers/ServerModels.kt</div><div class="ver">4.0</div></article>
+    <article class="f" id="D4" data-s="ok"><div class="top"><div><div class="id">D4</div><h3>Plays as it is, or the server converts</h3></div><span class="pill s-ok">Released</span></div>
+      <p>Videos the TV can play are sent as they are; for others the server converts. A CastApp TV gets the file itself first, since it plays MKV, HEVC and ASS, and falls back to the server's stream if it can't.</p>
+      <div class="links"><a href="#H7">H7</a><a href="#H8">H8</a><a href="#D6">D6</a></div>
+      <div class="files">mediaservers/PlaybackPlanner.kt · mediaservers/PlexClient.kt · mediaservers/JellyfinClient.kt</div><div class="ver">4.0</div></article>
+    <article class="f" id="D5" data-s="ok"><div class="top"><div><div class="id">D5</div><h3>Resume and watched marks go back</h3></div><span class="pill s-ok">Released</span></div>
+      <p>Resume points and watched marks are reported to the server, so Plex and Jellyfin apps elsewhere show the same place. The next episodes are queued after the one you start.</p>
+      <div class="links"><a href="#E2">E2</a><a href="#D3">D3</a></div>
+      <div class="files">mediaservers/ProgressReporter.kt · mediaservers/PlexClient.kt · mediaservers/JellyfinClient.kt</div><div class="ver">4.0</div></article>
+    <article class="f" id="D6" data-s="new"><div class="top"><div><div class="id">D6</div><h3>Plex: subtitle tracks inside MKV files</h3></div><span class="pill s-new">Ready in 4.1.0</span></div>
+      <p>Every text track in the file (ASS, SRT) becomes a choice in the subtitle picker. The one in your Subtitle languages shows, full tracks before "Signs &amp; Songs". A CastApp TV shows it from the file; for a Chromecast the phone reads it out of the file first (a bar shows how far), the next episode's too.</p>
+      <div class="links"><a href="#Y1">Y1</a><a href="#H9">H9</a><a href="#F2">F2</a><a href="#F3">F3</a></div>
+      <div class="files">mediaservers/PlexClient.kt · mediaservers/ServerSubtitle.kt · mediaservers/PlaybackPlanner.kt · subtitles/EmbeddedSubtitles.kt</div><div class="ver">4.1.0</div></article>
+    <article class="f" id="D7" data-s="new"><div class="top"><div><div class="id">D7</div><h3>The sound track you picked on the server</h3></div><span class="pill s-new">Ready in 4.1.0</span></div>
+      <p>When a CastApp TV plays the file itself, it plays the sound track picked in Plex (or Jellyfin's default one), for example the German dub of a dual-audio anime. Before, it played the file's default track.</p>
+      <div class="links"><a href="#H9">H9</a><a href="#D4">D4</a></div>
+      <div class="files">mediaservers/PlexClient.kt · mediaservers/JellyfinClient.kt · dlna/Dlna.kt · tv/TrackHint.kt</div><div class="ver">4.1.0</div></article>
+    <article class="f" id="D8" data-s="ok"><div class="top"><div><div class="id">D8</div><h3>Server subtitles</h3></div><span class="pill s-ok">Released</span></div>
+      <p>Subtitle files on the server come along, the one in your language first. Jellyfin hands its subtitle track over as WebVTT, which Cast TVs show.</p>
+      <div class="links"><a href="#D6">D6</a><a href="#F2">F2</a></div>
+      <div class="files">mediaservers/PlaybackPlanner.kt · mediaservers/JellyfinClient.kt · mediaservers/PlexClient.kt</div><div class="ver">4.0</div></article>
+  </div></div>
+
+  <!-- E: playback -->
+  <div class="area" id="area-e"><header><span class="letter">E</span><h3>Playback</h3>
+    <p>The controls for files, network videos and channels, wherever they come from.</p></header>
+  <div class="grid">
+    <article class="f" id="E1" data-s="ok"><div class="top"><div><div class="id">E1</div><h3>Play list and queue editing</h3></div><span class="pill s-ok">Released</span></div>
+      <p>Several files become a play list. Reorder, remove, add, shuffle and repeat; Previous and Next on the phone, the notification and the lock screen.</p>
+      <div class="links"><a href="#C1">C1</a><a href="#E2">E2</a></div>
+      <div class="files">service/PlayQueue.kt · ui/PlaybackPanel.kt</div><div class="ver">2.0 · editing 4.0</div></article>
+    <article class="f" id="E2" data-s="ok"><div class="top"><div><div class="id">E2</div><h3>Continue watching</h3></div><span class="pill s-ok">Released</span></div>
+      <p>Videos resume where you stopped. A row on the main screen lists them; the history file is stored encrypted on the phone.</p>
+      <div class="links"><a href="#E3">E3</a><a href="#D5">D5</a></div>
+      <div class="files">service/WatchHistory.kt · ui/ContinueWatching.kt</div><div class="ver">4.0</div></article>
+    <article class="f" id="E3" data-s="new"><div class="top"><div><div class="id">E3</div><h3>Pictures in Continue watching</h3></div><span class="pill s-new">Ready in 4.1.0</span></div>
+      <p>Each card shows its poster, channel logo, cover or a frame of the video. Frames from network shares are only taken on Wi-Fi, one file at a time.</p>
+      <div class="links"><a href="#E2">E2</a><a href="#C3">C3</a><a href="#L2">L2</a></div>
+      <div class="files">artwork/Artwork.kt · artwork/ArtworkRules.kt · artwork/PhoneThumbnails.kt · artwork/ShareFrames.kt</div><div class="ver">4.1.0</div></article>
+    <article class="f" id="E4" data-s="ok"><div class="top"><div><div class="id">E4</div><h3>Sleep timer</h3></div><span class="pill s-ok">Released</span></div>
+      <p>Stops after a set time, or at the end of the current video.</p>
+      <div class="links"><a href="#E1">E1</a></div>
+      <div class="files">service/SleepTimer.kt</div><div class="ver">4.0</div></article>
+    <article class="f" id="E5" data-s="ok"><div class="top"><div><div class="id">E5</div><h3>Sound track choice</h3></div><span class="pill s-ok">Released</span></div>
+      <p>Pick the sound track of a file that has several ("English · AC-3 · 5.1"). Tracks the TV can't play are converted on the phone.</p>
+      <div class="links"><a href="#G1">G1</a><a href="#D7">D7</a></div>
+      <div class="files">service/TrackInfo.kt · capture/TrackProbe.kt</div><div class="ver">4.0</div></article>
+    <article class="f" id="E6" data-s="ok"><div class="top"><div><div class="id">E6</div><h3>Notification, lock screen, volume buttons</h3></div><span class="pill s-ok">Released</span></div>
+      <p>TV volume and mute from the app, the notification and, when casting a file, the phone's volume buttons. Media controls on the lock screen.</p>
+      <div class="links"><a href="#E1">E1</a><a href="#M1">M1</a></div>
+      <div class="files">service/MediaCastSession.kt · service/PlaybackHub.kt · service/CastService.kt</div><div class="ver">1.1</div></article>
+    <article class="f" id="E7" data-s="ok"><div class="top"><div><div class="id">E7</div><h3>Says why a file won't play</h3></div><span class="pill s-ok">Released</span></div>
+      <p>When the phone can't convert a file, or a TV can't play its sound (DTS or TrueHD on a Chromecast), the message names the reason and where it would play instead: CastApp TV, Plex or Jellyfin.</p>
+      <div class="links"><a href="#H8">H8</a><a href="#G1">G1</a></div>
+      <div class="files">service/PlaybackChecks.kt · capture/ConvertCheck.kt</div><div class="ver">4.0</div></article>
+  </div></div>
+
+  <!-- F: subtitles -->
+  <div class="area" id="area-f"><header><span class="letter">F</span><h3>Subtitles</h3>
+    <p>From files next to the video, from inside the file, written by the phone, or found online, with your own look.</p></header>
+  <div class="grid">
+    <article class="f" id="F1" data-s="ok"><div class="top"><div><div class="id">F1</div><h3>Subtitle files, by language</h3></div><span class="pill s-ok">Released</span></div>
+      <p>Files named after the video (.srt, .vtt, .ass/.ssa, also Video.English.srt or Video [eng].srt) are picked up by themselves. The one in your first Subtitle language shows; every other one can be chosen.</p>
+      <div class="links"><a href="#F2">F2</a><a href="#C4">C4</a><a href="#Y1">Y1</a></div>
+      <div class="files">subtitles/Sidecars.kt · stream/Subtitles.kt · subtitles/SubtitleImport.kt</div><div class="ver">2.0 · languages and ASS files 4.0</div></article>
+    <article class="f" id="F2" data-s="ok"><div class="top"><div><div class="id">F2</div><h3>Tracks inside the file, one picker</h3></div><span class="pill s-ok">Released</span></div>
+      <p>Text subtitle tracks inside a file are listed too. One picker holds them all: Off, the file's own, built-in, written by the phone, or found online. Picture subtitles (PGS, VobSub) can't be sent.</p>
+      <div class="links"><a href="#F1">F1</a><a href="#D6">D6</a></div>
+      <div class="files">service/SubtitleTracks.kt · subtitles/EmbeddedSubtitles.kt</div><div class="ver">4.0</div></article>
+    <article class="f" id="F3" data-s="ok"><div class="top"><div><div class="id">F3</div><h3>Subtitle look and timing</h3></div><span class="pill s-ok">Released</span></div>
+      <p>Size, colour and background on Google Cast and CastApp TV, and timing in steps of 0.5 s. Changes show at once.</p>
+      <div class="links"><a href="#H13">H13</a><a href="#F2">F2</a></div>
+      <div class="files">subtitles/SubtitleStyle.kt · settings/SubtitleStyleSettings.kt · ui/SubtitleStyleItems.kt</div><div class="ver">4.0</div></article>
+    <article class="f" id="F4" data-s="ok"><div class="top"><div><div class="id">F4</div><h3>Written by the phone (Vosk)</h3></div><span class="pill s-ok">Released</span></div>
+      <p>For videos and music without subtitles, offline speech recognition writes them on the phone; nothing is uploaded. Pick the spoken language once (13 languages, 30 to 50 MB each). Finished subtitles are kept for next time.</p>
+      <div class="links"><a href="#F5">F5</a><a href="#F7">F7</a></div>
+      <div class="files">subtitles/SpeechEngine.kt · subtitles/VoskModels.kt · subtitles/SubtitleGenerator.kt · subtitles/CueBuilder.kt</div><div class="ver">3.0</div></article>
+    <article class="f" id="F5" data-s="ok"><div class="top"><div><div class="id">F5</div><h3>Whisper, more accurate</h3></div><span class="pill s-ok">Released</span></div>
+      <p>Settings → Subtitles → Speech engine: Accurate (Whisper) with the tiny, base or small model (31, 57 or 181 MB, checked after download). Translate to English is optional. Slower and uses more battery than Vosk.</p>
+      <div class="links"><a href="#F4">F4</a></div>
+      <div class="files">subtitles/WhisperEngine.kt · subtitles/WhisperNative.kt · subtitles/WhisperModels.kt · app/src/main/cpp/</div><div class="ver">4.0</div></article>
+    <article class="f" id="F6" data-s="ok"><div class="top"><div><div class="id">F6</div><h3>Find subtitles online</h3></div><span class="pill s-ok">Released</span></div>
+      <p>Searches OpenSubtitles.com by the file's hash and name. Off until you enter your own free API key; a log-in is optional and gives more downloads. Nothing is sent until you tap Find.</p>
+      <div class="links"><a href="#F2">F2</a></div>
+      <div class="files">opensubtitles/OpenSubtitlesClient.kt · opensubtitles/MovieHash.kt · opensubtitles/SubtitleFinder.kt · ui/FindSubtitles.kt</div><div class="ver">4.0</div></article>
+    <article class="f" id="F7" data-s="ok"><div class="top"><div><div class="id">F7</div><h3>Written ahead and automatically</h3></div><span class="pill s-ok">Released</span></div>
+      <p>With Write subtitles automatically on, the phone writes them for the next files in the queue too, also next to files that only have ASS subtitles, as an extra choice.</p>
+      <div class="links"><a href="#F4">F4</a><a href="#E1">E1</a></div>
+      <div class="files">subtitles/SubtitleGenerator.kt · subtitles/Sidecars.kt</div><div class="ver">4.0</div></article>
+    <article class="f" id="F8" data-s="ok"><div class="top"><div><div class="id">F8</div><h3>Live Caption for live TV and mirroring</h3></div><span class="pill s-ok">Released</span></div>
+      <p>Streams, live TV and mirroring have no file to read ahead, so the Live Caption button opens Android's captions (Android 10+). When you mirror, they show on the TV too.</p>
+      <div class="links"><a href="#A1">A1</a><a href="#F4">F4</a></div>
+      <div class="files">ui/DevicesScreen.kt · ui/SettingsScreen.kt</div><div class="ver">3.0</div></article>
+  </div></div>
+
+  <!-- G: converting -->
+  <div class="area" id="area-g"><header><span class="letter">G</span><h3>Converting on the phone</h3>
+    <p>When a TV can't play a file, the phone makes it playable while it streams. Settings: Automatic, Always or Never.</p></header>
+  <div class="grid">
+    <article class="f" id="G1" data-s="ok"><div class="top"><div><div class="id">G1</div><h3>Converts what the TV can't play</h3></div><span class="pill s-ok">Released</span></div>
+      <p>HEVC or MKV on an older Chromecast, MPEG-2 and other formats are converted to H.264 and AAC (up to 1080p) while they play. Seeking restarts the conversion at the new spot, which takes a moment.</p>
+      <div class="links"><a href="#G2">G2</a><a href="#E7">E7</a><a href="#A4">A4</a></div>
+      <div class="files">capture/Transcoder.kt · capture/GlScaler.kt · capture/AudioEncoder.kt · stream/StreamHub.kt</div><div class="ver">2.0</div></article>
+    <article class="f" id="G2" data-s="new"><div class="top"><div><div class="id">G2</div><h3>Repackaging instead of converting</h3></div><span class="pill s-new">Ready in 4.1.0</span></div>
+      <p>When the picture already is H.264 the TV plays (HD TV recordings in MPEG-TS, most MKV files), it is copied unchanged and only the file around it is made new ("Repackaging…"); sound that isn't AAC is converted. Starts in seconds with the full picture quality. If a TV refuses the copy, the phone converts it in full.</p>
+      <div class="links"><a href="#G1">G1</a><a href="#P2">P2</a><a href="#P3">P3</a></div>
+      <div class="files">capture/Remux.kt · stream/FragmentedMp4.kt · service/PlaybackChecks.kt</div><div class="ver">4.1.0</div></article>
+    <article class="f" id="G3" data-s="new"><div class="top"><div><div class="id">G3</div><h3>AVI and DivX on more phones</h3></div><span class="pill s-new">Ready in 4.1.0</span></div>
+      <p>AVI, XviD and .divx files now convert on phones whose Android can't read AVI (Pixels), with picture and sound in step after seeking. DivX 3 can't be converted on any phone; CastApp says so.</p>
+      <div class="links"><a href="#G1">G1</a><a href="#H8">H8</a></div>
+      <div class="files">capture/AviSupport.kt · capture/Media3Samples.kt · capture/SampleReader.kt</div><div class="ver">4.1.0</div></article>
+    <article class="f" id="G4" data-s="ok"><div class="top"><div><div class="id">G4</div><h3>HLS for Apple TV and Roku</h3></div><span class="pill s-ok">Released</span></div>
+      <p>Apple TV and Roku get converted files as an HLS stream, the format they take.</p>
+      <div class="links"><a href="#B6">B6</a><a href="#B7">B7</a></div>
+      <div class="files">capture/HlsTranscode.kt · stream/HlsConversion.kt · stream/HlsSegmenter.kt</div><div class="ver">4.0</div></article>
+  </div></div>
+
+  <!-- H: CastApp TV -->
+  <div class="area" id="area-h"><header><span class="letter">H</span><h3>CastApp TV, the receiver</h3>
+    <p>The same APK on a Fire TV, Shield, Android TV or Google TV box. Most of its new extras are in 4.1.0; a TV running 4.0.0 still plays, without them.</p></header>
+  <div class="grid">
+    <article class="f" id="H1" data-s="ok"><div class="top"><div><div class="id">H1</div><h3>The same app on the TV</h3></div><span class="pill s-ok">Released</span></div>
+      <p>Installed on a Fire TV (Fire OS 6+), an Android TV or Google TV box or a projector, it opens CastApp TV instead of the phone screens. Open it once; it shows the TV's name and address, for example 192.168.1.20:49595.</p>
+      <div class="links"><a href="#H2">H2</a><a href="#H4">H4</a><a href="#H5">H5</a></div>
+      <div class="files">tv/TvHomeActivity.kt · tv/TvReceiverService.kt · tv/TvReceiver.kt</div><div class="ver">3.1</div></article>
+    <article class="f" id="H2" data-s="ok"><div class="top"><div><div class="id">H2</div><h3>A standard DLNA TV for every app</h3></div><span class="pill s-ok">Released</span></div>
+      <p>Phones see it with a CastApp TV label, and any DLNA app (BubbleUPnP, Web Video Caster, AniBox on a PC) can cast to it. It plays mirroring, videos with subtitles, music, photos, channels, network files and web videos.</p>
+      <div class="links"><a href="#H1">H1</a><a href="#H7">H7</a><a href="#H11">H11</a></div>
+      <div class="files">tv/UpnpRenderer.kt · tv/TvPlayerActivity.kt</div><div class="ver">3.1</div></article>
+    <article class="f" id="H3" data-s="ok"><div class="top"><div><div class="id">H3</div><h3>Low-delay mirroring</h3></div><span class="pill s-ok">Released</span></div>
+      <p>For CastApp's own screen stream the player keeps almost no buffer and plays a little faster when frames pile up. It aims for under half a second.</p>
+      <div class="links"><a href="#A1">A1</a><a href="#I2">I2</a></div>
+      <div class="files">tv/TvPlayerActivity.kt</div><div class="ver">3.1</div></article>
+    <article class="f" id="H4" data-s="ok"><div class="top"><div><div class="id">H4</div><h3>Start with the TV, rename</h3></div><span class="pill s-ok">Released</span></div>
+      <p>Start with the TV keeps it ready after a restart; Rename sets the name phones see. On Android 10+ TVs it opens its player by itself only if it may display over other apps.</p>
+      <div class="links"><a href="#H1">H1</a><a href="#H5">H5</a></div>
+      <div class="files">tv/TvReceiverService.kt · tv/TvHomeActivity.kt</div><div class="ver">3.1</div></article>
+    <article class="f" id="H5" data-s="new"><div class="top"><div><div class="id">H5</div><h3>Found again after the TV sleeps</h3></div><span class="pill s-new">Ready in 4.1.0</span></div>
+      <p>When the TV wakes up (screen on, screensaver ends), CastApp TV announces itself on the network again, so phones and PCs find it without opening the app.</p>
+      <div class="links"><a href="#H1">H1</a><a href="#B1">B1</a></div>
+      <div class="files">tv/TvReceiverService.kt · tv/UpnpRenderer.kt</div><div class="ver">4.1.0</div></article>
+    <article class="f" id="H6" data-s="ok"><div class="top"><div><div class="id">H6</div><h3>Who may cast</h3></div><span class="pill s-ok">Released</span></div>
+      <p>Anyone on the network (the default on TVs), Ask first (the default on phones) or Only paired phones, which enter a 4-digit code once. Wrong codes are refused.</p>
+      <div class="links"><a href="#I5">I5</a><a href="#H2">H2</a></div>
+      <div class="files">tv/ReceiverGuard.kt · tv/ReceiverPrompt.kt · tv/PairingClient.kt · tv/ReceiverProtectionUi.kt</div><div class="ver">4.0</div></article>
+    <article class="f" id="H7" data-s="new"><div class="top"><div><div class="id">H7</div><h3>Tells what it can play</h3></div><span class="pill s-new">Ready in 4.1.0</span></div>
+      <p>Phones and other apps can ask the TV which picture, sound and subtitle formats and which file types it plays, as a list of yes and no at <code>/castapp/capabilities</code>. CastApp uses it to send a file as it is, use HEVC, or convert first.</p>
+      <div class="links"><a href="#A9">A9</a><a href="#H8">H8</a><a href="#D4">D4</a></div>
+      <div class="files">tv/DecoderReport.kt · tv/UpnpRenderer.kt · service/CastAppTvClient.kt</div><div class="ver">first list (HEVC, YouTube) 4.0 · full list, version 3, 4.1.0</div></article>
+    <article class="f" id="H8" data-s="new"><div class="top"><div><div class="id">H8</div><h3>Says why it can't play</h3></div><span class="pill s-new">Ready in 4.1.0</span></div>
+      <p>When a file fails (10-bit H.264 on a Shield, DivX 3, an address it can't load), the TV names the reason within seconds. The phone shows it and converts or moves on instead of waiting; other apps read it at <code>/castapp/status</code>.</p>
+      <div class="links"><a href="#E7">E7</a><a href="#G1">G1</a><a href="#G3">G3</a></div>
+      <div class="files">tv/PlaybackFailure.kt · tv/TrackSupport.kt · service/CastAppTvClient.kt · render/DlnaRenderer.kt</div><div class="ver">4.1.0</div></article>
+    <article class="f" id="H9" data-s="new"><div class="top"><div><div class="id">H9</div><h3>Picks the right subtitle and sound track</h3></div><span class="pill s-new">Ready in 4.1.0</span></div>
+      <p>A hint tells the TV which subtitle track inside the file to show (<code>castapp:subtrack</code>) and which sound track to play (<code>castapp:audiotrack</code>): the full English subtitles rather than "Signs &amp; Songs", or the German dub of a dual-audio file. Without a hint it plays the file's defaults.</p>
+      <div class="links"><a href="#D6">D6</a><a href="#D7">D7</a><a href="#L2">L2</a></div>
+      <div class="files">tv/TrackHint.kt · tv/TextTrackHint.kt · dlna/Dlna.kt</div><div class="ver">4.1.0</div></article>
+    <article class="f" id="H10" data-s="new"><div class="top"><div><div class="id">H10</div><h3>Styled ASS and several subtitle files</h3></div><span class="pill s-new">Ready in 4.1.0</span></div>
+      <p>Other apps can send ASS/SSA files as they are (position, colours, bold and italic kept) and up to 20 subtitle files at once (<code>castapp:subfiles</code>); the TV's subtitle menu then offers them. CastApp on the phone still sends one subtitle file as SRT or WebVTT.</p>
+      <div class="links"><a href="#H9">H9</a><a href="#F1">F1</a></div>
+      <div class="files">tv/SubtitleFiles.kt · tv/UpnpRenderer.kt · tv/TvPlayerActivity.kt</div><div class="ver">4.1.0</div></article>
+    <article class="f" id="H11" data-s="new"><div class="top"><div><div class="id">H11</div><h3>Plays the queued next item</h3></div><span class="pill s-new">Ready in 4.1.0</span></div>
+      <p>A sender can queue the next file (<code>SetNextAVTransportURI</code>); the TV starts it by itself when the current one ends, never after live streams, photos or mirroring. CastApp on the phone still sends each item itself.</p>
+      <div class="links"><a href="#P4">P4</a><a href="#H2">H2</a></div>
+      <div class="files">tv/UpnpRenderer.kt · tv/TvPlayerActivity.kt</div><div class="ver">4.1.0</div></article>
+    <article class="f" id="H12" data-s="ok"><div class="top"><div><div class="id">H12</div><h3>YouTube on the TV</h3></div><span class="pill s-ok">Released</span></div>
+      <p>A YouTube link sent to a CastApp TV opens in the TV's own YouTube app.</p>
+      <div class="links"><a href="#C8">C8</a></div>
+      <div class="files">service/CastAppTvClient.kt · tv/UpnpRenderer.kt</div><div class="ver">4.0</div></article>
+    <article class="f" id="H13" data-s="ok"><div class="top"><div><div class="id">H13</div><h3>Your subtitle look on the TV</h3></div><span class="pill s-ok">Released</span></div>
+      <p>Size, colour and background chosen on the phone (<code>castapp:substyle</code>) apply on the TV; without it the TV's own caption settings apply. Since 4.1.0 also for tracks inside the file.</p>
+      <div class="links"><a href="#F3">F3</a><a href="#D6">D6</a></div>
+      <div class="files">tv/TvPlayerActivity.kt · tv/UpnpRenderer.kt · dlna/Dlna.kt</div><div class="ver">4.0 · tracks inside the file 4.1.0</div></article>
+  </div></div>
+
+  <!-- I: several screens -->
+  <div class="area" id="area-i"><header><span class="letter">I</span><h3>Several screens and other phones</h3>
+    <p>Extras between devices with CastApp. They use short timeouts and fall back silently, so plain TVs keep working as before.</p></header>
+  <div class="grid">
+    <article class="f" id="I1" data-s="ok"><div class="top"><div><div class="id">I1</div><h3>Several screens at once</h3></div><span class="pill s-ok">Released</span></div>
+      <p>While casting, Add a screen picks another TV or speaker of any kind. Each gets its own row with status, volume and remove. Mirroring sends each screen the format it plays, and the quality follows the slowest one.</p>
+      <div class="links"><a href="#I2">I2</a><a href="#A5">A5</a></div>
+      <div class="files">multi/ScreenGroup.kt · service/MultiScreens.kt · ui/MultiScreenUi.kt</div><div class="ver">4.0</div></article>
+    <article class="f" id="I2" data-s="ok"><div class="top"><div><div class="id">I2</div><h3>Synced playback</h3></div><span class="pill s-ok">Released</span></div>
+      <p>CastApp TVs and phones that joined stay within about 0.1 s of each other; other TVs usually within about a second.</p>
+      <div class="links"><a href="#I1">I1</a><a href="#I3">I3</a></div>
+      <div class="files">multi/Sync.kt · multi/SyncFollower.kt</div><div class="ver">4.0</div></article>
+    <article class="f" id="I3" data-s="ok"><div class="top"><div><div class="id">I3</div><h3>Join a cast</h3></div><span class="pill s-ok">Released</span></div>
+      <p>Phones, tablets and CastApp TVs see "Name is casting title" with Join. The device that casts decides: Ask first (default), Anyone on this Wi-Fi or Off, and sees how many are watching.</p>
+      <div class="links"><a href="#I2">I2</a><a href="#I4">I4</a></div>
+      <div class="files">multi/PeerHub.kt · multi/PeerServer.kt · multi/PeerClient.kt · multi/Peers.kt</div><div class="ver">4.0</div></article>
+    <article class="f" id="I4" data-s="ok"><div class="top"><div><div class="id">I4</div><h3>Hand over, Ask to cast</h3></div><span class="pill s-ok">Released</span></div>
+      <p>Hand over… offers the cast to a nearby phone, which takes it only after a yes. Mirroring moves to the new phone; web videos, NAS files and channels go on at the same spot; files only the first phone can read stay served by it. Ask to cast works the other way round.</p>
+      <div class="links"><a href="#I3">I3</a></div>
+      <div class="files">multi/HandOver.kt · multi/MultiPrompt.kt · multi/Pending.kt</div><div class="ver">4.0</div></article>
+    <article class="f" id="I5" data-s="ok"><div class="top"><div><div class="id">I5</div><h3>Receive on this phone</h3></div><span class="pill s-ok">Released</span></div>
+      <p>A phone or tablet becomes a receiver like a TV (Settings → Connection, or the quick tile). Other phones then see it as a CastApp device; Ask first protects it.</p>
+      <div class="links"><a href="#H6">H6</a><a href="#L5">L5</a></div>
+      <div class="files">tv/TvReceiver.kt · tile/ReceiveTileService.kt</div><div class="ver">4.0</div></article>
+    <article class="f" id="I6" data-s="ok"><div class="top"><div><div class="id">I6</div><h3>Swap direction</h3></div><span class="pill s-ok">Released</span></div>
+      <p>While mirroring to a CastApp TV, Swap: TV → phone makes the TV mirror to the phone (confirm on the TV); Swap back returns. Protected apps, HDMI inputs and antenna TV stay black.</p>
+      <div class="links"><a href="#I5">I5</a><a href="#H1">H1</a></div>
+      <div class="files">service/SwapDirection.kt</div><div class="ver">4.0</div></article>
+  </div></div>
+
+  <!-- J: internet TV -->
+  <div class="area" id="area-j"><header><span class="letter">J</span><h3>Internet TV</h3>
+    <p>TV channels and radio from M3U lists and Xtream log-ins, with guide, reminders, recordings and a parental lock.</p></header>
+  <div class="grid">
+    <article class="f" id="J1" data-s="ok"><div class="top"><div><div class="id">J1</div><h3>Channel lists</h3></div><span class="pill s-ok">Released</span></div>
+      <p>Add a list as a link, a file or an Xtream log-in. Groups, search, favourites and logos; the list you see is the play list, so Previous and Next switch channels. Plain MPEG-TS channels are converted for Chromecasts.</p>
+      <div class="links"><a href="#J2">J2</a><a href="#A4">A4</a></div>
+      <div class="files">iptv/M3uParser.kt · iptv/IptvRepository.kt · iptv/XtreamClient.kt · iptv/Hls.kt · TvChannelsActivity.kt</div><div class="ver">3.0</div></article>
+    <article class="f" id="J2" data-s="ok"><div class="top"><div><div class="id">J2</div><h3>Programme guide and catch-up</h3></div><span class="pill s-ok">Released</span></div>
+      <p>Now and next and the day's schedule, refreshed every 12 hours from the list's guide, the Xtream guide or an address you enter. Channels whose provider keeps recordings offer catch-up.</p>
+      <div class="links"><a href="#J4">J4</a></div>
+      <div class="files">iptv/Xmltv.kt · iptv/GuideLoader.kt · iptv/GuideUi.kt</div><div class="ver">4.0</div></article>
+    <article class="f" id="J3" data-s="ok"><div class="top"><div><div class="id">J3</div><h3>Xtream movies and series</h3></div><span class="pill s-ok">Released</span></div>
+      <p>Xtream log-ins also get Movies and Series tabs.</p>
+      <div class="links"><a href="#J1">J1</a></div>
+      <div class="files">iptv/Xtream.kt · iptv/XtreamUi.kt</div><div class="ver">4.0</div></article>
+    <article class="f" id="J4" data-s="ok"><div class="top"><div><div class="id">J4</div><h3>Guide grid</h3></div><span class="pill s-ok">Released</span></div>
+      <p>Channels down the side and time across, a line for now, a day picker and two-hour jumps. Tap a programme to watch it, watch it again, set a reminder or record it.</p>
+      <div class="links"><a href="#J5">J5</a><a href="#J6">J6</a></div>
+      <div class="files">iptv/GuideGrid.kt · iptv/GuideGridMath.kt · iptv/ProgrammeSheet.kt</div><div class="ver">4.0 · layout fixes 4.1.0</div></article>
+    <article class="f" id="J5" data-s="ok"><div class="top"><div><div class="id">J5</div><h3>Reminders</h3></div><span class="pill s-ok">Released</span></div>
+      <p>A notification five minutes before a programme starts, with a button that casts the channel to your last TV. Reminders survive a restart of the phone.</p>
+      <div class="links"><a href="#J4">J4</a></div>
+      <div class="files">iptv/Reminders.kt</div><div class="ver">4.0</div></article>
+    <article class="f" id="J6" data-s="ok"><div class="top"><div><div class="id">J6</div><h3>Recordings</h3></div><span class="pill s-ok">Released</span></div>
+      <p>Record from the grid, or long-press a channel for Record now. Saved to the app's folder, the Movies gallery or a saved network folder (into its own CastApp folder), with a few minutes of padding. CastApp warns when watching and recording would use the same log-in.</p>
+      <div class="links"><a href="#C4">C4</a><a href="#J7">J7</a><a href="#G2">G2</a></div>
+      <div class="files">iptv/Recorder.kt · iptv/StreamRecorder.kt · iptv/RecordingService.kt · iptv/RecordingSinks.kt · RecordingsActivity.kt</div><div class="ver">4.0</div></article>
+    <article class="f" id="J7" data-s="ok"><div class="top"><div><div class="id">J7</div><h3>Parental lock</h3></div><span class="pill s-ok">Released</span></div>
+      <p>Set a PIN and lock or hide groups and single channels. Locked ones ask for the PIN before watching, recording or a reminder; hidden ones disappear from lists, grid and the TV queue. Everything stays open for 15 minutes after the PIN.</p>
+      <div class="links"><a href="#J1">J1</a><a href="#J6">J6</a></div>
+      <div class="files">iptv/ParentalLock.kt · iptv/ParentalLockUi.kt</div><div class="ver">4.0</div></article>
+  </div></div>
+
+  <!-- K: remotes -->
+  <div class="area" id="area-k"><header><span class="letter">K</span><h3>TV remotes</h3>
+    <p>Your phone as the TV's remote, over Wi-Fi, Bluetooth or infrared. It works with a different list of devices than casting.</p></header>
+  <div class="grid">
+    <article class="f" id="K1" data-s="ok"><div class="top"><div><div class="id">K1</div><h3>Remote over Wi-Fi</h3></div><span class="pill s-ok">Released</span></div>
+      <p>Google TV, Shield and Android TV (type the pairing code; a mic button for voice search), Roku (nothing to set up), Samsung Tizen from 2016 (tap Allow on the TV) and LG webOS (accept on the TV).</p>
+      <div class="links"><a href="#K4">K4</a><a href="#B8">B8</a></div>
+      <div class="files">remote/net/AndroidTvRemote.kt · remote/net/RokuRemote.kt · remote/net/SamsungRemote.kt · remote/net/LgRemote.kt · remote/VoiceCapture.kt</div><div class="ver">4.0</div></article>
+    <article class="f" id="K2" data-s="ok"><div class="top"><div><div class="id">K2</div><h3>Bluetooth remote</h3></div><span class="pill s-ok">Released</span></div>
+      <p>The phone pairs with a Fire TV, Shield or Android TV box like a remote or keyboard. Needs Android 9+, and not every phone supports it.</p>
+      <div class="links"><a href="#K4">K4</a></div>
+      <div class="files">remote/BluetoothRemote.kt · remote/HidReports.kt</div><div class="ver">4.0</div></article>
+    <article class="f" id="K3" data-s="ok"><div class="top"><div><div class="id">K3</div><h3>Infrared</h3></div><span class="pill s-ok">Released</span></div>
+      <p>On phones with an IR blaster (Xiaomi, Redmi, POCO, some Honor and Huawei): Samsung, LG, Sony, Philips, Panasonic and Toshiba TVs.</p>
+      <div class="links"><a href="#K4">K4</a></div>
+      <div class="files">remote/InfraredRemotes.kt · remote/IrCodes.kt · remote/IrProtocols.kt</div><div class="ver">4.0</div></article>
+    <article class="f" id="K4" data-s="ok"><div class="top"><div><div class="id">K4</div><h3>The remote, wherever you are</h3></div><span class="pill s-ok">Released</span></div>
+      <p>From the remote icon on the main screen, a TV's ⋮ menu, the TV remote tile, and inside the casting card (Use this phone as the remote; All buttons opens the full one). Since 4.1.0 both remotes share one search, so switching or turning the phone doesn't reconnect.</p>
+      <div class="links"><a href="#K1">K1</a><a href="#L5">L5</a><a href="#N1">N1</a></div>
+      <div class="files">RemoteActivity.kt · RemoteViewModel.kt · ui/HomeRemote.kt · remote/RemoteDiscovery.kt · remote/SharedRun.kt</div><div class="ver">4.0 · shared search 4.1.0</div></article>
+  </div></div>
+
+  <!-- L: other apps -->
+  <div class="area" id="area-l"><header><span class="letter">L</span><h3>Other apps and quick access</h3>
+    <p>Other apps can start and control casts with Android intents (<a href="https://github.com/patschgoo/CastApp/blob/main/AUTOMATION.md">AUTOMATION.md</a>), and the home screen and Quick Settings have shortcuts.</p></header>
+  <div class="grid">
+    <article class="f" id="L1" data-s="ok"><div class="top"><div><div class="id">L1</div><h3>Automation (Tasker, MacroDroid, Home Assistant)</h3></div><span class="pill s-ok">Released</span></div>
+      <p>Off by default (Settings → Automation), with an optional secret. Mirror, cast a link or file, stop, play/pause, skip, volume, quality, Receive on this phone and the remote, each answered with a result code.</p>
+      <div class="links"><a href="#L2">L2</a><a href="#M1">M1</a></div>
+      <div class="files">automation/AutomationParser.kt · automation/AutomationExecutor.kt · automation/AutomationEntry.kt · automation/DeviceMatcher.kt · AUTOMATION.md</div><div class="ver">4.0</div></article>
+    <article class="f" id="L2" data-s="new"><div class="top"><div><div class="id">L2</div><h3>Cast a play list (CAST_QUEUE)</h3></div><span class="pill s-new">Ready in 4.1.0</span></div>
+      <p>One request with up to 500 items: address, title, subtitles with languages, poster, where to start, and the sound and subtitle language. Every item is checked; one bad item refuses the whole request and the message says which.</p>
+      <div class="links"><a href="#L3">L3</a><a href="#L4">L4</a><a href="#H9">H9</a></div>
+      <div class="files">automation/QueueRequest.kt · automation/QueueCast.kt</div><div class="ver">4.1.0</div></article>
+    <article class="f" id="L3" data-s="new"><div class="top"><div><div class="id">L3</div><h3>"Play on TV" for other apps</h3></div><span class="pill s-new">Ready in 4.1.0</span></div>
+      <p>An app can open CastApp's Cast to TV sheet with its play list without the automation switch. Nothing is cast until you tap a TV; the app hears ok or cancelled.</p>
+      <div class="links"><a href="#L2">L2</a></div>
+      <div class="files">automation/PlayOnTvActivity.kt</div><div class="ver">4.1.0</div></article>
+    <article class="f" id="L4" data-s="new"><div class="top"><div><div class="id">L4</div><h3>Playback reports (PLAYBACK)</h3></div><span class="pill s-new">Ready in 4.1.0</span></div>
+      <p>The app that sent the list hears started, paused, resumed, progress (about every 30 s), stopped, finished and failed with a reason, so it can save resume points and mark episodes watched. Reports go only to that app, and only if CastApp can confirm who asked.</p>
+      <div class="links"><a href="#L2">L2</a><a href="#E2">E2</a></div>
+      <div class="files">automation/PlaybackReports.kt</div><div class="ver">4.1.0</div></article>
+    <article class="f" id="L5" data-s="ok"><div class="top"><div><div class="id">L5</div><h3>Quick Settings tiles</h3></div><span class="pill s-ok">Released</span></div>
+      <p>Cast screen (mirrors to the last TV, tap again to stop), Receive on this phone and TV remote.</p>
+      <div class="links"><a href="#A1">A1</a><a href="#I5">I5</a><a href="#K4">K4</a></div>
+      <div class="files">tile/CastTileService.kt · tile/ReceiveTileService.kt · tile/RemoteTileService.kt</div><div class="ver">Cast screen 1.0 · Receive and Remote 4.0</div></article>
+    <article class="f" id="L6" data-s="ok"><div class="top"><div><div class="id">L6</div><h3>Home-screen widget</h3></div><span class="pill s-ok">Released</span></div>
+      <p>Cast and stop from the home screen.</p>
+      <div class="links"><a href="#L5">L5</a></div>
+      <div class="files">widget/CastWidget.kt · widget/WidgetModel.kt</div><div class="ver">4.0</div></article>
+    <article class="f" id="L7" data-s="ok"><div class="top"><div><div class="id">L7</div><h3>Launcher shortcuts</h3></div><span class="pill s-ok">Released</span></div>
+      <p>Long-press the app icon for Mirror screen to your TV.</p>
+      <div class="links"><a href="#A1">A1</a></div>
+      <div class="files">Shortcuts.kt</div><div class="ver">1.0</div></article>
+  </div></div>
+
+  <!-- M: watch -->
+  <div class="area" id="area-m"><header><span class="letter">M</span><h3>Wear OS watch</h3>
+    <p>A small separate app for the watch (CastApp-wear.apk). A phone without a watch or without Google Play services works exactly as before.</p></header>
+  <div class="grid">
+    <article class="f" id="M1" data-s="ok"><div class="top"><div><div class="id">M1</div><h3>Watch remote</h3></div><span class="pill s-ok">Released</span></div>
+      <p>Shows what the phone casts, with play/pause, previous/next, volume, stop and Mirror to your last TV. Needs Google Play services and the same CastApp build (same signing key) on phone and watch.</p>
+      <div class="links"><a href="#M2">M2</a><a href="#E6">E6</a></div>
+      <div class="files">watch app: wear/ · wear-protocol/ · phone side: castapp/wear/WearListenerService.kt, WearSync.kt, WearCommands.kt</div><div class="ver">4.0</div></article>
+    <article class="f" id="M2" data-s="new"><div class="top"><div><div class="id">M2</div><h3>TV volume on the bezel or crown</h3></div><span class="pill s-new">Ready in 4.1.0</span></div>
+      <p>Turning a Galaxy Watch bezel, or a Pixel Watch or TicWatch crown, changes the TV volume one step per notch, with a tick you can feel and the level shown at the edge.</p>
+      <div class="links"><a href="#M1">M1</a></div>
+      <div class="files">watch app: wear/…/RotaryVolume.kt, RotaryVolumeUi.kt · wear-protocol/…/WearProtocol.kt · phone side: castapp/wear/WearCommands.kt</div><div class="ver">4.1.0</div></article>
+  </div></div>
+
+  <!-- N: the app itself -->
+  <div class="area" id="area-n"><header><span class="letter">N</span><h3>The app itself</h3>
+    <p>The main screen, looks, languages, help tools, updates and how the app is built and licensed.</p></header>
+  <div class="grid">
+    <article class="f" id="N1" data-s="ok"><div class="top"><div><div class="id">N1</div><h3>Main screen</h3></div><span class="pill s-ok">Released</span></div>
+      <p>Cast to at the top (the TV everything goes to), three big buttons (Mirror screen, One app, Phone sound), tiles for videos, photos, music, Plex, Jellyfin, network, TV channels and web videos, and a cast bar at the bottom that opens the casting card.</p>
+      <div class="links"><a href="#C3">C3</a><a href="#K4">K4</a><a href="#N2">N2</a></div>
+      <div class="files">ui/TileHome.kt · ui/DevicesScreen.kt · ui/HomeLogic.kt · ui/PlaybackPanel.kt</div><div class="ver">4.0</div></article>
+    <article class="f" id="N2" data-s="ok"><div class="top"><div><div class="id">N2</div><h3>Violet look and its own font</h3></div><span class="pill s-ok">Released</span></div>
+      <p>CastApp's own violet colours and the bundled Plus Jakarta Sans, the same on every phone. Light and dark follow the system, or force one in Settings.</p>
+      <div class="links"><a href="#Y2">Y2</a><a href="#N1">N1</a></div>
+      <div class="files">ui/theme/Theme.kt · res/font/</div><div class="ver">theme setting 1.1 · violet look and font 4.0</div></article>
+    <article class="f" id="N3" data-s="ok"><div class="top"><div><div class="id">N3</div><h3>Tablets and landscape</h3></div><span class="pill s-ok">Released</span></div>
+      <p>From 600 dp wide the screens use two panes: tiles on one side, casting card and TV list on the other.</p>
+      <div class="links"><a href="#N1">N1</a></div>
+      <div class="files">ui/Adaptive.kt</div><div class="ver">4.0 · width fixes 4.1.0</div></article>
+    <article class="f" id="N4" data-s="ok"><div class="top"><div><div class="id">N4</div><h3>English and German</h3></div><span class="pill s-ok">Released</span></div>
+      <p>Every text exists in English and German (informal "du") and follows the phone's language. Texts sent to TVs and servers stay English.</p>
+      <div class="links"><a href="#N5">N5</a></div>
+      <div class="files">res/values/strings_*.xml · res/values-de/ · Txt.kt</div><div class="ver">4.0</div></article>
+    <article class="f" id="N5" data-s="ok"><div class="top"><div><div class="id">N5</div><h3>Tour, settings search, accessibility</h3></div><span class="pill s-ok">Released</span></div>
+      <p>Four short pages on the first start (Show the tour brings them back), a search over all settings, named buttons for TalkBack, and a clear focus ring on the TV.</p>
+      <div class="links"><a href="#N4">N4</a></div>
+      <div class="files">ui/FirstRunTour.kt · ui/TourDecision.kt · ui/SettingsSearch.kt · ui/FocusRing.kt</div><div class="ver">4.0</div></article>
+    <article class="f" id="N6" data-s="ok"><div class="top"><div><div class="id">N6</div><h3>Test this phone</h3></div><span class="pill s-ok">Released</span></div>
+      <p>Checks the encoders (H.264, HEVC, AAC), screen and sound capture, notifications, battery optimization, infrared, Bluetooth keyboard mode, Wi-Fi and VPN, multicast, the receiver port and speech models, and explains each result in plain words.</p>
+      <div class="links"><a href="#N8">N8</a><a href="#N7">N7</a></div>
+      <div class="files">support/SelfTest.kt · support/SelfTestUi.kt</div><div class="ver">4.0</div></article>
+    <article class="f" id="N7" data-s="ok"><div class="top"><div><div class="id">N7</div><h3>Why can't I find my TV?</h3></div><span class="pill s-ok">Released</span></div>
+      <p>A network check of about 6 seconds: mobile data, a VPN, the router, searches nobody answered, a TV on another network, Data Saver or Battery Saver, most important first.</p>
+      <div class="links"><a href="#B1">B1</a><a href="#N6">N6</a></div>
+      <div class="files">support/NetworkCheck.kt · support/NetworkProbe.kt</div><div class="ver">4.0</div></article>
+    <article class="f" id="N8" data-s="ok"><div class="top"><div><div class="id">N8</div><h3>Debug log and battery help</h3></div><span class="pill s-ok">Released</span></div>
+      <p>Send debug log opens the share sheet; nothing is sent by itself. Battery &amp; background asks to be left alone and shows tips for your phone's brand.</p>
+      <div class="links"><a href="#N6">N6</a></div>
+      <div class="files">support/DebugLog.kt · support/BatteryHelp.kt</div><div class="ver">4.0</div></article>
+    <article class="f" id="N9" data-s="ok"><div class="top"><div><div class="id">N9</div><h3>Updates from GitHub releases</h3></div><span class="pill s-ok">Released</span></div>
+      <p>Looks at the GitHub releases once a day at start (can be off) or when you tap Check for updates, shows the release notes, and Install downloads CastApp.apk and starts Android's installer. A tag like v4.1.0 makes the release.</p>
+      <div class="links"><a href="#N10">N10</a><a href="#Y4">Y4</a></div>
+      <div class="files">support/Updates.kt · support/ReleaseInfo.kt · .github/workflows/build.yml · fastlane/metadata/android/</div><div class="ver">4.0</div></article>
+    <article class="f" id="N10" data-s="new"><div class="top"><div><div class="id">N10</div><h3>Your own signing key</h3></div><span class="pill s-new">Ready in 4.1.0</span></div>
+      <p>A script makes the release key on your Windows PC and writes down exactly what goes into GitHub. Without it, builds use the committed key, which is fine for personal use only.</p>
+      <div class="links"><a href="#N9">N9</a></div>
+      <div class="files">tools/make-signing-key.ps1</div><div class="ver">4.1.0</div></article>
+    <article class="f" id="N11" data-s="new"><div class="top"><div><div class="id">N11</div><h3>Free software, GPL-3.0</h3></div><span class="pill s-new">Ready in 4.1.0</span></div>
+      <p>CastApp is under the GNU GPL version 3, with an extra permission for Google Play services (Wear OS only). whisper.cpp, Vosk, Media3, smbj and Bouncy Castle keep their own compatible licenses.</p>
+      <div class="links"><a href="#P5">P5</a></div>
+      <div class="files">LICENSE · README.md (License)</div><div class="ver">4.1.0</div></article>
+    <article class="f" id="N12" data-s="new"><div class="top"><div><div class="id">N12</div><h3>Screens checked on the PC</h3></div><span class="pill s-new">Ready in 4.1.0</span></div>
+      <p>Pictures of the main screens (light and dark, English and German, normal and double font size, phone, tablet and TV home) are made on the PC, each with a list of cut-off text and small tap targets. The store pictures come from the same run.</p>
+      <div class="links"><a href="#N1">N1</a><a href="#N3">N3</a></div>
+      <div class="files">app/src/test/…/screenshots/ · docs/*.png · fastlane/metadata/android/</div><div class="ver">4.1.0</div></article>
+  </div></div>
+
+  <!-- P: coming later -->
+  <div class="area" id="area-p"><header><span class="letter">P</span><h3>Coming later</h3>
+    <p>Planned, not started. The order is a suggestion; the device tests decide what comes first.</p></header>
+  <div class="grid">
+    <article class="f" id="P1" data-s="later"><div class="top"><div><div class="id">P1</div><h3>The Shield plays from its own drives</h3></div><span class="pill s-later">Later</span></div>
+      <p>When a file on the Shield's own drives plays on the Shield's CastApp TV, the phone still reads it over the network and passes it on. Later the Shield could open the file itself, so the phone is free.</p>
+      <div class="links"><a href="#C4">C4</a><a href="#H2">H2</a></div>
+      <div class="files">not started · after the first Shield test</div><div class="ver">later</div></article>
+    <article class="f" id="P2" data-s="later"><div class="top"><div><div class="id">P2</div><h3>Repackage 1080i recordings</h3></div><span class="pill s-later">Later</span></div>
+      <p>Interlaced HD recordings (1080i, common on TV channels) are still converted in full. Later they could be repackaged like 720p and 1080p ones.</p>
+      <div class="links"><a href="#G2">G2</a><a href="#J6">J6</a></div>
+      <div class="files">capture/Remux.kt (interlaced pictures go to Convert today)</div><div class="ver">later</div></article>
+    <article class="f" id="P3" data-s="later"><div class="top"><div><div class="id">P3</div><h3>Sound of MP2 and AC-3 recordings on Pixels</h3></div><span class="pill s-later">Later</span></div>
+      <p>Phones without an MP2 or AC-3 decoder, such as Pixels, play such TV recordings without sound ("No sound: this phone can't decode … audio"). Later the sound should play there too.</p>
+      <div class="links"><a href="#G2">G2</a><a href="#E7">E7</a></div>
+      <div class="files">capture/Transcoder.kt · capture/Media3Samples.kt</div><div class="ver">later</div></article>
+    <article class="f" id="P4" data-s="later"><div class="top"><div><div class="id">P4</div><h3>The phone queues the next item on CastApp TV</h3></div><span class="pill s-later">Later</span></div>
+      <p>CastApp TV can start a queued next file by itself (H11), but CastApp on the phone still sends each item when the last one ends. Using the TV's queue would close the short gap between episodes.</p>
+      <div class="links"><a href="#H11">H11</a><a href="#E1">E1</a></div>
+      <div class="files">render/DlnaRenderer.kt · service/MediaCastSession.kt</div><div class="ver">later</div></article>
+    <article class="f" id="P5" data-s="later"><div class="top"><div><div class="id">P5</div><h3>Listing on IzzyOnDroid</h3></div><span class="pill s-later">Later</span></div>
+      <p>IzzyOnDroid takes the APK from a GitHub release as it is and reads the store texts; it needs an open-source license, which CastApp now has. Ask for inclusion once a release is out. F-Droid's main repository would first need Vosk built from source or dropped.</p>
+      <div class="links"><a href="#N11">N11</a><a href="#N9">N9</a></div>
+      <div class="files">fastlane/metadata/android/ · README.md (Store metadata)</div><div class="ver">later</div></article>
+  </div></div>
+
+  <!-- X: not in CastApp -->
+  <div class="area" id="area-x"><header><span class="letter">X</span><h3>Not in CastApp</h3>
+    <p>What stays outside CastApp on purpose, and where it lives instead.</p></header>
+  <div class="grid">
+    <article class="f" id="X1" data-s="no"><div class="top"><div><div class="id">X1</div><h3>Media library and "What's missing"</h3></div><span class="pill s-no">Not in CastApp</span></div>
+      <p>A library of your own folders, matched to MyAnimeList, and the report of missing seasons and OVAs belong to AniBox. CastApp stays a cast and mirror app.</p>
+      <div class="links"><a href="#Y3">Y3</a><a href="#anibox">AniBox</a></div>
+      <div class="files">AniBox (separate PC app)</div><div class="ver">by decision</div></article>
+    <article class="f" id="X2" data-s="no"><div class="top"><div><div class="id">X2</div><h3>MyAnimeList and AniList sync</h3></div><span class="pill s-no">Not in CastApp</span></div>
+      <p>Marking episodes on your anime lists is AniBox's job. A later AniBox Android app can use CastApp's playback reports (L4) for it.</p>
+      <div class="links"><a href="#Y3">Y3</a><a href="#L4">L4</a></div>
+      <div class="files">AniBox</div><div class="ver">by decision</div></article>
+    <article class="f" id="X3" data-s="no"><div class="top"><div><div class="id">X3</div><h3>Downloads</h3></div><span class="pill s-no">Not in CastApp</span></div>
+      <p>Downloading videos to keep belongs to AniBox. CastApp plays from where the files are; the only files it saves are TV recordings (J6).</p>
+      <div class="links"><a href="#Y3">Y3</a><a href="#J6">J6</a></div>
+      <div class="files">AniBox</div><div class="ver">by decision</div></article>
+    <article class="f" id="X4" data-s="no"><div class="top"><div><div class="id">X4</div><h3>Copy-protected apps</h3></div><span class="pill s-no">Not in CastApp</span></div>
+      <p>Netflix, Disney+, Prime Video and banking apps block screen capture, and their websites use copy protection. Use their own Cast button.</p>
+      <div class="links"><a href="#A1">A1</a><a href="#C7">C7</a></div>
+      <div class="files">an Android rule</div><div class="ver">not possible</div></article>
+  </div></div>
+
+  <!-- Y: decisions -->
+  <div class="area" id="area-y"><header><span class="letter">Y</span><h3>Your decisions</h3>
+    <p>Choices you made that shape some of the features above, and one still open.</p></header>
+  <div class="grid">
+    <article class="f" id="Y1"><div class="top"><div><div class="id">Y1</div><h3>Your subtitle languages win over Plex's pick</h3></div><span class="pill s-dec">Decided 2026-11-23</span></div>
+      <p>For Plex episodes, the track in CastApp's Subtitle languages setting shows first, full tracks before "Signs &amp; Songs". Plex's own choice only breaks ties or applies when none matches your languages, and it is never changed on the server.</p>
+      <div class="links"><a href="#D6">D6</a><a href="#F1">F1</a></div></article>
+    <article class="f" id="Y2"><div class="top"><div><div class="id">Y2</div><h3>The darker lavender buttons stay</h3></div><span class="pill s-dec">Decided 2026-11-23</span></div>
+      <p>Tonal buttons, remote keys and selected chips keep the slightly darker lavender, so they stand out on the light cards. The filter buttons on this page use the same colour.</p>
+      <div class="links"><a href="#N2">N2</a></div></article>
+    <article class="f" id="Y3"><div class="top"><div><div class="id">Y3</div><h3>CastApp stays a cast and mirror app</h3></div><span class="pill s-dec">Decided 2026-11-23</span></div>
+      <p>Library, MyAnimeList sync, "What's missing" and downloads belong to AniBox. CastApp offers other apps a clean way in (CAST_QUEUE and PLAYBACK) instead.</p>
+      <div class="links"><a href="#X1">X1</a><a href="#X2">X2</a><a href="#X3">X3</a><a href="#L2">L2</a></div></article>
+    <article class="f" id="Y4"><div class="top"><div><div class="id">Y4</div><h3>When to release 4.1.0</h3></div><span class="pill s-dec">Your call</span></div>
+      <p>4.1.0 is ready on main. The in-app update check only sees it after the v4.1.0 tag, and the Shield needs 4.1.0 for the CastApp TV extras AniBox uses. The 30-minute checks in TESTING.md are a good gate.</p>
+      <div class="links"><a href="#N9">N9</a><a href="#check">To test</a></div></article>
+  </div></div>
+</section>
+
+<section class="block" id="services">
+  <span class="kicker">Outside CastApp</span>
+  <h2>How CastApp talks to each device and service</h2>
+  <p class="intro">What CastApp reads, what it sends or changes, and when. Everything stays on your Wi-Fi unless the row names an internet service.</p>
+  <div class="tw"><table>
+    <thead><tr><th>Device or service</th><th>What CastApp reads</th><th>What CastApp sends or changes</th><th>When</th><th>You need</th></tr></thead>
+    <tbody>
+      <tr><td>Google Cast<br><span class="pill s-ok">Used</span></td><td>Device name, what plays, volume</td><td>Starts Google's player (or your low-latency player) with an address on the phone; play, pause, seek, volume</td><td>While you cast</td><td>Same Wi-Fi</td></tr>
+      <tr><td>DLNA TVs and Kodi<br><span class="pill s-ok">Used</span></td><td>Device description, play state, volume</td><td>The video address (plus an SRT file for Samsung TVs), controls; live MPEG-TS for mirroring</td><td>While you cast</td><td>Same Wi-Fi; Kodi: UPnP on</td></tr>
+      <tr><td>Apple TV (AirPlay)<br><span class="pill s-ok">Used</span></td><td>Play state</td><td>Video or HLS address, controls, volume, over an encrypted connection</td><td>While you cast</td><td>The 4-digit code once (kept encrypted)</td></tr>
+      <tr><td>Roku<br><span class="pill s-ok">Used</span></td><td>Player state</td><td>"Play on Roku" with the address, key presses</td><td>While you cast</td><td>Control by mobile apps turned on</td></tr>
+      <tr><td>CastApp TV<br><span class="pill s-ok">Used</span></td><td>What it can play, its status and why something failed</td><td>Video address with hints (subtitle and sound track, subtitle look, sync), the mirroring stream, YouTube links, swap requests</td><td>While you cast</td><td>CastApp opened once on the TV; the code in "Only paired phones" mode</td></tr>
+      <tr><td>Other phones with CastApp<br><span class="pill s-ok">Used</span></td><td>What they cast, their clock</td><td>Join requests, hand-over offers, controls, timeline for synced playback</td><td>When you join, hand over or ask</td><td>CastApp on both; a Wi-Fi where mDNS works</td></tr>
+      <tr><td>Plex (server and plex.tv)<br><span class="pill s-ok">Used</span></td><td>Servers, libraries, posters, Continue watching, subtitles, the file itself</td><td>Resume points and watched marks (at the end, or by hand). Never the server's saved subtitle choice</td><td>Sign-in once; reads while you browse; reports while playing</td><td>A Plex account (code at plex.tv/link)</td></tr>
+      <tr><td>Jellyfin, Emby<br><span class="pill s-ok">Used</span></td><td>Libraries, posters, Next up, subtitles as WebVTT</td><td>Playing, progress and stopped reports; watched marks</td><td>Same as Plex</td><td>User name and password once; only the token is kept, encrypted</td></tr>
+      <tr><td>DLNA media servers<br><span class="pill s-ok">Used</span></td><td>Folders and files</td><td>Nothing</td><td>While you browse</td><td>Plex: its DLNA server on; Jellyfin: the DLNA plugin</td></tr>
+      <tr><td>Network shares (SMB, WebDAV)<br><span class="pill s-ok">Used</span></td><td>Folders, videos, subtitle files; one frame per video for Continue watching (Wi-Fi only)</td><td>Only TV recordings you send there, into a CastApp folder, and removing them when you delete the recording</td><td>While you browse or play; during recordings</td><td>Server, share, user and password (kept encrypted)</td></tr>
+      <tr><td>Cloud apps<br><span class="pill s-ok">Used</span></td><td>The file you pick in Android's picker</td><td>Nothing</td><td>When you pick</td><td>The cloud app installed</td></tr>
+      <tr><td>Websites<br><span class="pill s-ok">Used</span></td><td>Pages you open in the built-in browser and the videos they play</td><td>Passes a video on to the TV with that site's cookies and referrer when the TV can't fetch it</td><td>While you browse or cast</td><td>Nothing</td></tr>
+      <tr><td>YouTube<br><span class="pill s-ok">Used</span></td><td>Nothing</td><td>The video to the TV's YouTube app (unofficial lounge protocol)</td><td>When you share a link</td><td>A Chromecast, Google TV or CastApp TV with YouTube</td></tr>
+      <tr><td>IPTV providers<br><span class="pill s-ok">Used</span></td><td>Channel lists, guides, Xtream movies and series, streams</td><td>Your log-in inside the addresses; recordings fetch the stream</td><td>When you open lists; guides every 12 hours; recordings</td><td>A list or log-in you're allowed to use</td></tr>
+      <tr><td>OpenSubtitles.com<br><span class="pill s-ok">Used</span></td><td>Search results, subtitle files</td><td>The file's hash and name</td><td>Only when you tap Find</td><td>Your own free API key; log-in optional</td></tr>
+      <tr><td>Speech models<br><span class="pill s-ok">Used</span></td><td>Vosk models (alphacephei.com), Whisper models (Hugging Face, checked against SHA-256)</td><td>Nothing</td><td>Once, when you choose a language or model</td><td>30 to 50 MB (Vosk), 31 to 181 MB (Whisper)</td></tr>
+      <tr><td>GitHub releases<br><span class="pill s-ok">Used</span></td><td>The latest release and its CastApp.apk</td><td>Nothing</td><td>Once a day at start (can be off), or on tap</td><td>A public repository</td></tr>
+      <tr><td>TV remotes<br><span class="pill s-ok">Used</span></td><td>Pairing answers</td><td>Key presses, text and voice for search</td><td>While a remote is open</td><td>Code, Allow or accept on the TV; Bluetooth pairing; an IR blaster</td></tr>
+      <tr><td>Wear OS watch<br><span class="pill s-ok">Used</span></td><td>Commands from the watch</td><td>What plays, the volume</td><td>While casting</td><td>Google Play services on both; the same CastApp build</td></tr>
+      <tr><td>Other apps<br><span class="pill s-ok">Used</span></td><td>Commands and play lists</td><td>Result codes; PLAYBACK reports only to the app that asked</td><td>When an app sends a request</td><td>The automation switch (not for Play on TV); optional secret</td></tr>
+      <tr><td>AniBox on the PC<br><span class="pill s-no">No connection</span></td><td colspan="3">AniBox talks to CastApp TV directly as a DLNA TV; the phone app isn't involved. See <a class="plain" href="#anibox">CastApp and AniBox</a>.</td><td>CastApp 4.1.0 on the TV for the extras</td></tr>
+      <tr><td>MyAnimeList, AniList<br><span class="pill s-no">Not in CastApp</span></td><td colspan="3">Lists and sync belong to AniBox (<a href="#X2">X2</a>).</td><td>–</td></tr>
+    </tbody>
+  </table></div>
+</section>
+
+<section class="block" id="anibox">
+  <span class="kicker">CastApp and AniBox</span>
+  <h2>How CastApp works with AniBox</h2>
+  <p class="intro">AniBox is a separate program on the Windows PC: library, player and organizer for your anime. It isn't part of CastApp. It meets CastApp in two places. AniBox's side is in the <a href="https://claude.ai/code/artifact/d5714afe-2290-4901-8711-5d4d91cbe7ca">AniBox Feature Map</a>; the contract is in AUTOMATION.md ("Casting a play list", "Play on TV", "Hearing how it plays", "CastApp TV for other sender apps").</p>
+  <div class="tw"><table>
+    <thead><tr><th>What</th><th>How it works</th><th>Status</th></tr></thead>
+    <tbody>
+      <tr><td>AniBox on the PC → CastApp TV</td><td>Plain DLNA: AniBox finds CastApp TV by searching the network or by the address the TV shows (…:49595), pairs with the 4-digit code in "Only paired phones" mode, reads what it can play, sends the subtitle and sound track hints and reads why something didn't play. With 4.0.0 on the TV, videos play, but the hints, the full format list and the reasons are missing. <a href="#H2">H2</a> <a href="#H6">H6</a> <a href="#H7">H7</a> <a href="#H8">H8</a> <a href="#H9">H9</a></td><td><span class="pill s-new">Ready in 4.1.0</span></td></tr>
+      <tr><td>AniBox Android app → CastApp on the phone</td><td><code>CAST_QUEUE</code> opens the Cast to TV sheet with the episode list (resume point, subtitles, sound and subtitle language, poster). <code>PLAYBACK</code> reports come back, so AniBox saves resume points and marks episodes watched. <a href="#L2">L2</a> <a href="#L3">L3</a> <a href="#L4">L4</a></td><td><span class="pill s-new">Ready in 4.1.0</span> CastApp side; the AniBox app comes later</td></tr>
+      <tr><td>Library, MyAnimeList sync, "What's missing", downloads</td><td>AniBox's job; CastApp stays a cast and mirror app. <a href="#X1">X1</a> <a href="#X2">X2</a> <a href="#X3">X3</a> <a href="#Y3">Y3</a></td><td><span class="pill s-no">Not in CastApp</span></td></tr>
+    </tbody>
+  </table></div>
+</section>
+
+<section class="block" id="flows">
+  <span class="kicker">Walk-throughs</span>
+  <h2>How the parts work together</h2>
+  <div class="flows">
+    <div class="flow"><h3>Mirror the phone screen to the Shield</h3><div class="ids">H1 → B1 → A1 → H3 → A5 → A4</div>
+      <ol>
+        <li>Open CastApp on the Shield once. CastApp TV shows "Ready to cast" and its address.</li>
+        <li>On the phone, Cast to lists the Shield with a CastApp TV label.</li>
+        <li>Tap Mirror screen and confirm Android's "Start casting?".</li>
+        <li>The phone encodes the screen; the Shield plays it with almost no buffer, aiming for under half a second.</li>
+        <li>On weak Wi-Fi the quality drops by itself; Quality on the casting card sets it by hand.</li>
+        <li>Stop from the cast bar, the notification or the tile.</li>
+      </ol></div>
+    <div class="flow"><h3>An anime episode from Plex on the Shield's CastApp TV</h3><div class="ids">D1 → D4 → D6 → D7 → H9 → D5</div>
+      <ol>
+        <li>Sign in to Plex once with the code at plex.tv/link.</li>
+        <li>Pick the episode and the Shield. CastApp TV gets the MKV file itself; nothing is converted.</li>
+        <li>CastApp picks the subtitle track in your Subtitle languages (the full one, not "Signs &amp; Songs") and tells the TV; the sound track picked in Plex goes along too.</li>
+        <li>The TV shows the track in your subtitle look. The picker switches tracks or turns them off.</li>
+        <li>If the Shield can't decode the picture, it says why and CastApp falls back to Plex's converted stream.</li>
+        <li>Resume point and watched mark go back to Plex; the next episodes are queued.</li>
+      </ol></div>
+    <div class="flow"><h3>A file from a network share on a Chromecast</h3><div class="ids">C4 → G2 → G1 → F1 → F3</div>
+      <ol>
+        <li>Network &amp; cloud → +: paste the share address from File Explorer, user and password (stored encrypted).</li>
+        <li>Tap an episode: the folder becomes the play list, in counted order.</li>
+        <li>The phone reads the file from the share and serves it to the Chromecast, with seeking.</li>
+        <li>An H.264 MKV or recording is repackaged; HEVC, MPEG-2 or AVI is converted to H.264 and AAC.</li>
+        <li>A subtitle file in your language goes along; look and timing can be changed.</li>
+      </ol></div>
+    <div class="flow"><h3>Another app sends a play list</h3><div class="ids">L2 → L3 → L4</div>
+      <ol>
+        <li>The app builds the list (addresses, titles, subtitles, poster, sound and subtitle language) with a start position and a request id.</li>
+        <li>CastApp shows its Cast to TV sheet; you tap a TV. No automation switch is needed for this.</li>
+        <li>CastApp casts the list and answers ok or cancelled.</li>
+        <li>PLAYBACK reports go to that app only: started, progress about every 30 s, paused, stopped, finished or failed with a reason.</li>
+        <li>The app saves resume points and marks an episode watched on finished.</li>
+      </ol></div>
+    <div class="flow"><h3>Record a TV channel</h3><div class="ids">J1 → J2 → J4 → J6 → J7</div>
+      <ol>
+        <li>Add a channel list (link, file or Xtream log-in) and a guide.</li>
+        <li>In the Grid, tap a programme → Record, or long-press a channel for Record now.</li>
+        <li>Choose where: the app's folder, the Movies gallery or a saved network folder.</li>
+        <li>The recording runs in the background with a notification and a few minutes of padding. CastApp warns if the same log-in is already in use.</li>
+        <li>On Android 12+, a planned recording may need a tap on its notification unless CastApp is excluded from battery optimization.</li>
+        <li>Recordings and reminders lists it to play on the TV, stop or delete.</li>
+      </ol></div>
+    <div class="flow"><h3>Control a TV with the remote</h3><div class="ids">K4 → K1 → K2 → K3</div>
+      <ol>
+        <li>Tap the remote icon at the top, a TV's ⋮ menu, or Use this phone as the remote in the casting card.</li>
+        <li>Google TV or Shield: type the code the TV shows. Samsung: tap Allow on the TV. LG: accept on the TV. Roku: nothing.</li>
+        <li>D-pad, volume, channels, Back, Home, Menu and Mute work; the mic button searches by voice on Google TV and Shield.</li>
+        <li>Fire TV: pair the phone as a Bluetooth remote. Phones with an IR blaster: point it at the TV and pick the brand.</li>
+      </ol></div>
+  </div>
+</section>
+
+<section class="block" id="rules">
+  <span class="kicker">Ground rules</span>
+  <h2>What CastApp always keeps to</h2>
+  <div class="two">
+    <div class="box"><h3>TVs and other devices</h3><ul>
+      <li>Casting to TVs without CastApp keeps working unchanged. CastApp-to-CastApp extras (low-latency player, swap, join, sync, hand-over) use short timeouts and fall back silently.</li>
+      <li>The small servers on the phone only run while you cast, and every address carries a random token.</li>
+      <li>CastApp TV and the peer server between CastApp devices only answer devices on the local network.</li>
+      <li>Screen mirroring always needs your OK in Android's prompt; no app can answer it.</li>
+      <li>No Google Play services needed, except for the optional watch app.</li>
+    </ul></div>
+    <div class="box"><h3>Your accounts and data</h3><ul>
+      <li>No ads, no tracking, no account.</li>
+      <li>Passwords and sign-ins (network folders, Plex and Jellyfin, AirPlay pairings, OpenSubtitles, network remotes) and the Continue watching history are encrypted with the Android Keystore. The parental PIN is stored only as a salted hash.</li>
+      <li>Plex and Jellyfin: CastApp reads; it only reports playback and watched marks, and never changes Plex's saved subtitle choice.</li>
+      <li>Network shares: CastApp reads; the only thing it writes there is a TV recording you send to that folder.</li>
+      <li>Automation is off by default; playback reports only go to the app that asked.</li>
+    </ul></div>
+    <div class="box"><h3>How it's built</h3><ul>
+      <li>Every text in English and German (informal "du"); texts sent to TVs, servers or other phones stay English.</li>
+      <li>Runs from Android 7.1 (Fire OS 6); newer Android features are guarded.</li>
+      <li>Protocols are tested against fakes over real network sockets, including pyatv's AirPlay pairing.</li>
+      <li>No real names, addresses, share names or drive IDs in the repository; examples use 192.168.1.x and "Living room TV".</li>
+    </ul></div>
+  </div>
+</section>
+
+<section class="block" id="check">
+  <span class="kicker">For the device test</span>
+  <h2>Not tried on real devices yet</h2>
+  <p class="intro">Everything is built and unit-tested, and many streams were checked in a real browser or against fakes. Most features since 3.1 have not run on real phones and TVs yet. TESTING.md starts with 10 checks for a phone and a Shield that take about 30 minutes; run Test this phone (<a href="#N6">N6</a>) first.</p>
+  <div class="two">
+    <div class="box"><h3>The phone</h3><ul>
+      <li>The redesigned main screen has never been seen on a real phone (<a href="#N1">N1</a>), nor Recent on this phone and its permission answers (<a href="#C3">C3</a>).</li>
+      <li>Screen capture and Android's prompt on each Android version; hardware encoders and decoders (<a href="#A1">A1</a>, <a href="#G1">G1</a>).</li>
+      <li>Dark screen, Turn apps sideways, lock-screen controls (<a href="#A11">A11</a>, <a href="#A6">A6</a>, <a href="#E6">E6</a>).</li>
+      <li>Repackaged recordings and AVI on a Pixel (<a href="#G2">G2</a>, <a href="#G3">G3</a>); Vosk and Whisper speed (<a href="#F4">F4</a>, <a href="#F5">F5</a>).</li>
+      <li>Large text, German, TalkBack (<a href="#N4">N4</a>, <a href="#N5">N5</a>).</li>
+    </ul></div>
+    <div class="box"><h3>NVIDIA Shield (CastApp TV and Plex server)</h3><ul>
+      <li>Found from the phone and from a PC, also after the Shield slept (<a href="#H5">H5</a>).</li>
+      <li>Mirroring with under half a second of delay (<a href="#H3">H3</a>).</li>
+      <li>A Plex anime episode: the file plays itself, the full subtitle track shows once, a dual-audio file plays your language (<a href="#D4">D4</a>, <a href="#D6">D6</a>, <a href="#D7">D7</a>).</li>
+      <li>The real format list at <code>/castapp/capabilities</code>, and the reason for a 10-bit H.264 file (<a href="#H7">H7</a>, <a href="#H8">H8</a>).</li>
+      <li>The Shield's shares over SMB 2/3, also from standby (<a href="#C4">C4</a>); the Wi-Fi remote's pairing (<a href="#K1">K1</a>).</li>
+    </ul></div>
+    <div class="box"><h3>Chromecast, Google TV and smart TVs</h3><ul>
+      <li>The Cast and DLNA handshakes with real devices (<a href="#B3">B3</a>, <a href="#B5">B5</a>).</li>
+      <li>A Plex episode on a Chromecast with its subtitles read out of the file (<a href="#D6">D6</a>).</li>
+      <li>A repackaged HD recording and an XviD AVI, with seeking (<a href="#G2">G2</a>, <a href="#G3">G3</a>).</li>
+      <li>YouTube links, the low-latency player, Wake-on-LAN, the Samsung and LG remotes (<a href="#C8">C8</a>, <a href="#A13">A13</a>, <a href="#B8">B8</a>, <a href="#K1">K1</a>).</li>
+    </ul></div>
+    <div class="box"><h3>Apple TV, Roku and speakers</h3><ul>
+      <li>AirPlay pairing with the code (the most important one to report), playback and mirroring (<a href="#B6">B6</a>).</li>
+      <li>Roku control and playback (<a href="#B7">B7</a>).</li>
+      <li>Speakers and speaker groups in sync (<a href="#B4">B4</a>).</li>
+    </ul></div>
+    <div class="box"><h3>Other phones, the watch and other apps</h3><ul>
+      <li>Receive on this phone, Swap, several screens, synced playback, join and hand-over (<a href="#I1">I1</a> to <a href="#I6">I6</a>).</li>
+      <li>The Wear OS remote and the bezel or crown volume (<a href="#M1">M1</a>, <a href="#M2">M2</a>).</li>
+      <li>Tasker and Home Assistant; CAST_QUEUE and PLAYBACK from a real app (<a href="#L1">L1</a> to <a href="#L4">L4</a>).</li>
+    </ul></div>
+    <div class="box"><h3>Servers and providers</h3><ul>
+      <li>Real Plex, Jellyfin and Emby servers: converting settings, resume and watched sync (<a href="#D1">D1</a> to <a href="#D5">D5</a>).</li>
+      <li>Real IPTV providers: guide, catch-up, reminders, recordings on Android 12+ (<a href="#J2">J2</a> to <a href="#J6">J6</a>).</li>
+      <li>OpenSubtitles downloads (<a href="#F6">F6</a>); an update installing over the old app (<a href="#N9">N9</a>).</li>
+    </ul></div>
+  </div>
+  <div class="box risk"><h3>Known risks and gaps</h3><ul>
+    <li>The Shield has no decoder for 10-bit H.264 (Hi10P, common for anime). CastApp TV says so and the phone tries to convert, but that needs a 10-bit H.264 decoder on the phone, which many phones lack. Then Plex's converted stream is the way.</li>
+    <li>On Android 10+ TVs (Fire OS 8, recent Google TV) CastApp TV opens its player by itself only if it may display over other apps; Fire TVs need a one-time adb command or the app kept open.</li>
+    <li>AirPlay was tested only against pyatv's code; Roku is experimental. YouTube's lounge protocol is unofficial and can change.</li>
+    <li>Plex and Jellyfin were written against the documented APIs and simulated servers; the converting parameters may need changes on real servers.</li>
+    <li>Channel lists, including an Xtream log-in inside their address, are kept in the app's private storage without Keystore encryption.</li>
+  </ul></div>
+  <p class="note">To add to this page: keep each feature's ID, put new ones in the right area with the next free ID and a status, and add the files they live in. When a feature is tried on a real device, note what you saw next to its ID.</p>
+</section>
+
+<footer>
+  <span>CastApp · patschgoo/CastApp · releases on GitHub (latest: v4.0.0).</span>
+  <span>Written from the code on main (b861386), README.md, AUTOMATION.md, TESTING.md and CLAUDE.md. "Coming later" and "Your decisions" change as you decide.</span>
+  <span>How it stays current: whenever a feature is added, changed, released or dropped, the session doing it updates <code>docs/feature-map.html</code> (status, IDs, links, the "Last updated" line) and republishes it to the same link.</span>
+</footer>
+</div>
+
+<script>
+(function () {
+  var buttons = document.querySelectorAll(".filters button");
+  var cards = document.querySelectorAll(".f[data-s]");
+  var count = document.getElementById("fcount");
+  function apply(f) {
+    var shown = 0;
+    cards.forEach(function (c) { var on = f === "all" || c.getAttribute("data-s") === f; c.hidden = !on; if (on) shown++; });
+    document.querySelectorAll("#features .area").forEach(function (a) { a.hidden = !a.querySelector(".f:not([hidden])"); });
+    buttons.forEach(function (b) { b.setAttribute("aria-pressed", b.getAttribute("data-f") === f ? "true" : "false"); });
+    count.textContent = shown + " of " + cards.length + " features";
+  }
+  buttons.forEach(function (b) { b.addEventListener("click", function () { apply(b.getAttribute("data-f")); }); });
+  apply("all");
+})();
+
+(function () {
+  var box = document.getElementById("glanceList");
+  var label = { ok: "Released", "new": "Ready in 4.1.0", later: "Later", no: "Not in CastApp", dec: "Your decision" };
+  function esc(t) { return t.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/"/g, "&quot;"); }
+  var html = "";
+  document.querySelectorAll("#features .area").forEach(function (area) {
+    var head = area.querySelector("header"), cards = area.querySelectorAll(".f");
+    if (!head || !cards.length) return;
+    var k = head.querySelector(".letter").textContent, name = head.querySelector("h3").textContent;
+    html += '<div class="g-area"><h3><span class="k">' + esc(k) + "</span>" + esc(name) + "</h3>";
+    cards.forEach(function (c) {
+      var s = c.getAttribute("data-s") || "dec", t = c.querySelector("h3").textContent;
+      html += '<a class="g-row" href="#' + c.id + '"><span class="gid">' + c.id + '</span><span class="gname">' + esc(t) +
+        '</span><span class="dot ' + s + '" role="img" aria-label="' + label[s] + '" title="' + label[s] + '"></span></a>';
+    });
+    html += "</div>";
+  });
+  box.innerHTML = html;
+  var g = document.getElementById("vGlance"), a = document.getElementById("vAll");
+  function mode(only) {
+    document.body.classList.toggle("glance-only", only);
+    g.setAttribute("aria-pressed", only ? "true" : "false");
+    a.setAttribute("aria-pressed", only ? "false" : "true");
+  }
+  g.addEventListener("click", function () { mode(true); try { history.replaceState(null, "", "#glance"); } catch (e) {} });
+  a.addEventListener("click", function () { mode(false); });
+  box.addEventListener("click", function (e) {
+    if (e.target.closest(".g-row") && document.body.classList.contains("glance-only")) mode(false);
+  });
+  if (location.hash === "#glance") mode(true);
+})();
+</script>

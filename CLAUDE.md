@@ -52,6 +52,13 @@ screens, join, sync and hand-over, `mediaservers/` Plex and Jellyfin, `iptv/`, `
 source tiles, cast bar; `DevicesScreen.kt` wires it and holds the casting card). Modules `wear/` and `wear-protocol/` are the
 Wear OS remote.
 
+## Feature map
+
+`docs/feature-map.html` is the CastApp Feature Map, published at https://claude.ai/artifact/1e4vRWqiCUkQNYAKQp5onb
+(features with stable IDs and status, connections, walk-throughs, rules, what needs a device test). Whenever a
+feature is added, changed, released or dropped, update that file (status, IDs, links, the "Last updated" line
+with the commit) and republish it to the same link. AniBox has its own map (linked from its CastApp section).
+
 ## State (version 4.1.0)
 
 Everything is built and unit-tested, but most features since 3.1 have **not been tried on real devices yet**.
