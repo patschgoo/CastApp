@@ -90,7 +90,8 @@ on the user's TV), AC-3/E-AC-3 decoded and passed through. 4.2.0 answered the te
 in the running session, the live mode on the main screen, the debug log dialog, "Use CastApp TV" for Google Cast
 entries of boxes that run it, a note when an app's sound can't be recorded.
 The redesigned main screen (violet theme and bundled Plus Jakarta Sans font, no Material You colors any more;
-"Recent on this phone" behind the optional video permission) hasn't been seen on a real phone at all.
+"Recent on this phone" behind the optional video permission) has been seen on one real phone so far (the user's
+screenshots, 2026-11-23: as designed).
 Reports from the TESTING.md round are the next input: expect fixes in device handshakes (Cast, DLNA, AirPlay,
 Roku), Plex/Jellyfin transcoding parameters, hand-over on Google Cast, recordings on Android 12+ and the
 Wear OS Data Layer.
