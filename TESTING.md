@@ -2,6 +2,23 @@
 
 CastApp talks to many kinds of devices that no unit test can reach. This list is for the first rounds on real hardware and for every release. Do not try everything: pick the devices you own, and write down the result (OK / not OK / not tried) next to each item.
 
+## Start here: 30 minutes with a phone and an NVIDIA Shield
+
+The full list below is long. These ten checks cover most of what can go wrong, with a phone, a Shield (Plex server and CastApp TV) and, if you have one, a Chromecast or a smart TV. Tick each one, and for every *not OK* send the debug log (see "If something fails").
+
+| # | Check | OK when |
+|---|---|---|
+| 1 | Phone: **Settings → Help & support → Test this phone** | No *Problem* in the list |
+| 2 | Install the same APK on the Shield, open **CastApp TV** once | The phone's "Cast to" list shows the Shield as a CastApp TV |
+| 3 | **Mirror screen** to the Shield, open a video app on the phone | Picture and sound on the TV within a few seconds, under half a second of delay |
+| 4 | **Network & cloud → +**, paste a Shield share address from Explorer (e.g. `\\<Shield IP>\External USB drive-XXXX\NVIDIA_SHIELD\Anime2`), sign in, play an episode on the Shield | The folder opens in the right place; episodes are in order; seeking works |
+| 5 | Same episode to a Chromecast or a Samsung/LG TV (if you have one) | It plays, or you get a clear message (not "couldn't play") |
+| 6 | **Plex** (sign in with the code), play an anime episode on the Shield's CastApp TV | Plays without converting; its subtitles show; "Continue watching" in Plex knows where you stopped |
+| 7 | Pick another **subtitle** in the casting card (e.g. a 2nd language) | It switches; ASS/SRT files next to the video are listed by language |
+| 8 | **Remote** (top right) on the Shield; then the small remote in the casting card | D-pad, volume, Back and Home work; both don't stop each other |
+| 9 | Lock the phone during a file cast for 10 minutes | Keeps playing; lock-screen controls work |
+| 10 | Large font (Android settings → display size and font) and German phone language | Main screen, casting card and settings still readable, nothing cut off |
+
 ## Before you start
 
 1. Install the APK (see the README) on the phone, and open it once.
@@ -128,6 +145,7 @@ CastApp's AirPlay has only been tested against a reference implementation, so ex
 | Network, Roku / Samsung / LG | See the sections above | Keys work | Debug log + TV model |
 | Bluetooth | Pair the phone as a keyboard (Fire TV: Settings → Controllers & Bluetooth Devices → Other Bluetooth Devices; Shield: Add accessory) | The TV accepts it; keys work | Debug log + self-test ("Bluetooth keyboard mode") + both device models |
 | Infrared | Point the phone at the TV, try power and volume | The TV reacts | Debug log + TV brand and model; say that the phone has an IR blaster |
+| Both remotes | Use the remote in the casting card, tap **All buttons**, go back, turn the phone | The TV stays listed and the keys keep working in both; no new search or reconnect after turning | Debug log |
 
 ## NAS, Plex, Jellyfin and network shares
 
@@ -143,6 +161,7 @@ CastApp's AirPlay has only been tested against a reference implementation, so ex
 | Away from home | Open a NAS over your VPN or a Tailscale address | Works as at home | Debug log + how you connect |
 | Queue | Pick several files | Play list; reorder, remove, shuffle, repeat work | Debug log |
 | Continue watching | Stop a video halfway, open it again | Resumes where you stopped | Debug log |
+| Continue watching pictures | Stop a Plex or Jellyfin episode, a phone video, a file on a share (on Wi-Fi) and a channel catch-up halfway, then go to the main screen | Each card shows its still, poster, logo or a frame of the video; an icon while it loads; scrolling the main screen stays smooth | Screenshot + where each video came from |
 
 ## NVIDIA Shield as media server and TV (anime library)
 
@@ -220,6 +239,7 @@ For a Shield that holds the drives (Plex Media Server and/or **Transfer files ov
 | Home Assistant | Send `command_activity` with a URL to the companion app | The link plays on the TV | Debug log + Home Assistant app version |
 | Mirror from automation | `MIRROR` while the app is closed | A notification asks to mirror; tapping it opens Android's capture prompt | Debug log + Android version |
 | Wear OS remote | Install `CastApp-wear.apk` on the watch, cast from the phone | The watch shows the title; play/pause, next and volume work; **Mirror to …** shows the prompt on the phone | Debug log + watch model; both apps must be the same build |
+| Bezel / crown volume | While casting, turn the watch's bezel (Galaxy Watch Classic) or crown slowly, then fast, then back | One volume step per notch (crown: smooth steps), a tick you can feel, the level shown at the edge; fast turns don't flood the TV; the list scrolls by bezel again once the cast ends | Watch model + Wear OS version, TV type, and whether each notch was one step |
 
 ## First start, settings search and accessibility
 

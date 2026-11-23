@@ -11,8 +11,10 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextAlign
@@ -21,6 +23,7 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.wear.compose.foundation.lazy.ScalingLazyColumn
 import androidx.wear.compose.foundation.lazy.rememberScalingLazyListState
+import androidx.wear.compose.foundation.rotary.RotaryScrollableDefaults
 import androidx.wear.compose.material3.AppScaffold
 import androidx.wear.compose.material3.Button
 import androidx.wear.compose.material3.FilledTonalButton
@@ -28,9 +31,11 @@ import androidx.wear.compose.material3.Icon
 import androidx.wear.compose.material3.IconButton
 import androidx.wear.compose.material3.MaterialTheme
 import androidx.wear.compose.material3.ScreenScaffold
+import androidx.wear.compose.material3.ScrollIndicator
 import androidx.wear.compose.material3.Text
 import io.github.patschgoo.castapp.wearproto.NowPlaying
 import io.github.patschgoo.castapp.wearproto.WearCommand
+import io.github.patschgoo.castapp.wearproto.WearMessage
 
 /** The watch remote: what the phone casts right now, and the buttons to control it. */
 class WearActivity : ComponentActivity() {
@@ -41,7 +46,13 @@ class WearActivity : ComponentActivity() {
         link = PhoneLink(this)
         setContent {
             val state by link.state.collectAsStateWithLifecycle()
-            WearRemote(state, onCommand = link::send, onRetry = link::refresh, onMirrorNoticeShown = link::clearMirrorNotice)
+            WearRemote(
+                state,
+                onCommand = link::send,
+                onVolume = link::send,
+                onRetry = link::refresh,
+                onMirrorNoticeShown = link::clearMirrorNotice,
+            )
         }
     }
 
@@ -60,18 +71,41 @@ class WearActivity : ComponentActivity() {
 fun WearRemote(
     state: WatchState,
     onCommand: (WearCommand) -> Unit,
+    onVolume: (WearMessage) -> Unit,
     onRetry: () -> Unit,
     onMirrorNoticeShown: () -> Unit,
 ) {
     MaterialTheme {
         AppScaffold {
             val listState = rememberScalingLazyListState()
-            ScreenScaffold(scrollState = listState) { padding ->
+            // On the remote of a running cast the bezel or crown is the TV volume; on every other
+            // screen (searching, no phone, nothing playing) it scrolls the list as usual.
+            val volumeByRotary = state.link == Link.CONNECTED && state.playing.active
+            val volume = rememberRotaryVolume(onVolume)
+            val focusRequester = remember { FocusRequester() }
+            LaunchedEffect(state.playing) { volume.onPhone(state.playing) }
+            LaunchedEffect(volumeByRotary) { if (volumeByRotary) focusRequester.requestFocus() }
+            val turn = volume.shown
+            // While turning, the level dialed on the watch; else what the phone reports.
+            val dialedLevel = turn?.level?.takeIf { it >= 0 }
+            val showsLevel = dialedLevel != null
+            val buttons: (WearCommand) -> Unit = { command ->
+                if (command.isVolumeStep) volume.onButton()
+                onCommand(command)
+            }
+            ScreenScaffold(
+                scrollState = listState,
+                // The level indicator takes the scroll indicator's place on the edge while turning.
+                scrollIndicator = if (showsLevel) null else {
+                    { ScrollIndicator(listState, modifier = Modifier.align(Alignment.CenterEnd)) }
+                },
+            ) { padding ->
                 ScalingLazyColumn(
                     state = listState,
                     contentPadding = padding,
                     horizontalAlignment = Alignment.CenterHorizontally,
-                    modifier = Modifier.fillMaxWidth(),
+                    rotaryScrollableBehavior = if (volumeByRotary) null else RotaryScrollableDefaults.behavior(listState),
+                    modifier = Modifier.fillMaxWidth().let { if (volumeByRotary) it.rotaryVolume(volume, focusRequester) else it },
                 ) {
                     when (state.link) {
                         Link.SEARCHING -> item { Message(stringResource(R.string.nothing_playing)) }
@@ -81,9 +115,15 @@ fun WearRemote(
                             item { Message(stringResource(R.string.no_phone_hint)) }
                             item { FilledTonalButton(onClick = onRetry, label = { Text(stringResource(R.string.retry)) }) }
                         }
-                        Link.CONNECTED -> remoteItems(state, onCommand, onMirrorNoticeShown)
+                        Link.CONNECTED -> remoteItems(
+                            state,
+                            volumePercent = dialedLevel ?: state.playing.volumePercent,
+                            onCommand = buttons,
+                            onMirrorNoticeShown = onMirrorNoticeShown,
+                        )
                     }
                 }
+                RotaryVolumeIndicator(turn)
             }
         }
     }
@@ -91,6 +131,7 @@ fun WearRemote(
 
 private fun androidx.wear.compose.foundation.lazy.ScalingLazyListScope.remoteItems(
     state: WatchState,
+    volumePercent: Int,
     onCommand: (WearCommand) -> Unit,
     onMirrorNoticeShown: () -> Unit,
 ) {
@@ -115,8 +156,8 @@ private fun androidx.wear.compose.foundation.lazy.ScalingLazyListScope.remoteIte
                 RemoteButton(R.drawable.ic_w_volume_up, R.string.action_volume_up) { onCommand(WearCommand.VOLUME_UP) }
             }
         }
-        if (now.volumePercent >= 0) {
-            item { Message(stringResource(R.string.volume_percent, now.volumePercent)) }
+        if (volumePercent >= 0) {
+            item { Message(stringResource(R.string.volume_percent, volumePercent)) }
         }
     }
     item {

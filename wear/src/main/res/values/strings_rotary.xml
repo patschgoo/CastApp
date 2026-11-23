@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Shown (and read out) for a moment while the bezel or crown changes the TV volume -->
+    <string name="rotary_volume_level">TV volume %1$d%%</string>
+    <!-- The same when the TV does not report its volume: only the direction is known -->
+    <string name="rotary_volume_up">TV volume up</string>
+    <string name="rotary_volume_down">TV volume down</string>
+</resources>

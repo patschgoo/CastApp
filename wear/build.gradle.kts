@@ -97,4 +97,5 @@ dependencies {
     implementation(libs.wear.compose.foundation)
     implementation(libs.play.services.wearable)
     debugImplementation(libs.androidx.compose.ui.tooling)
+    testImplementation(libs.junit)
 }

@@ -65,6 +65,11 @@ private object ImageCache {
     }
 }
 
+/** The same downloads and memory cache for code outside a composable ([io.github.patschgoo.castapp.artwork.Artwork]). */
+internal object RemotePictures {
+    suspend fun load(url: String, sizePx: Int): ImageBitmap? = withContext(Dispatchers.IO) { ImageCache.load(url, sizePx) }
+}
+
 /** Shows the picture at [url], or [fallback] while it loads or if there is none. */
 @Composable
 fun RemoteImage(url: String?, modifier: Modifier = Modifier, sizePx: Int = 128, fallback: @Composable () -> Unit) {

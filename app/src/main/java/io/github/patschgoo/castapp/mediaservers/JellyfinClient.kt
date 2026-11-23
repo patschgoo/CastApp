@@ -265,7 +265,8 @@ class JellyfinClient(
                 }
             }
         }
-        return PlanEntry(mediaItem, item.resumeMs, item.runtimeMs)
+        // The poster or episode still, so "Continue watching" shows it (the address carries the token, like the stream).
+        return PlanEntry(mediaItem.copy(artUri = item.posterUrl), item.resumeMs, item.runtimeMs)
     }
 
     override fun setWatched(item: ServerItem, watched: Boolean) {

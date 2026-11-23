@@ -178,7 +178,7 @@ class IptvRepository(context: Context) {
         /** Channels as play-list items, so Next/Previous on the TV switches channels. */
         fun toItems(channels: List<Channel>): List<MediaItem> = channels.map { c ->
             val mime = MediaItem.mimeForUrl(c.url).let { if (it == "video/mp4" && !c.url.substringBefore('?').endsWith(".mp4")) "video/mp2t" else it }
-            MediaItem(title = c.name, uri = c.url, mimeType = mime, headers = c.headers, live = true)
+            MediaItem(title = c.name, uri = c.url, mimeType = mime, headers = c.headers, live = true, artUri = MediaItem.pictureAddress(c.logo))
         }
     }
 }
