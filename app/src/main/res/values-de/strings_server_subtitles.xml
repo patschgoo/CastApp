@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Untertitelspuren von Plex-Videos in der Untertitelauswahl -->
+    <!-- Eine Untertitelspur für Gehörlose und Hörgeschädigte -->
+    <string name="track_sdh">für Hörgeschädigte</string>
+</resources>

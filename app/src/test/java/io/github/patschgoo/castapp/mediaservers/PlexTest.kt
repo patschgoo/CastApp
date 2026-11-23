@@ -188,11 +188,12 @@ class PlexTest {
 
     @Test
     fun entryUsesDirectPlayOrTheTranscoder() {
-        val client = PlexClient(account(), info, deviceLanguage = "de")
+        val client = PlexClient(account(), info, subtitleLanguages = { listOf("de", "en") })
         val direct = client.entryFor(PlexParser.item(JSONObject(movieJson), urls()))
         assertEquals("http://192.168.1.5:32400/library/parts/601/1700000000/file.mp4?X-Plex-Token=srvtok", direct.item.uri)
         assertEquals("video/mp4", direct.item.mimeType)
-        assertEquals("http://192.168.1.5:32400/library/streams/703?X-Plex-Token=srvtok", direct.item.subtitleUri)
+        // An external file: fetched from /library/streams/{id} in UTF-8; what the picker shows travels behind "#".
+        assertEquals("http://192.168.1.5:32400/library/streams/703?encoding=utf-8&X-Plex-Token=srvtok#castapp-sub&lang=ger&codec=srt", direct.item.subtitleUri)
         assertEquals(1_380_000L, direct.resumeMs)
         val ref = ItemRef.decode(direct.item.serverRef)!!
         assertEquals(ServerKind.PLEX, ref.kind)

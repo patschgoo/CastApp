@@ -32,6 +32,13 @@ object Dlna {
     fun subtitleStyleIn(metadata: String): String? =
         Regex(Regex.escape(SUBTITLE_STYLE_PREFIX) + "([^<]*)").find(metadata)?.groupValues?.get(1)?.let(::unescape)?.trim()
 
+    /** Marker of the subtitle track inside the file a CastApp TV receiver should show. */
+    const val SUBTITLE_TRACK_PREFIX = "castapp:subtrack:"
+
+    /** Which subtitle track inside the file to show, in DIDL-Lite metadata from CastApp, or null. */
+    fun subtitleTrackIn(metadata: String): String? =
+        Regex(Regex.escape(SUBTITLE_TRACK_PREFIX) + "([^<]*)").find(metadata)?.groupValues?.get(1)?.let(::unescape)?.trim()?.ifEmpty { null }
+
     fun searchMessage(target: String = MEDIA_RENDERER): String =
         "M-SEARCH * HTTP/1.1\r\n" +
             "HOST: $SSDP_ADDRESS:$SSDP_PORT\r\n" +
@@ -115,6 +122,8 @@ object Dlna {
         subtitleStyle: String? = null,
         /** CastApp TV receivers: the host's shared timeline, to play in sync with other screens. */
         syncUrl: String? = null,
+        /** CastApp TV receivers: the subtitle track inside the file to show ([io.github.patschgoo.castapp.tv.TextTrackHint]). */
+        subtitleTrack: String? = null,
     ): String {
         val upnpClass = when {
             mimeType.startsWith("audio/") -> "object.item.audioItem.musicTrack"
@@ -140,11 +149,15 @@ object Dlna {
             }
             // CastApp TV receivers play the screen stream with minimal buffering when they see this.
             if (lowLatency) append("<desc id=\"castapp\" nameSpace=\"urn:castapp\">castapp:lowlatency</desc>")
-            if (subtitleStyle != null && srtUrl != null) {
+            // The look goes with subtitles the TV shows: a file next to the video, or a track inside it.
+            if (subtitleStyle != null && (srtUrl != null || subtitleTrack != null)) {
                 append("<desc id=\"castapp-subtitles\" nameSpace=\"urn:castapp\">").append(SUBTITLE_STYLE_PREFIX).append(escape(subtitleStyle)).append("</desc>")
             }
             if (syncUrl != null) {
                 append("<desc id=\"castapp-sync\" nameSpace=\"urn:castapp\">").append(SYNC_PREFIX).append(escape(syncUrl)).append("</desc>")
+            }
+            if (subtitleTrack != null) {
+                append("<desc id=\"castapp-subtrack\" nameSpace=\"urn:castapp\">").append(SUBTITLE_TRACK_PREFIX).append(escape(subtitleTrack)).append("</desc>")
             }
             append("</item></DIDL-Lite>")
         }
