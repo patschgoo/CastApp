@@ -31,6 +31,10 @@ test checklist is [TESTING.md](TESTING.md); the intent API is [AUTOMATION.md](AU
   Then check that `CastApp.apk` and `CastApp-wear.apk` are attached, mark the version released in the feature
   map, and tell the user. Cloud sessions can't push tags (the proxy answers 403); the user may still tag a
   release by hand on GitHub.
+  Signing: since 2026-11-23 CI signs with the user's own key from the repository secrets (certificate SHA-256
+  `50c0d1fe…`); 4.0.0 and 4.1.0 were signed with the committed test key (`b292cebc…`). So the **first release
+  after 4.1.0** can't update an installed 4.x: say so in its release notes (EN + DE) and remind the user to
+  uninstall CastApp once on every device (phone, Shield, watch app) before installing it.
 
 ## Conventions
 
