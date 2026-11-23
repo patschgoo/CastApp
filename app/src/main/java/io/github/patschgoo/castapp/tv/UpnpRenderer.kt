@@ -38,6 +38,12 @@ data class TvMedia(
     val joinedFrom: String? = null,
     /** Which subtitle track inside the file to show, from CastApp on the phone ([TextTrackHint.encode]). */
     val subtitleTrack: String? = null,
+    /** The type the sender gave [subtitleUri] (its `<res>` protocolInfo, `sec:type`, `pv:subtitleFileType`), if any ([SubtitleFiles.mimeFor]). */
+    val subtitleMime: String? = null,
+    /** Which sound track inside the file to play (`castapp:audiotrack:`, [TrackHint.encode]). */
+    val audioTrack: String? = null,
+    /** Subtitle files to load next to the video (`castapp:subfiles:`, [SubtitleFiles.decode]). */
+    val subtitleFiles: List<SubtitleFile> = emptyList(),
 )
 
 enum class TransportState(val upnp: String) {
@@ -686,23 +692,54 @@ class UpnpRenderer(
                 upnpClass.contains("audioItem") || mime?.startsWith("audio/") == true -> TvMediaKind.AUDIO
                 else -> TvMediaKind.VIDEO
             }
-            val subtitle = Dlna.tag(metadata, "CaptionInfoEx") ?: Dlna.tag(metadata, "CaptionInfo")
-                ?: Regex("<res[^>]*protocolInfo=\"http-get:\\*:(?:text/srt|text/vtt|application/x-subrip|smi/caption)[^\"]*\"[^>]*>([^<]*)</res>")
-                    .find(metadata)?.groupValues?.get(1)
+            val subtitle = subtitleIn(metadata)
             return TvMedia(
                 uri = uri,
                 metadata = metadata,
                 title = title,
                 mimeType = mime,
                 kind = kind,
-                subtitleUri = subtitle?.let(Dlna::unescape)?.trim()?.takeIf { it.startsWith("http") },
+                subtitleUri = subtitle?.first,
                 live = protocolInfo.contains("DLNA.ORG_OP=00"),
                 lowLatency = metadata.contains(LOW_LATENCY_MARKER),
                 subtitleStyle = Dlna.subtitleStyleIn(metadata),
                 syncUrl = Dlna.syncUrlIn(metadata),
                 subtitleTrack = Dlna.subtitleTrackIn(metadata),
+                subtitleMime = subtitle?.second,
+                audioTrack = Dlna.audioTrackIn(metadata),
+                subtitleFiles = SubtitleFiles.decode(Dlna.subtitleFilesIn(metadata)),
             )
         }
+
+        /**
+         * The one subtitle file of DLNA metadata and the type its sender gave it: Samsung's
+         * `sec:CaptionInfoEx` / `sec:CaptionInfo`, else a `<res>` of a subtitle type, else
+         * PacketVideo's `pv:subtitleFileUri`. The type: that of a `<res>` with the same address,
+         * else the element's own (`sec:type`, `pv:subtitleFileType`).
+         */
+        private fun subtitleIn(metadata: String): Pair<String, String?>? {
+            // (address as written, type) of each <res>.
+            val res = Regex("<res\\b([^>]*)>([^<]*)</res>").findAll(metadata).map { m ->
+                m.groupValues[2] to Regex("protocolInfo=\"([^\"]*)\"").find(m.groupValues[1])?.groupValues?.get(1)?.split(':')?.getOrNull(2)
+            }.toList()
+            fun resType(url: String) = res.firstOrNull { (u, mime) -> Dlna.unescape(u).trim() == url && SubtitleFiles.isSubtitleMime(mime) }?.second
+            val caption = listOf("CaptionInfoEx", "CaptionInfo").firstNotNullOfOrNull { name ->
+                Regex("<(?:[A-Za-z0-9_]+:)?$name(\\s[^>]*)?>(.*?)</(?:[A-Za-z0-9_]+:)?$name>", RegexOption.DOT_MATCHES_ALL).find(metadata)
+            }
+            val pv = Regex("\\bpv:subtitleFileUri=\"([^\"]*)\"").find(metadata)
+            val (url, ownType) = when {
+                caption != null -> caption.groupValues[2].trim() to typeAttribute(caption.groupValues[1])
+                else -> res.firstOrNull { (_, mime) -> SubtitleFiles.isSubtitleMime(mime) }?.let { it.first to null }
+                    ?: pv?.let { it.groupValues[1] to Regex("\\bpv:subtitleFileType=\"([^\"]*)\"").find(metadata)?.groupValues?.get(1) }
+                    ?: return null
+            }
+            val address = Dlna.unescape(url).trim().takeIf { it.startsWith("http") } ?: return null
+            return address to (resType(address) ?: ownType?.let(Dlna::unescape)?.trim()?.ifEmpty { null })
+        }
+
+        /** `sec:type="srt"` (any prefix) of a caption element. */
+        private fun typeAttribute(attributes: String): String? =
+            Regex("(?:^|\\s)(?:[A-Za-z0-9_]+:)?type=\"([^\"]*)\"").find(attributes)?.groupValues?.get(1)
     }
 }
 

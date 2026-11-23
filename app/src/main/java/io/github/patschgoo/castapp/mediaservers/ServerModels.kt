@@ -102,7 +102,29 @@ data class MediaInfo(
     val subtitles: List<SubtitleTrack> = emptyList(),
     /** Plex: the answer listed the file's streams; lists of items leave them out ([subtitles] is then empty). */
     val streamDetails: Boolean = false,
+    /** The sound track the server picked, when the file has several and the server marks one. */
+    val chosenAudio: ChosenAudio? = null,
 )
+
+/**
+ * The sound track a server picked for a file with several (Plex: the one marked `selected`, by hand
+ * or by the account's language settings; Jellyfin: the media source's `DefaultAudioStreamIndex`).
+ * A CastApp TV playing the file itself is told to play it ([hint]); the server isn't asked anything.
+ */
+data class ChosenAudio(
+    val language: String?,
+    /** The track's own name in the file ("Commentary"), not the server's display title. */
+    val title: String?,
+    /** Its place among the file's sound tracks, in the file's order (the order Media3 reads them in). */
+    val fileOrdinal: Int?,
+) {
+    /** What CastApp TV is told ([io.github.patschgoo.castapp.tv.TrackHint.encode]); null without a language or place (a name alone says too little). */
+    fun hint(): String? = if (language == null && fileOrdinal == null) {
+        null
+    } else {
+        io.github.patschgoo.castapp.tv.TrackHint(track = fileOrdinal, language = language, title = title).encode()
+    }
+}
 
 /** A library, folder, show, season, movie, episode, album or track on a server. */
 data class ServerItem(

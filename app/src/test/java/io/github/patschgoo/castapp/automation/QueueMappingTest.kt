@@ -3,9 +3,13 @@ package io.github.patschgoo.castapp.automation
 import io.github.patschgoo.castapp.service.MediaItem
 import io.github.patschgoo.castapp.service.MediaType
 import io.github.patschgoo.castapp.subtitles.Sidecars
+import io.github.patschgoo.castapp.tv.TextTrackHint
+import io.github.patschgoo.castapp.tv.TrackHint
 import org.json.JSONObject
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
+import org.junit.Assert.assertTrue
 import org.junit.Test
 import java.util.Locale
 
@@ -91,6 +95,49 @@ class QueueMappingTest {
             ),
         )
         assertEquals(item, MediaItem.fromJson(JSONObject(item.toJson().toString())))
+    }
+
+    @Test
+    fun theSoundLanguageBecomesTheHintForCastAppTvs() {
+        val item = QueueMapping.toMediaItem(QueueItem("https://media.example/01.mkv", audioLanguage = "ja"))
+        assertEquals(TrackHint(languages = listOf("ja")), TrackHint.decode(item.audioTrack))
+        assertNull(QueueMapping.toMediaItem(QueueItem("https://media.example/01.mkv")).audioTrack)
+    }
+
+    private val subs = listOf(
+        QueueSubtitle("https://media.example/s/1", "en", "Signs"),
+        QueueSubtitle("https://media.example/01.ger.srt"),
+        QueueSubtitle("https://media.example/s/3", "de", "Full"),
+    )
+
+    @Test
+    fun theSubtitleLanguagePicksTheFileShownFirst() {
+        // The first one in that language goes first; the others keep the caller's order.
+        val de = QueueMapping.toMediaItem(QueueItem("https://media.example/01.mkv", subtitles = subs, subtitleLanguage = "deu"))
+        assertEquals("https://media.example/01.ger.srt", de.subtitleUri) // by its file name
+        assertEquals(listOf("https://media.example/s/1", "https://media.example/s/3"), de.moreSubtitles)
+        assertNull(de.subtitleTrack) // the TV gets that file
+        assertEquals(subs.map { it.url }, QueueMapping.shownFirst(subs, "en").map { it.url })
+        assertEquals(listOf("https://media.example/s/3", "https://media.example/s/1", "https://media.example/01.ger.srt"),
+            QueueMapping.shownFirst(listOf(subs[0], subs[2], subs[1]), "de").map { it.url })
+        // None in that language: as the caller sent them.
+        assertEquals(subs, QueueMapping.shownFirst(subs, "fr"))
+        // "off": all kept for the picker, none shown at first.
+        val off = QueueMapping.toMediaItem(QueueItem("https://media.example/01.mkv", subtitles = subs, subtitleLanguage = QueueParser.OFF))
+        assertEquals("https://media.example/s/1", off.subtitleUri)
+        assertTrue(off.startsWithoutSubtitles)
+        assertFalse(QueueMapping.toMediaItem(QueueItem("https://media.example/01.mkv", subtitles = subs)).startsWithoutSubtitles)
+    }
+
+    @Test
+    fun withoutSubtitleFilesTheLanguageGoesToTheTvsOwnTracks() {
+        val de = QueueMapping.toMediaItem(QueueItem("https://media.example/01.mkv", subtitleLanguage = "de"))
+        assertEquals(TextTrackHint(language = "de"), TextTrackHint.decode(de.subtitleTrack))
+        val off = QueueMapping.toMediaItem(QueueItem("https://media.example/01.mkv", subtitleLanguage = QueueParser.OFF))
+        assertEquals(TextTrackHint(off = true), TextTrackHint.decode(off.subtitleTrack))
+        // Through the JSON the casting service gets.
+        assertEquals(de, MediaItem.fromJson(JSONObject(de.toJson().toString())))
+        assertEquals(off, MediaItem.fromJson(JSONObject(off.toJson().toString())))
     }
 
     @Test

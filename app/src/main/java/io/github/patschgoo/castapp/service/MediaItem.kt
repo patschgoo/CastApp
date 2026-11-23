@@ -54,6 +54,18 @@ data class MediaItem(
      * and on network shares get theirs from the file itself ([io.github.patschgoo.castapp.artwork.Artwork]).
      */
     val artUri: String? = null,
+    /**
+     * Which sound track inside the file a CastApp TV plays ([io.github.patschgoo.castapp.tv.TrackHint.encode]):
+     * the one the server picked (Plex, Jellyfin) or the language an app asked for (CAST_QUEUE
+     * `audio_language`). Null: the file's default. Only CastApp TVs are told ([PlaybackChecks.audioTrackFor]).
+     */
+    val audioTrack: String? = null,
+    /**
+     * The subtitles an app asked for ([io.github.patschgoo.castapp.tv.TextTrackHint.encode], CAST_QUEUE
+     * `subtitle_language`): "off" starts without subtitles; a language tells a CastApp TV which track
+     * inside the file to show when no subtitle file goes with it ([PlaybackChecks.subtitleTrackFor]).
+     */
+    val subtitleTrack: String? = null,
 ) {
     val type: MediaType
         get() = when {
@@ -66,6 +78,9 @@ data class MediaItem(
     /** A file on a Windows/Samba share: smb://<source id>/<path inside the share>. */
     val isSmb: Boolean get() = uri.startsWith("smb://")
     val isHls: Boolean get() = mimeType.contains("mpegurl", ignoreCase = true) || uri.substringBefore('?').endsWith(".m3u8", ignoreCase = true)
+
+    /** The app that cast it asked for no subtitles at first ([subtitleTrack] "off"). */
+    val startsWithoutSubtitles: Boolean get() = io.github.patschgoo.castapp.tv.TextTrackHint.decode(subtitleTrack)?.off == true
 
     /** All subtitle files that came with the video, [subtitleUri] first. */
     val subtitleFiles: List<String> get() = subtitleUri?.let { listOf(it) + moreSubtitles } ?: emptyList()
@@ -92,6 +107,8 @@ data class MediaItem(
         }
         // Only when there is one: older versions (hand-over, join, the watch history) don't know the key and skip it.
         .also { o -> artUri?.let { o.put("art", it) } }
+        .also { o -> audioTrack?.let { o.put("audioTrack", it) } }
+        .also { o -> subtitleTrack?.let { o.put("subTrack", it) } }
 
     companion object {
         fun fromJson(o: JSONObject): MediaItem {
@@ -119,6 +136,8 @@ data class MediaItem(
                 moreSubtitles = more,
                 subtitleNames = names,
                 artUri = o.optString("art").ifEmpty { null },
+                audioTrack = o.optString("audioTrack").ifEmpty { null },
+                subtitleTrack = o.optString("subTrack").ifEmpty { null },
             )
         }
 

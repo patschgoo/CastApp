@@ -124,13 +124,16 @@ The JSON is an array with one object per item:
 | `mime` | `video/mp4`, `video/x-matroska`, `audio/mpeg`, `application/x-mpegurl` ... Guessed from the address (or asked from the app that owns a `content://` file) if left out. |
 | `subtitles` | Subtitle files (SRT, WebVTT, ASS/SSA), up to 20: an array of objects `{"url": ..., "language": "en", "label": "Signs"}` or of plain addresses. The first one is shown; the others can be picked in CastApp. `language` is a language code (`en`, `de`, `pt-BR`), `label` (up to 100 characters) is added to the name in the subtitle picker ("English (Signs)"). Addresses as for `url`. |
 | `art` | Poster or cover, `http://` or `https://` (up to 4096 characters): shown in "Continue watching" on the phone. |
+| `audio_language` | The sound track to play in a file with several (a dubbed anime: `ja` or `de`), a language code. CastApp TV plays a track in that language (it picks the best one of them); other TVs play the file's default track, and the sound track can still be picked in CastApp (which converts the video on the phone). |
+| `subtitle_language` | The subtitles to show first: a language code, or `off`. With `subtitles`, the first one in that language (by its `language`, else by its file name, `Film.de.srt`) is shown first; none in it: the first one as before. Without `subtitles`, CastApp TV shows a track in that language from inside the file. `off`: none at first (the subtitle files can still be picked in CastApp; CastApp TV also hides the file's own). |
 
 A plain address instead of an object is an item with only a `url`. Instead of the array, `queue` can
 also be an object `{"items": [...], "start_index": 2, "start_position_ms": 60000, "title": "Season 1"}`;
 the extras win over these fields. Fields CastApp does not know are ignored, so newer apps may send
 more. Everything else that is wrong refuses the whole request with `invalid_request`, and the message
 says which item: another kind of address (`file://`, `smb://` ...), a field of the wrong type, a text
-that is too long, more than 500 items, an address twice, a `start_index` outside the queue.
+that is too long, a language that isn't a code (`English`; `off` for `audio_language`), more than 500
+items, an address twice, a `start_index` outside the queue.
 
 ```json
 [
@@ -142,7 +145,9 @@ that is too long, more than 500 items, an address twice, a `start_index` outside
       { "url": "https://nas.local:8920/subs/s01e01.en.ass", "language": "en" },
       { "url": "https://nas.local:8920/subs/s01e01.de.srt", "language": "de", "label": "Forced" }
     ],
-    "art": "https://nas.local:8920/art/season1.jpg"
+    "art": "https://nas.local:8920/art/season1.jpg",
+    "audio_language": "ja",
+    "subtitle_language": "de"
   },
   { "id": "s01e02", "url": "https://nas.local:8920/videos/s01e02.mkv", "title": "Episode 2" },
   "https://nas.local:8920/videos/s01e03.mkv"
@@ -361,7 +366,7 @@ answers JSON with `true`/`false` values:
 | `hevc` | A hardware HEVC decoder for 1080p (the key older CastApp versions read). |
 | `aac`, `mp3`, `ac3`, `eac3`, `dts`, `truehd`, `flac`, `opus`, `vorbis` | Plays this sound: a decoder, or passed through to the AV receiver. |
 | `ac3_passthrough`, `eac3_passthrough`, `dts_passthrough`, `truehd_passthrough` | The HDMI output takes it as it is right now (follows what is plugged in). |
-| `sub_srt`, `sub_vtt`, `sub_ass`, `sub_pgs`, `sub_vobsub` | Subtitle formats it shows, as files and inside MKV. |
+| `sub_srt`, `sub_vtt`, `sub_ass`, `sub_pgs`, `sub_vobsub` | Subtitle formats it shows: SRT, WebVTT and ASS/SSA as files and inside MKV, PGS and VobSub inside MKV only (see **Subtitle files** below). |
 | `sub_ass_full` | `false`: ASS keeps position, colours, bold and italic, but not effects, karaoke or embedded fonts. |
 | `youtube` | It opens YouTube links in the TV's YouTube app (CastApp's own use). |
 
@@ -371,11 +376,25 @@ Keys may be added; read the ones you know and treat a missing key as unknown.
 `nameSpace="urn:castapp"` inside the `<item>`:
 
 - `castapp:subtrack:<hint>`: which subtitle track **inside the file** to show. It counts only when no
-  subtitle file comes with the item (a second `<res>` or `sec:CaptionInfoEx` wins). `<hint>` is `off`
+  subtitle file comes with the item (a second `<res>` or `sec:CaptionInfoEx` wins); with
+  `castapp:subfiles:` its languages choose among those files instead. `<hint>` is `off`
   (none), or `&`-joined fields with URL-encoded values: `prefer=de,en` (languages, best first),
   `lang=jpn` (this language), `title=Full` (the track's name, with `lang`), `t=2` (the track's place
   among the file's subtitle tracks, counted from 0; used when its language agrees with `lang`). Only
   `prefer=` is fine too: the player then takes a track in the first language it has.
+- `castapp:audiotrack:<hint>`: which sound track inside the file to play (a dual-audio file with Japanese
+  and a German dub). The same fields as `castapp:subtrack:`, counted among the file's sound tracks
+  (`off` means nothing here): `prefer=ja` lets the player take the best track in that language (the
+  simplest); `t=1&lang=ger&title=German%20Dub` asks for exactly that track. Without it the player
+  takes the file's default track, as before.
+- `castapp:subfiles:<JSON>`: several subtitle files, which the TV's subtitle menu then offers. A JSON
+  array of up to 20 objects `{"url": "http://…", "language": "de", "label": "Full", "mime": "text/x-ssa"}`;
+  only `url` (`http://` or `https://`) is needed, the type is otherwise told by the address's
+  extension. The text is XML-escaped like all DIDL text (`"` becomes `&quot;`, `&` becomes `&amp;`).
+  Which one is shown: the first in the languages of `castapp:subtrack:` (its `lang=` first, then
+  `prefer=`; `title=` matches a file's `label`), else the first file; `castapp:subtrack:off` shows none.
+  Entries without a usable `url` are skipped. A subtitle file sent the plain DLNA way as well (below)
+  is added at the end unless it is in the list.
 - `castapp:substyle:size=1.35;fg=FFEB3B;bg=box`: how subtitles look. `size` is `0.75`, `1.0`, `1.35` or
   `1.75` (other numbers go to the nearest), `fg` one of `FFFFFF`, `FFEB3B`, `4DD0E1`, `8BC34A` (others
   become white), `bg` is `none`, `shadow` or `box` (half-transparent black, the default). Without it the
@@ -384,7 +403,24 @@ Keys may be added; read the ones you know and treat a missing key as unknown.
 ```xml
 <desc id="castapp-subtrack" nameSpace="urn:castapp">castapp:subtrack:lang=jpn&amp;title=Full&amp;prefer=de%2Cen</desc>
 <desc id="castapp-subtitles" nameSpace="urn:castapp">castapp:substyle:size=1.35;fg=FFFFFF;bg=shadow</desc>
+<desc id="castapp-audiotrack" nameSpace="urn:castapp">castapp:audiotrack:prefer=ja</desc>
+<desc id="castapp-subfiles" nameSpace="urn:castapp">castapp:subfiles:[{&quot;url&quot;:&quot;http://192.168.1.10:8200/subs/ep01.de.ass&quot;,&quot;language&quot;:&quot;de&quot;,&quot;label&quot;:&quot;Full&quot;},{&quot;url&quot;:&quot;http://192.168.1.10:8200/subs/ep01.en.srt&quot;,&quot;language&quot;:&quot;en&quot;}]</desc>
 ```
+
+**Subtitle files.** One file goes the usual DLNA way, as any DLNA TV takes it: a second `<res>` with a
+subtitle type, `sec:CaptionInfoEx` (or `sec:CaptionInfo`) or the `pv:subtitleFileUri` attribute. As files
+CastApp TV shows:
+
+| Format | Told by the type (`<res>` protocolInfo, `sec:type`, `pv:subtitleFileType`, `mime`) | or the address ending in |
+|---|---|---|
+| SRT | `application/x-subrip`, `text/srt`, `text/x-srt`, `srt` | `.srt` |
+| WebVTT | `text/vtt`, `text/webvtt`, `vtt` | `.vtt` |
+| ASS/SSA | `text/x-ssa`, `text/x-ass`, `application/x-ssa`, `text/ssa`, `ass`, `ssa` | `.ass`, `.ssa` |
+
+The type wins over the address; with neither, a file is read as SRT. ASS keeps position, colours, bold and
+italic, but not effects, karaoke or embedded fonts, so there is no need to convert it to SRT. PGS and
+VobSub are shown only inside the video file (MKV); as files (`.sup`, `.idx`/`.sub`), and SAMI (`.smi`),
+they are left out.
 
 ## Answers
 

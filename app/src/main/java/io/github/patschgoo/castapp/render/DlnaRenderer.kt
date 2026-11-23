@@ -93,6 +93,7 @@ class DlnaRenderer(
             subtitleStyle = media.subtitleStyle?.takeIf { device.isCastAppTv }?.encode(),
             syncUrl = media.syncUrl?.takeIf { device.isCastAppTv },
             subtitleTrack = media.subtitleTrack?.takeIf { device.isCastAppTv },
+            audioTrack = media.audioTrack?.takeIf { device.isCastAppTv },
         )
         val setUri = {
             soapCall(

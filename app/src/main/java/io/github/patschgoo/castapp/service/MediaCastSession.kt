@@ -866,11 +866,15 @@ class MediaCastSession(
         // A CastApp TV playing a server's file itself shows the subtitle track inside it: no copy of it next to the file.
         val tvShowsTrack = tvShowsFileTracks(d, target) && inFileTrack(item, choice) != null
         val subtitlePath = if (subtitlesReady(item) && !tvShowsTrack) "/$t/st/$id/${choice.key}/$streamStart/${subtitleTracks.offsetMs(item.uri)}" else null
-        val tvTrack = if (tvShowsFileTracks(d, target)) {
-            TextTrackHint.forTv(inFileTrack(item, choice), subtitleTracks.chosen(item.uri, item.subtitleFiles) == SubtitleChoice.OFF, Sidecars.preferredLanguages())
+        val picked = subtitleTracks.chosen(item.uri, item.subtitleFiles)
+        val serverTrack = if (tvShowsFileTracks(d, target)) {
+            TextTrackHint.forTv(inFileTrack(item, choice), picked == SubtitleChoice.OFF, Sidecars.preferredLanguages())
         } else {
             null
         }
+        // Else the one the app that cast it asked for (CAST_QUEUE "subtitle_language").
+        val tvTrack = serverTrack
+            ?: TextTrackHint.decode(PlaybackChecks.subtitleTrackFor(item, d, target, sendsFile = subtitlePath != null, picked = picked != null))
         return RendererMedia(
             url = url,
             mimeType = mime,
@@ -883,6 +887,7 @@ class MediaCastSession(
             startMs = if (d == Delivery.CONVERT || item.live) 0 else startMs,
             subtitleStyle = SubtitleStyleSettings.get(context).current,
             subtitleTrack = tvTrack?.encode(),
+            audioTrack = PlaybackChecks.audioTrackFor(item, d, target),
         )
     }
 
@@ -1280,7 +1285,8 @@ class MediaCastSession(
     private fun probedText(item: MediaItem): List<TextTrackInfo> =
         if (item.subtitleFiles.any(ServerSubtitle::isInFile)) emptyList() else trackCache[item.uri]?.textSupported.orEmpty()
 
-    private fun activeSubtitle(item: MediaItem): SubtitleChoice = subtitleTracks.effective(item.uri, subtitleChoices(item), item.subtitleFiles)
+    private fun activeSubtitle(item: MediaItem): SubtitleChoice =
+        subtitleTracks.effective(item.uri, subtitleChoices(item), item.subtitleFiles, startOff = item.startsWithoutSubtitles)
 
     /** Subtitles go to the TV with this file (the file's own are read when the TV asks). */
     private fun subtitlesReady(item: MediaItem): Boolean {

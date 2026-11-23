@@ -249,4 +249,33 @@ class PlaybackChecksTest {
             assertFalse(mime, PlaybackChecks.castCantPlaySound(mime))
         }
     }
+
+    @Test
+    fun onlyCastAppTvsPlayingTheFileHearWhichSoundTrack() {
+        val hint = "t=1&lang=ger"
+        val plex = plexItem.copy(audioTrack = hint)
+        // The server's file itself: told. Its converted stream, or the phone's: not (one sound track, already chosen).
+        assertEquals(hint, PlaybackChecks.audioTrackFor(plex, Delivery.ORIGINAL, castAppTv))
+        assertNull(PlaybackChecks.audioTrackFor(plex, Delivery.PROXY, castAppTv))
+        assertNull(PlaybackChecks.audioTrackFor(plex, Delivery.CONVERT, castAppTv))
+        // A file without a converted stream (a queue item, Plex direct play): every way but converting.
+        val file = smbMkv.copy(audioTrack = "prefer=ja")
+        for (d in listOf(Delivery.DIRECT, Delivery.PROXY, Delivery.SERVE)) assertEquals("prefer=ja", PlaybackChecks.audioTrackFor(file, d, castAppTv))
+        assertNull(PlaybackChecks.audioTrackFor(file, Delivery.CONVERT, castAppTv))
+        // Other TVs never.
+        for (tv in listOf(samsung, chromecast, roku)) assertNull(PlaybackChecks.audioTrackFor(file, Delivery.SERVE, tv))
+        assertNull(PlaybackChecks.audioTrackFor(smbMkv, Delivery.SERVE, castAppTv))
+    }
+
+    @Test
+    fun theSubtitleLanguageAnAppAskedForReachesOnlyCastAppTvs() {
+        val file = smbMkv.copy(subtitleTrack = "lang=de")
+        assertEquals("lang=de", PlaybackChecks.subtitleTrackFor(file, Delivery.SERVE, castAppTv, sendsFile = false, picked = false))
+        // A subtitle file goes along, or something was picked on the phone: that one counts.
+        assertNull(PlaybackChecks.subtitleTrackFor(file, Delivery.SERVE, castAppTv, sendsFile = true, picked = false))
+        assertNull(PlaybackChecks.subtitleTrackFor(file, Delivery.SERVE, castAppTv, sendsFile = false, picked = true))
+        assertNull(PlaybackChecks.subtitleTrackFor(file, Delivery.CONVERT, castAppTv, sendsFile = false, picked = false))
+        assertNull(PlaybackChecks.subtitleTrackFor(file, Delivery.SERVE, samsung, sendsFile = false, picked = false))
+        assertNull(PlaybackChecks.subtitleTrackFor(smbMkv, Delivery.SERVE, castAppTv, sendsFile = false, picked = false))
+    }
 }

@@ -140,6 +140,61 @@ class UpnpRendererTest {
     }
 
     @Test
+    fun phoneTellsOnlyCastAppTvsWhichSoundTrackToPlay() = runBlocking {
+        renderer.start(0, ssdp = false)
+        val location = "http://127.0.0.1:${renderer.port}/description.xml"
+        val castAppTv = SsdpBrowser.rendererDevice(location, Dlna.parseDescription(Dlna.fetch(location)!!, location))!!
+        val media = RendererMedia(
+            url = "http://192.168.1.5:32400/library/parts/611/1/file.mkv?X-Plex-Token=t",
+            mimeType = "video/x-matroska",
+            title = "Vela · S1 E1",
+            subtitle = "TV",
+            subtitleTrack = "lang=eng",
+            audioTrack = TrackHint(track = 1, language = "ger", title = "German Dub").encode(),
+            syncUrl = "http://192.168.1.5:8091/sync",
+        )
+        DlnaRenderer(castAppTv).apply { connect(); load(media); close() }
+        val m = tv.current!!
+        assertEquals(TrackHint(track = 1, language = "ger", title = "German Dub"), TrackHint.decode(m.audioTrack))
+        assertEquals("lang=eng", m.subtitleTrack)
+
+        // The same renderer seen as a plain DLNA TV: exactly the metadata such TVs always got.
+        val samsung = castAppTv.copy(model = "UE55 Samsung")
+        assertFalse(samsung.isCastAppTv)
+        DlnaRenderer(samsung).apply { connect(); load(media); close() }
+        val plain = tv.current!!
+        assertEquals(Dlna.didl(media.title, media.url, media.mimeType, false), plain.metadata)
+        assertEquals(null, plain.audioTrack)
+        assertFalse(plain.metadata.contains("castapp"))
+    }
+
+    @Test
+    fun anotherSenderHandsOverSeveralSubtitleFilesAndTheSoundTrack() {
+        renderer.start(0, ssdp = false)
+        val files = listOf(
+            SubtitleFile("http://10.0.0.7:43210/s/1.ass?k=a&f=1", "en", "Signs & Songs"),
+            SubtitleFile("http://10.0.0.7:43210/s/2?k=a", "de", "Full", "text/x-ssa"),
+        )
+        val didl = Dlna.didl(
+            "Vela 01", "http://10.0.0.7:43210/v/1.mkv?k=a", "video/x-matroska", false,
+            subtitleTrack = TrackHint(languages = listOf("de", "en")).encode(),
+            audioTrack = TrackHint(languages = listOf("ja")).encode(),
+            subtitleFiles = SubtitleFiles.encode(files),
+        )
+        // As a sender would, straight over SOAP: the metadata travels XML-escaped once more.
+        Dlna.call(
+            "http://127.0.0.1:${renderer.port}/control/AVTransport", Dlna.AV_TRANSPORT, "SetAVTransportURI",
+            listOf("InstanceID" to "0", "CurrentURI" to "http://10.0.0.7:43210/v/1.mkv?k=a", "CurrentURIMetaData" to didl),
+        )
+        val m = tv.current!!
+        assertEquals(files, m.subtitleFiles)
+        assertEquals("prefer=ja", m.audioTrack)
+        val plan = SubtitleFiles.plan(m)
+        assertEquals(listOf("text/x-ssa", "text/x-ssa"), plan.files.map { it.mime })
+        assertEquals(1, plan.shown) // German first
+    }
+
+    @Test
     fun parsesMetadataFromOtherApps() {
         val didl = """<DIDL-Lite xmlns="urn:schemas-upnp-org:metadata-1-0/DIDL-Lite/" xmlns:dc="http://purl.org/dc/elements/1.1/" xmlns:upnp="urn:schemas-upnp-org:metadata-1-0/upnp/"><item id="1" parentID="0" restricted="1"><dc:title>Song &amp; Dance</dc:title><upnp:class>object.item.audioItem.musicTrack</upnp:class><res protocolInfo="http-get:*:audio/mpeg:DLNA.ORG_OP=01">http://nas/song.mp3</res></item></DIDL-Lite>"""
         val m = UpnpRenderer.parseMedia("http://nas/song.mp3", didl)

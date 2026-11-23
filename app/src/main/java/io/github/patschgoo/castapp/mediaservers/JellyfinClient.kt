@@ -2,6 +2,7 @@ package io.github.patschgoo.castapp.mediaservers
 
 import io.github.patschgoo.castapp.mediaservers.ServerHttp.enc
 import io.github.patschgoo.castapp.service.MediaItem
+import io.github.patschgoo.castapp.service.MediaType
 import org.json.JSONObject
 import java.security.MessageDigest
 import java.util.Locale
@@ -265,8 +266,10 @@ class JellyfinClient(
                 }
             }
         }
+        // The sound track Jellyfin picked, for a CastApp TV playing the file itself.
+        val audioTrack = media?.chosenAudio?.takeIf { mediaItem.type == MediaType.VIDEO }?.hint()
         // The poster or episode still, so "Continue watching" shows it (the address carries the token, like the stream).
-        return PlanEntry(mediaItem.copy(artUri = item.posterUrl), item.resumeMs, item.runtimeMs)
+        return PlanEntry(mediaItem.copy(artUri = item.posterUrl, audioTrack = audioTrack), item.resumeMs, item.runtimeMs)
     }
 
     override fun setWatched(item: ServerItem, watched: Boolean) {
@@ -382,6 +385,12 @@ internal object JellyfinParser {
         val video = streams.firstOrNull { it.str("Type") == "Video" }
         val audios = streams.filter { it.str("Type") == "Audio" }
         val audio = audios.firstOrNull { it.bool("IsDefault") } ?: audios.firstOrNull()
+        // The one Jellyfin plays by default for this user, when there is a choice: its place among the file's own sound tracks.
+        val chosenAudio = source.int("DefaultAudioStreamIndex")?.let { i -> audios.firstOrNull { it.int("Index") == i } }
+            ?.takeIf { audios.size > 1 }?.let { s ->
+                val inFile = audios.filterNot { it.bool("IsExternal") }.sortedBy { it.int("Index") ?: Int.MAX_VALUE }
+                ChosenAudio(language = s.str("Language"), title = s.str("Title"), fileOrdinal = inFile.indexOfFirst { it === s }.takeIf { it >= 0 })
+            }
         val subs = streams.filter { it.str("Type") == "Subtitle" }.map { s ->
             SubtitleTrack(
                 index = s.optInt("Index"),
@@ -405,6 +414,7 @@ internal object JellyfinParser {
             bitrate = source.long("Bitrate"),
             audioLanguage = audio?.str("Language"),
             subtitles = subs,
+            chosenAudio = chosenAudio,
         )
     }
 }
