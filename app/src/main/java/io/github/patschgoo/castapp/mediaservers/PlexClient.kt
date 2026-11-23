@@ -2,9 +2,9 @@ package io.github.patschgoo.castapp.mediaservers
 
 import io.github.patschgoo.castapp.mediaservers.ServerHttp.enc
 import io.github.patschgoo.castapp.service.MediaItem
+import io.github.patschgoo.castapp.subtitles.Sidecars
 import org.json.JSONObject
 import java.security.MessageDigest
-import java.util.Locale
 
 /** Addresses on a Plex Media Server. */
 internal class PlexUrls(private val account: ServerAccount, private val info: ClientInfo, private val caps: PlaybackCaps) {
@@ -28,8 +28,44 @@ internal class PlexUrls(private val account: ServerAccount, private val info: Cl
 
     fun stream(streamKey: String): String = "$base$streamKey" + (if (streamKey.contains('?')) "&" else "?") + token
 
-    /** Plex's universal transcoder: HLS in H.264 / AAC, copying what already fits. */
-    fun hls(itemId: String): String {
+    /**
+     * The server is at home (a private address, or a plex.direct name of one): only then is a
+     * subtitle track read out of the video file on the phone, which means fetching the whole file.
+     */
+    val local: Boolean get() = isLocal(base)
+
+    /**
+     * Where the subtitle file of [track] is read from, as [ServerSubtitle.attachTo] marks it, or null
+     * when it can't be read (a picture one, or a track inside the file of a server far away).
+     * External files come from /library/streams/{id} in UTF-8 (SAMI converted to SRT), as Plex's
+     * own players fetch them; tracks inside the file ([SubtitleTrack.fileOrdinal]) from the file at [partKey].
+     */
+    fun subtitle(track: SubtitleTrack, partKey: String?): String? {
+        if (!track.isText) return null
+        val description = ServerSubtitle(
+            language = track.language,
+            title = track.name,
+            codec = track.codec.ifEmpty { null },
+            forced = track.isForced,
+            hearingImpaired = track.isSdh,
+            track = track.fileOrdinal.takeIf { track.key == null },
+        )
+        val key = track.key
+        val address = when {
+            key != null -> stream(key + (if (key.contains('?')) "&" else "?") + "encoding=utf-8" + (if (track.codec.equals("smi", true)) "&format=srt" else ""))
+            track.fileOrdinal != null && partKey != null && local -> direct(partKey)
+            else -> return null
+        }
+        return description.attachTo(address)
+    }
+
+    /**
+     * Plex's universal transcoder: HLS in H.264 / AAC, copying what already fits. [ownSubtitles]:
+     * CastApp sends the subtitles next to the stream, so the transcoder leaves all subtitle streams
+     * out ("none" in the API documentation, skipSubtitles as Plex's Kodi client asks) instead of
+     * burning the one picked in Plex into the picture (twice the subtitles, and a full conversion).
+     */
+    fun hls(itemId: String, ownSubtitles: Boolean = false): String {
         val q = ServerHttp.query(
             "hasMDE" to 1,
             "path" to "/library/metadata/$itemId",
@@ -41,6 +77,8 @@ internal class PlexUrls(private val account: ServerAccount, private val info: Cl
             "directStream" to 1,
             "directStreamAudio" to 1,
             "subtitleSize" to 100,
+            "subtitles" to "none".takeIf { ownSubtitles },
+            "skipSubtitles" to 1.takeIf { ownSubtitles },
             "audioBoost" to 100,
             "maxVideoBitrate" to caps.transcodeBitrate / 1000,
             "videoResolution" to "${caps.maxWidth}x${caps.maxHeight.coerceAtMost(1080)}",
@@ -71,6 +109,17 @@ internal class PlexUrls(private val account: ServerAccount, private val info: Cl
         )
         return "$base/music/:/transcode/universal/start.mp3?$q&$token"
     }
+
+    companion object {
+        /** A private address ("http://192.168.1.5:32400", "nas") or a plex.direct name of one ("https://192-168-1-5.abc.plex.direct:32400"). */
+        fun isLocal(address: String): Boolean {
+            if (JellyfinAuth.isPrivateHost(address)) return true
+            val host = address.substringAfter("://").substringBefore('/').substringBefore(':').lowercase()
+            if (!host.endsWith(".plex.direct")) return false
+            val ip = host.substringBefore('.').replace('-', '.')
+            return ip.split('.').size == 4 && JellyfinAuth.isPrivateHost("http://$ip")
+        }
+    }
 }
 
 /** Plex Media Server as a [MediaServerClient]. */
@@ -78,7 +127,10 @@ class PlexClient(
     override val account: ServerAccount,
     private val info: ClientInfo,
     private val caps: PlaybackCaps = PlaybackCaps.TV,
-    private val deviceLanguage: String = Locale.getDefault().language,
+    /** Subtitles in this language alone, instead of the [subtitleLanguages] of the setting. */
+    deviceLanguage: String? = null,
+    /** The languages subtitles are wanted in, best first (the subtitle setting's, then the phone's, then English). */
+    private val subtitleLanguages: () -> List<String> = deviceLanguage?.let { language -> { listOf(language) } } ?: { Sidecars.preferredLanguages() },
 ) : MediaServerClient {
     private val urls = PlexUrls(account, info, caps)
     private val base get() = urls.base
@@ -123,10 +175,64 @@ class PlexClient(
         metadata("/library/metadata/${item.id}").firstOrNull() ?: item
 
     override fun plan(item: ServerItem, queueFollowing: Boolean): PlaybackPlan {
-        val first = if (item.media?.subtitles.isNullOrEmpty() && item.kind != ItemKind.PHOTO) detail(item) else item
+        // Lists leave out the file's streams (subtitles, sound languages): ask for the item itself.
+        val first = if (item.media?.streamDetails != true && item.kind != ItemKind.PHOTO) detail(item) else item
+        remember(first)
         val entries = mutableListOf(entryFor(first))
-        if (queueFollowing) entries += following(first).map { entryFor(it) }
+        if (queueFollowing) entries += withStreams(following(first)).map { entryFor(it) }
         return PlaybackPlan(entries)
+    }
+
+    // ---- the streams of queued episodes ---------------------------------------------------------------
+
+    private fun needsStreams(item: ServerItem): Boolean =
+        (item.kind == ItemKind.EPISODE || item.kind == ItemKind.MOVIE || item.kind == ItemKind.VIDEO) &&
+            item.media?.partKey != null && item.media.streamDetails != true
+
+    private fun cacheKey(partKey: String) = "${account.id}|$partKey"
+
+    private fun remember(item: ServerItem) {
+        val media = item.media?.takeIf { it.streamDetails } ?: return
+        val part = media.partKey ?: return
+        synchronized(streamCache) { streamCache[cacheKey(part)] = media }
+    }
+
+    private fun cached(item: ServerItem): MediaInfo? = item.media?.partKey?.let { part -> synchronized(streamCache) { streamCache[cacheKey(part)] } }
+
+    /**
+     * [items] (from a list) with their streams, so queued episodes get subtitles too: from the
+     * cache (by the file's address, which changes with the file), else asked for all at once
+     * (/library/metadata/1,2,3, as python-plexapi does), else one by one for a few seconds.
+     * The positions and watched marks stay the list's: only the streams are taken.
+     */
+    internal fun withStreams(items: List<ServerItem>): List<ServerItem> {
+        val missing = items.filter(::needsStreams)
+        if (missing.isEmpty()) return items
+        val found = HashMap<String, MediaInfo>()
+        for (item in missing) cached(item)?.let { found[item.id] = it }
+        fun take(details: ServerItem) {
+            val media = details.media?.takeIf { it.streamDetails } ?: return
+            found[details.id] = media
+            remember(details)
+        }
+        missing.filter { it.id !in found }.chunked(BATCH).forEach { chunk ->
+            try {
+                metadata("/library/metadata/" + chunk.joinToString(",") { enc(it.id) }).forEach(::take)
+            } catch (_: ServerHttpException) {
+                // Older servers may not take several at once.
+            }
+        }
+        val until = System.nanoTime() + ONE_BY_ONE_NS
+        for (item in missing) {
+            if (item.id in found) continue
+            if (System.nanoTime() > until) break
+            try {
+                metadata("/library/metadata/${enc(item.id)}").firstOrNull()?.let(::take)
+            } catch (_: ServerHttpException) {
+                // The queue is a bonus: this one plays without subtitles.
+            }
+        }
+        return items.map { item -> found[item.id]?.takeIf { needsStreams(item) }?.let { item.copy(media = it) } ?: item }
     }
 
     private fun following(item: ServerItem): List<ServerItem> = try {
@@ -159,13 +265,17 @@ class PlexClient(
             }
             else -> {
                 val method = if (partKey == null) PlayMethod.TRANSCODE else PlaybackPlanner.decideVideo(media, caps)
-                val subtitle = media?.let { PlaybackPlanner.chooseSubtitle(it.subtitles.filter { s -> s.key != null }, it.audioLanguage, deviceLanguage) }
-                    ?.key?.let { urls.stream(it) }
+                val subtitles = subtitleFiles(media)
                 if (method == PlayMethod.DIRECT) {
-                    MediaItem(title, urls.direct(partKey!!), PlaybackPlanner.mimeForVideo(media), subtitleUri = subtitle, serverRef = ref(method), trustAll = account.trustAll)
+                    MediaItem(
+                        title, urls.direct(partKey!!), PlaybackPlanner.mimeForVideo(media), subtitleUri = subtitles.firstOrNull(),
+                        moreSubtitles = subtitles.drop(1), serverRef = ref(method), trustAll = account.trustAll,
+                    )
                 } else {
                     MediaItem(
-                        title, urls.hls(item.id), "application/x-mpegurl", subtitleUri = subtitle, serverRef = ref(method), trustAll = account.trustAll,
+                        title, urls.hls(item.id, ownSubtitles = subtitles.isNotEmpty()), "application/x-mpegurl",
+                        subtitleUri = subtitles.firstOrNull(), moreSubtitles = subtitles.drop(1),
+                        serverRef = ref(method), trustAll = account.trustAll,
                         // CastApp TV receivers try the file itself first (no converting on the server).
                         original = partKey?.let { urls.direct(it) }, originalMime = partKey?.let { PlaybackPlanner.mimeForVideo(media) },
                     )
@@ -174,6 +284,21 @@ class PlexClient(
         }
         // The poster or episode still, so "Continue watching" shows it (the address carries the token, like the stream).
         return PlanEntry(mediaItem.copy(artUri = item.posterUrl), item.resumeMs, item.runtimeMs)
+    }
+
+    /**
+     * The subtitle files of a video for the picker, the one to show first ([PlaybackPlanner.chooseSubtitle]
+     * in the [subtitleLanguages]): external text files and the text tracks inside the file. None when
+     * none is to be shown (the picker would show the first one by itself).
+     */
+    internal fun subtitleFiles(media: MediaInfo?): List<String> {
+        media ?: return emptyList()
+        val readable = media.subtitles.mapNotNull { t -> urls.subtitle(t, media.partKey)?.let { t to it } }
+        if (readable.isEmpty()) return emptyList()
+        val languages = subtitleLanguages()
+        val shown = PlaybackPlanner.chooseSubtitle(readable.map { it.first }, media.audioLanguage, languages) ?: return emptyList()
+        val others = PlaybackPlanner.rankSubtitles(readable.map { it.first }.filter { it !== shown }, languages)
+        return (listOf(shown) + others).mapNotNull { t -> readable.firstOrNull { it.first === t }?.second }
     }
 
     override fun setWatched(item: ServerItem, watched: Boolean) {
@@ -218,6 +343,18 @@ class PlexClient(
     }
 
     companion object {
+        /** Queued episodes asked for in one request. */
+        private const val BATCH = 20
+        /** How long queued episodes are asked for one by one when a server won't take several at once. */
+        private const val ONE_BY_ONE_NS = 4_000_000_000L
+
+        /** Streams of files, by account and the file's address (/library/parts/{id}/{changed}/file.mkv): a few hundred episodes. */
+        private val streamCache = object : LinkedHashMap<String, MediaInfo>(64, 0.75f, true) {
+            override fun removeEldestEntry(eldest: MutableMap.MutableEntry<String, MediaInfo>?) = size > 400
+        }
+
+        internal fun forgetStreams() = synchronized(streamCache) { streamCache.clear() }
+
         /** Checks that a server answers at [address] (no sign-in needed for /identity); returns its machine id. */
         fun identify(address: String, trustAll: Boolean = false, timeoutMs: Int = 4000): String? = try {
             val r = ServerHttp.json("GET", address.trimEnd('/') + "/identity", trustAll = trustAll, timeoutMs = timeoutMs)
@@ -287,16 +424,24 @@ internal object PlexParser {
         val video = streams.firstOrNull { it.optInt("streamType") == 1 }
         val audios = streams.filter { it.optInt("streamType") == 2 }
         val audio = audios.firstOrNull { it.bool("selected") } ?: audios.firstOrNull()
-        val subs = streams.filter { it.optInt("streamType") == 3 }.map { s ->
+        val subtitleStreams = streams.filter { it.optInt("streamType") == 3 }
+        // Tracks of their own inside the file, in the file's order (closed captions inside the picture aren't).
+        val inFile = subtitleStreams.filter { it.str("key") == null && !it.flag("embeddedInVideo") }
+            .withIndex().sortedWith(compareBy({ it.value.int("index") ?: Int.MAX_VALUE }, { it.index })).map { it.value }
+        val subs = subtitleStreams.map { s ->
             SubtitleTrack(
                 index = s.optInt("id"),
                 codec = s.str("codec") ?: s.str("format").orEmpty(),
-                language = s.str("languageCode") ?: s.str("language"),
+                language = s.str("languageCode") ?: s.str("languageTag") ?: s.str("language"),
                 title = s.str("displayTitle"),
-                isDefault = s.bool("default"),
-                isForced = s.bool("forced"),
+                isDefault = s.flag("default"),
+                isForced = s.flag("forced"),
                 isExternal = s.str("key") != null,
                 key = s.str("key"),
+                name = s.str("title"),
+                selected = s.flag("selected"),
+                hearingImpaired = s.flag("hearingImpaired"),
+                fileOrdinal = inFile.indexOfFirst { it === s }.takeIf { it >= 0 },
             )
         }
         return MediaInfo(
@@ -311,8 +456,17 @@ internal object PlexParser {
             // Plex gives kilobits per second.
             bitrate = m.long("bitrate")?.let { it * 1000 },
             partKey = part?.str("key"),
-            audioLanguage = audio?.str("languageCode") ?: audio?.str("language"),
+            audioLanguage = audio?.str("languageCode") ?: audio?.str("languageTag") ?: audio?.str("language"),
             subtitles = subs,
+            streamDetails = streams.isNotEmpty(),
         )
+    }
+
+    /** Plex's flags come as true, 1 or "1". */
+    private fun JSONObject.flag(key: String): Boolean = when (val v = opt(key)) {
+        is Boolean -> v
+        is Number -> v.toInt() != 0
+        is String -> v == "1" || v.equals("true", true)
+        else -> false
     }
 }
