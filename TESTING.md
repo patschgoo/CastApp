@@ -2,6 +2,21 @@
 
 CastApp talks to many kinds of devices that no unit test can reach. This list is for the first rounds on real hardware and for every release. Do not try everything: pick the devices you own, and write down the result (OK / not OK / not tried) next to each item.
 
+## Screenshots without a device (layout check)
+
+Layouts can be checked before anyone holds a phone: Robolectric renders the Compose screens on the PC (real pixels, the app's own font) with made-up TVs, films and channels, and nothing goes to the network.
+
+```
+./gradlew --no-daemon -Dorg.gradle.jvmargs=-Xmx3g -Pkotlin.compiler.execution.strategy=in-process :app:testDebugUnitTest -Pscreenshots
+```
+
+- The pictures land in `app/build/outputs/roborazzi/<screen>/<look>.png`: the main screen (nothing casting, mirroring, a file with the cast bar, the player sheet with the remote, **Cast to**), Settings and its search, the remote, Network & cloud, Jellyfin (home and posters), the TV guide grid and CastApp TV's home. Each in light and dark, English and German, font size 100 % and 200 %, phone (411 × 891 dp) and tablet (1280 × 800 dp); the TV home at 1920 × 1080.
+- Next to a picture, a `.txt` lists what a person would trip over: text cut off with "…", words broken in the middle, tap targets smaller than 48 dp. Some cuts are on purpose (long device details in the **Cast to** list); the rest are bugs.
+- `-Pscreenshots=store` also writes the store pictures (`fastlane/metadata/android/en-US` and `de-DE`, 1080 × 2400) and the README pictures in `docs/`.
+- Without `-Pscreenshots` these tests don't run, so the normal unit tests (and CI) stay fast. The test code is in `app/src/test/java/.../screenshots/` (`FakeData`, `FakeServer` for the Jellyfin and IPTV content).
+
+What the JVM can't show: system bars, the keyboard, real thumbnails from the phone's gallery, animations and anything a device does. Use it to find layout problems, not to replace the checks below.
+
 ## Before you start
 
 1. Install the APK (see the README) on the phone, and open it once.

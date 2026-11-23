@@ -109,6 +109,28 @@ android {
 
     testOptions {
         unitTests.isReturnDefaultValues = true
+        // Robolectric (screenshot tests) reads the app's strings, fonts and drawables.
+        unitTests.isIncludeAndroidResources = true
+    }
+}
+
+// Screenshot tests (Robolectric + Roborazzi, in src/test/.../screenshots) render the Compose
+// screens to PNGs on the JVM. They only run when asked for, so CI stays fast:
+//   ./gradlew :app:testDebugUnitTest -Pscreenshots         -> app/build/outputs/roborazzi/
+//   ./gradlew :app:testDebugUnitTest -Pscreenshots=store   -> also the docs/ and fastlane/ images
+val screenshots: String? = providers.gradleProperty("screenshots").orNull
+tasks.withType<Test>().configureEach {
+    if (screenshots == null) {
+        exclude("io/github/patschgoo/castapp/screenshots/**")
+    } else {
+        filter.includeTestsMatching("io.github.patschgoo.castapp.screenshots.*")
+        systemProperty("roborazzi.test.record", "true")
+        systemProperty("robolectric.pixelCopyRenderMode", "hardware")
+        systemProperty("castapp.screenshots", screenshots.ifEmpty { "all" })
+        systemProperty("castapp.repoDir", rootDir.absolutePath)
+        maxHeapSize = "3g"
+        // The pictures are the output: render again even when no code changed.
+        outputs.upToDateWhen { false }
     }
 }
 
@@ -149,4 +171,8 @@ dependencies {
 
     testImplementation(libs.junit)
     testImplementation(libs.org.json)
+    testImplementation(libs.robolectric)
+    testImplementation(libs.roborazzi)
+    testImplementation(libs.roborazzi.compose)
+    testImplementation(libs.androidx.compose.ui.test.junit4)
 }

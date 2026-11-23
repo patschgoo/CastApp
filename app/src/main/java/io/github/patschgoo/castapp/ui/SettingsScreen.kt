@@ -591,12 +591,15 @@ private fun AudioDelayItem(delayMs: Int, onChange: (Int) -> Unit) {
             style = MaterialTheme.typography.bodyMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
+        // The steps keep their width; with a large font only "Reset" gets cut short.
         Row(verticalAlignment = Alignment.CenterVertically) {
-            TextButton(onClick = { onChange((delayMs - 50).coerceAtLeast(-500)) }) { Text("− 50 ms") }
-            Spacer(Modifier.weight(1f))
-            TextButton(onClick = { onChange(0) }, enabled = delayMs != 0) { Text(stringResource(R.string.set_reset_short)) }
-            Spacer(Modifier.weight(1f))
-            TextButton(onClick = { onChange((delayMs + 50).coerceAtMost(500)) }) { Text("+ 50 ms") }
+            TextButton(onClick = { onChange((delayMs - 50).coerceAtLeast(-500)) }) { Text("− 50 ms", maxLines = 1, softWrap = false) }
+            Box(Modifier.weight(1f), contentAlignment = Alignment.Center) {
+                TextButton(onClick = { onChange(0) }, enabled = delayMs != 0) {
+                    Text(stringResource(R.string.set_reset_short), maxLines = 1, overflow = TextOverflow.Ellipsis)
+                }
+            }
+            TextButton(onClick = { onChange((delayMs + 50).coerceAtMost(500)) }) { Text("+ 50 ms", maxLines = 1, softWrap = false) }
         }
     }
 }

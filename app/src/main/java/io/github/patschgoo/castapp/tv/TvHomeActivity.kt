@@ -11,6 +11,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
@@ -86,8 +87,9 @@ internal fun TvHome() {
     val needsOverlay = Build.VERSION.SDK_INT >= 29 && !Settings.canDrawOverlays(context)
 
     Surface(Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background) {
-        Row(Modifier.fillMaxSize().padding(horizontal = 56.dp, vertical = 40.dp), horizontalArrangement = Arrangement.spacedBy(48.dp)) {
-            Column(Modifier.weight(1f).verticalScroll(rememberScrollState())) {
+        // The top and bottom margins scroll with the columns, so a long column isn't cut off above the screen's edge.
+        Row(Modifier.fillMaxSize().padding(horizontal = 56.dp), horizontalArrangement = Arrangement.spacedBy(48.dp)) {
+            Column(Modifier.weight(1f).verticalScroll(rememberScrollState()).padding(vertical = 40.dp)) {
                 Icon(Icons.Rounded.CastConnected, contentDescription = null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(64.dp))
                 Spacer(Modifier.height(16.dp))
                 Text(stringResource(R.string.tv_title), style = MaterialTheme.typography.displaySmall)
@@ -112,7 +114,8 @@ internal fun TvHome() {
                     Text(stringResource(R.string.tv_address, it), style = MaterialTheme.typography.bodyLarge, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
                 Spacer(Modifier.height(28.dp))
-                Row(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
+                // Wraps instead of squeezing a long label (German) into two lines.
+                FlowRow(horizontalArrangement = Arrangement.spacedBy(16.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
                     Button(onClick = { renaming = true }, modifier = Modifier.focusRing()) { Text(stringResource(R.string.tv_rename)) }
                     OutlinedButton(modifier = Modifier.focusRing(), onClick = {
                         startOnBoot = !startOnBoot
@@ -122,7 +125,7 @@ internal fun TvHome() {
                     }
                 }
             }
-            Column(Modifier.weight(1.2f).verticalScroll(rememberScrollState())) {
+            Column(Modifier.weight(1.2f).verticalScroll(rememberScrollState()).padding(vertical = 40.dp)) {
                 Card(
                     colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerHigh),
                     modifier = Modifier.fillMaxWidth(),

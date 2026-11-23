@@ -23,7 +23,9 @@ private val LightColors = lightColorScheme(
     onPrimaryContainer = Color(0xFF4C1D95),
     secondary = Color(0xFF52525B),
     onSecondary = Color.White,
-    secondaryContainer = Color(0xFFF1F0F4),
+    // Tonal buttons, remote keys and selected chips: a shade darker than the cards
+    // (surfaceContainerHigh), else a tonal button on such a card has no visible shape.
+    secondaryContainer = Color(0xFFE7E3F2),
     onSecondaryContainer = Color(0xFF18181B),
     tertiary = Color(0xFF0F766E),
     onTertiary = Color.White,
@@ -51,7 +53,7 @@ private val DarkColors = darkColorScheme(
     onPrimaryContainer = Color(0xFFDDD6FE),
     secondary = Color(0xFFA1A1AA),
     onSecondary = Color(0xFF18181B),
-    secondaryContainer = Color(0xFF262430),
+    secondaryContainer = Color(0xFF34304A),
     onSecondaryContainer = Color(0xFFF4F4F5),
     tertiary = Color(0xFF5EEAD4),
     onTertiary = Color(0xFF042F2E),
