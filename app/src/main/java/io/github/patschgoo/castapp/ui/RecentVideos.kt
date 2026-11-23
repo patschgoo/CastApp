@@ -10,7 +10,6 @@ import android.os.SystemClock
 import android.provider.MediaStore
 import android.provider.Settings
 import android.util.LruCache
-import android.util.Size
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.Image
@@ -67,6 +66,7 @@ import androidx.compose.ui.unit.sp
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.compose.LifecycleEventEffect
 import io.github.patschgoo.castapp.R
+import io.github.patschgoo.castapp.artwork.PhoneThumbnails
 import io.github.patschgoo.castapp.ui.theme.LocalCastColors
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -122,14 +122,8 @@ private object PhoneVideos {
         thumbnails.get(video.id)?.let { return it }
         return withContext(Dispatchers.IO) {
             try {
-                val bitmap =
-                    if (Build.VERSION.SDK_INT >= 29) {
-                        context.contentResolver.loadThumbnail(video.uri, Size(widthPx, heightPx), null)
-                    } else {
-                        @Suppress("DEPRECATION")
-                        MediaStore.Video.Thumbnails.getThumbnail(context.contentResolver, video.id, MediaStore.Video.Thumbnails.MINI_KIND, null)
-                    }
-                bitmap?.asImageBitmap()?.also { thumbnails.put(video.id, it) }
+                // Shared with "Continue watching" ([io.github.patschgoo.castapp.artwork.Artwork]).
+                PhoneThumbnails.load(context, video.uri, widthPx, heightPx)?.asImageBitmap()?.also { thumbnails.put(video.id, it) }
             } catch (_: Exception) {
                 null
             }

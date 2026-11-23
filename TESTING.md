@@ -145,6 +145,7 @@ CastApp's AirPlay has only been tested against a reference implementation, so ex
 | Network, Roku / Samsung / LG | See the sections above | Keys work | Debug log + TV model |
 | Bluetooth | Pair the phone as a keyboard (Fire TV: Settings → Controllers & Bluetooth Devices → Other Bluetooth Devices; Shield: Add accessory) | The TV accepts it; keys work | Debug log + self-test ("Bluetooth keyboard mode") + both device models |
 | Infrared | Point the phone at the TV, try power and volume | The TV reacts | Debug log + TV brand and model; say that the phone has an IR blaster |
+| Both remotes | Use the remote in the casting card, tap **All buttons**, go back, turn the phone | The TV stays listed and the keys keep working in both; no new search or reconnect after turning | Debug log |
 
 ## NAS, Plex, Jellyfin and network shares
 
@@ -160,6 +161,7 @@ CastApp's AirPlay has only been tested against a reference implementation, so ex
 | Away from home | Open a NAS over your VPN or a Tailscale address | Works as at home | Debug log + how you connect |
 | Queue | Pick several files | Play list; reorder, remove, shuffle, repeat work | Debug log |
 | Continue watching | Stop a video halfway, open it again | Resumes where you stopped | Debug log |
+| Continue watching pictures | Stop a Plex or Jellyfin episode, a phone video, a file on a share (on Wi-Fi) and a channel catch-up halfway, then go to the main screen | Each card shows its still, poster, logo or a frame of the video; an icon while it loads; scrolling the main screen stays smooth | Screenshot + where each video came from |
 
 ## NVIDIA Shield as media server and TV (anime library)
 
