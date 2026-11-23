@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Converting for the TV, but the picture is copied as it is and only the file around it (and the
+         sound, if needed) is made new: TV recordings, MKV files (%1$s: title) -->
+    <string name="msg_converting_copied">Repackaging \"%1$s\" on the phone so the TV can play it (picture unchanged)</string>
+
+    <!-- CastApp TV: a video whose picture format this box can't read at all (e.g. DivX 3), so only the
+         sound would play; shown inside tv_cant_play -->
+    <string name="tv_no_picture">no picture: unsupported video format</string>
+</resources>

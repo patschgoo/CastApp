@@ -66,6 +66,8 @@ class TvPlayerActivity : ComponentActivity() {
     private var tracksChecked = false
     /** The subtitle track of the media now loaded was picked ([pickTextTrack]). */
     private var textPicked = false
+    /** Sound without any picture (a DivX 3 AVI): given up on once it has stood a moment ([checkPicture]). */
+    private val pictureWatch = TrackSupport.PictureWatch()
     private lateinit var noticeView: TextView
     private var closing = false
     private var speed = 1f
@@ -74,6 +76,7 @@ class TvPlayerActivity : ComponentActivity() {
 
     private val ticker = object : Runnable {
         override fun run() {
+            checkPicture()
             reportState()
             catchUp()
             followTimeline()
@@ -198,6 +201,7 @@ class TvPlayerActivity : ComponentActivity() {
         failed = false
         tracksChecked = false
         textPicked = false
+        pictureWatch.reset()
         startFollowing(media)
         infoView.visibility = View.GONE
         handler.removeCallbacks(hideNotice)
@@ -333,6 +337,7 @@ class TvPlayerActivity : ComponentActivity() {
             override fun onTracksChanged(tracks: Tracks) {
                 checkTracks(tracks)
                 pickTextTrack(tracks)
+                checkPicture()
             }
         })
         playerView.player = player
@@ -402,6 +407,30 @@ class TvPlayerActivity : ComponentActivity() {
         player.trackSelectionParameters = player.trackSelectionParameters.buildUpon()
             .setOverrideForType(TrackSelectionOverride(chosen.mediaTrackGroup, 0))
             .build()
+    }
+
+    /**
+     * A video whose tracks are sound only, with no picture group at all (Media3 drops a DivX 3 stream):
+     * after a moment with the player ready ([TrackSupport.PictureWatch]: tracks may still come in steps),
+     * it fails like a picture without decoder, so the phone moves on to its next way.
+     */
+    private fun checkPicture() {
+        val media = showing ?: return
+        val p = exo ?: return
+        if (failed || media.kind != TvMediaKind.VIDEO) return
+        val soundOnly = TrackSupport.soundWithoutPicture(
+            TrackSupport.groupsOf(p.currentTracks), media.kind, media.lowLatency, media.joinedFrom != null, media.live,
+        )
+        val ready = p.playbackState == Player.STATE_READY
+        if (!pictureWatch.check(android.os.SystemClock.elapsedRealtime(), soundOnly, ready)) return
+        failed = true
+        infoView.text = getString(
+            io.github.patschgoo.castapp.R.string.tv_cant_play,
+            getString(io.github.patschgoo.castapp.R.string.tv_no_picture),
+        )
+        infoView.visibility = View.VISIBLE
+        exo?.stop()
+        reportState()
     }
 
     /** A short line at the top that goes away by itself. */

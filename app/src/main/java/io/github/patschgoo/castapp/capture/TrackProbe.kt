@@ -11,9 +11,9 @@ import io.github.patschgoo.castapp.subtitles.EmbeddedSubtitles
 /** Lists the sound and subtitle tracks of a video file. */
 object TrackProbe {
     /**
-     * Sound tracks come from Android's MediaExtractor (the same one the converter
-     * uses, so the numbering matches); subtitle tracks from Media3's extractors,
-     * which also read SRT/ASS/WebVTT/tx3g inside MKV and MP4.
+     * Sound tracks come from the converter's reader (Android's MediaExtractor, or Media3's
+     * for an AVI it can't open), so the numbering matches; subtitle tracks from Media3's
+     * extractors, which also read SRT/ASS/WebVTT/tx3g inside MKV and MP4.
      */
     fun probe(context: Context, input: TranscodeInput, source: MediaSource?): TrackList {
         val audio = try { audioTracks(context, input) } catch (_: Exception) { emptyList() }
@@ -22,11 +22,11 @@ object TrackProbe {
     }
 
     fun audioTracks(context: Context, input: TranscodeInput): List<AudioTrackInfo> {
-        val ex = input.open(context)
+        val ex = input.openReader(context)
         try {
             val list = ArrayList<AudioTrackInfo>()
             for (i in 0 until ex.trackCount) {
-                val f = ex.getTrackFormat(i)
+                val f = ex.trackFormat(i)
                 val mime = f.getString(MediaFormat.KEY_MIME) ?: continue
                 if (!mime.startsWith("audio/")) continue
                 list += AudioTrackInfo(

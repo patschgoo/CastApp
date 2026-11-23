@@ -10,7 +10,8 @@ import io.github.patschgoo.castapp.stream.VodSegmenter
 /**
  * Converts [input] from [startMs] into the segments of [conversion] (HLS for Apple
  * TV and Roku). Returns how to stop it. The converter pauses by itself while it is
- * far ahead of what the TV has fetched.
+ * far ahead of what the TV has fetched. [allowCopy]: the picture may be copied as it is
+ * ([Transcoder]); [onStarted] is told whether it is.
  */
 fun startHlsTranscode(
     context: Context,
@@ -19,11 +20,14 @@ fun startHlsTranscode(
     maxHeight: Int,
     audioTrack: Int,
     conversion: HlsConversion,
+    allowCopy: Boolean = true,
+    onStarted: (copying: Boolean) -> Unit = {},
 ): () -> Unit {
     val queue = InterleavingQueue(setOf(FragmentedMp4.VIDEO_TRACK_ID, FragmentedMp4.AUDIO_TRACK_ID))
-    val transcoder = Transcoder(context, input, startMs * 1000, queue, maxHeight = maxHeight, audioTrackOrdinal = audioTrack)
+    val transcoder = Transcoder(context, input, startMs * 1000, queue, maxHeight = maxHeight, audioTrackOrdinal = audioTrack, allowCopy = allowCopy)
     transcoder.hub.subscribe(queue)
     transcoder.start()
+    onStarted(transcoder.copying)
     val store = conversion.store
     val pump = Thread({
         try {

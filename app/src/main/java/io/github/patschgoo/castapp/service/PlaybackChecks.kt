@@ -106,6 +106,24 @@ internal object PlaybackChecks {
     fun playedAsIsNote(refused: ConvertProblem?, played: Delivery, picked: Boolean): ConvertProblem? =
         refused?.takeIf { picked && played != Delivery.CONVERT }
 
+    /**
+     * Where a conversion from [startMs] begins. A picture copied as it is ([copies]) can only begin at a
+     * key frame: the one at or before [startMs] ([keyFrameMs], null if it couldn't be told), so the TV's
+     * clock and the subtitles begin there too. One implausibly far back (a file without a usable index)
+     * is left alone.
+     */
+    fun convertStartMs(startMs: Long, copies: Boolean, keyFrameMs: Long?): Long =
+        if (copies && keyFrameMs != null && keyFrameMs in (startMs - MAX_KEY_FRAME_BACK_MS)..startMs) keyFrameMs else startMs
+
+    private const val MAX_KEY_FRAME_BACK_MS = 60_000L
+
+    /**
+     * A conversion that copied the picture as it is ([pictureCopied]) didn't play or broke off on the TV:
+     * convert again, the picture too. Once per file ([refusedBefore]): then it's like any conversion.
+     */
+    fun retryWithoutCopy(d: Delivery, pictureCopied: Boolean, refusedBefore: Boolean): Boolean =
+        d == Delivery.CONVERT && pictureCopied && !refusedBefore
+
     /** Sound Chromecasts (Default Media Receiver) can't play: DTS in all its forms and Dolby TrueHD. */
     fun castCantPlaySound(mime: String): Boolean = mime.lowercase().let {
         it.startsWith("audio/vnd.dts") || it == "audio/dts" || it == "audio/dts-hd" || it == "audio/true-hd" || it == "audio/truehd"

@@ -38,13 +38,19 @@ class ConvertException(val problem: ConvertProblem) : IOException(problem.descri
 /**
  * What the phone's converter can do with a file.
  * [problem]: why it can't convert at all (null: it can). [droppedAudioMime]: the chosen sound track
- * has no decoder here, so the converted video has no sound.
+ * has no decoder here, so the converted video has no sound. [video]: the picture track, for whether
+ * it's copied as it is ([copiesPicture]).
  */
 data class ConvertCheck(
     val problem: ConvertProblem?,
     val durationMs: Long = 0,
     val droppedAudioMime: String? = null,
-)
+    val video: Remux.VideoFacts? = null,
+) {
+    /** The converter copies the picture as it is at quality [maxHeight] ([Remux.videoRoute]); [allowed]: not refused by this TV. */
+    fun copiesPicture(maxHeight: Int, allowed: Boolean = true): Boolean =
+        problem == null && Remux.videoRoute(video, maxHeight, allowed) == Remux.VideoRoute.Copy
+}
 
 /** The decisions behind [Transcoder.start] and [Transcoder.probe], without Android in the way (unit tests). */
 object ConvertChecks {
@@ -72,6 +78,8 @@ object ConvertChecks {
      * [tracks]: null when the container can't be opened; [readable]: whether its bytes could be read
      * at all then (a network problem rather than an unknown file type). [videoDecoder]/[audioDecoder]:
      * whether this phone has a decoder for the track at that index. [videoCodec]: a readable name of it.
+     * [droppedVideo]: asked when no picture track came out: the picture codec the file declares all the
+     * same (an AVI's DivX 3 stream, which the reader drops), null if it has none.
      */
     fun decide(
         tracks: List<TrackFacts>?,
@@ -81,11 +89,17 @@ object ConvertChecks {
         videoDecoder: (Int) -> Boolean,
         audioDecoder: (Int) -> Boolean,
         videoCodec: (Int) -> String = { i -> codecName(tracks?.getOrNull(i)?.mime) },
+        droppedVideo: () -> AviCodecs.Codec? = { null },
     ): ConvertCheck {
         if (tracks == null) return ConvertCheck(openFailed(fileType) { readable })
         val durationMs = (tracks.maxOfOrNull { it.durationUs } ?: 0L) / 1000
         val (video, audio) = pickTracks(tracks, audioOrdinal)
-        if (video < 0) return ConvertCheck(ConvertProblem.NoVideoTrack, durationMs)
+        if (video < 0) {
+            // A picture the reader couldn't hand out: "no decoder for DivX 3", not "no picture".
+            val declared = droppedVideo()
+            val problem = if (declared != null) ConvertProblem.NoVideoDecoder(declared.mime.orEmpty(), declared.name) else ConvertProblem.NoVideoTrack
+            return ConvertCheck(problem, durationMs)
+        }
         if (!videoDecoder(video)) {
             return ConvertCheck(ConvertProblem.NoVideoDecoder(tracks[video].mime.orEmpty(), videoCodec(video)), durationMs)
         }

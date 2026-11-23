@@ -163,6 +163,10 @@ class MediaCastSession(
     /** Files whose missing sound was already pointed out (converted without sound / a Chromecast and DTS). */
     private val noSoundWarned: MutableSet<String> = ConcurrentHashMap.newKeySet()
     private val castSoundWarned: MutableSet<String> = ConcurrentHashMap.newKeySet()
+    /** The latest conversion: its file, and whether it copies the picture as it is ([Transcoder.copying]). */
+    @Volatile private var conversionCopies: Pair<String, () -> Boolean>? = null
+    /** Files whose copied picture didn't play on this TV: converted in full from then on. */
+    private val copyRefused: MutableSet<String> = ConcurrentHashMap.newKeySet()
     private val variantCache = ConcurrentHashMap<String, List<HlsVariant>>()
     private val generated = ConcurrentHashMap<String, List<Cue>>()
     private val generatedDone: MutableSet<String> = ConcurrentHashMap.newKeySet()
@@ -396,7 +400,11 @@ class MediaCastSession(
         when {
             file == "index.m3u8" -> {
                 val conversion = try {
-                    hls.obtain(key) { c -> startHlsTranscode(context, inputFor(item), startMs, height, audio, c) }
+                    hls.obtain(key) { c ->
+                        startHlsTranscode(context, inputFor(item), startMs, height, audio, c, allowCopy = item.uri !in copyRefused) { copying ->
+                            conversionCopies = item.uri to { copying }
+                        }
+                    }
                 } catch (e: Exception) {
                     Log.w(TAG, "Can't convert ${item.title}", e)
                     return server.writeResponseHead(out, 500, "Conversion failed", "text/plain", 0, emptyMap())
@@ -461,7 +469,8 @@ class MediaCastSession(
     private fun serveConverted(item: MediaItem, startMs: Long, height: Int, audio: Int, request: TokenHttpServer.Request, socket: Socket, out: OutputStream) {
         val queue = InterleavingQueue(setOf(FragmentedMp4.VIDEO_TRACK_ID, FragmentedMp4.AUDIO_TRACK_ID))
         val transcoder = try {
-            Transcoder(context, inputFor(item), startMs * 1000, queue, maxHeight = height, audioTrackOrdinal = audio)
+            // The picture is copied as it is where it can be, unless that didn't play on this TV before.
+            Transcoder(context, inputFor(item), startMs * 1000, queue, maxHeight = height, audioTrackOrdinal = audio, allowCopy = item.uri !in copyRefused)
         } catch (_: IOException) {
             server.writeResponseHead(out, 500, "Conversion failed", "text/plain", 0, emptyMap())
             return
@@ -476,6 +485,7 @@ class MediaCastSession(
             return
         }
         transcoder.droppedAudioMime?.let { warnNoSound(item, it) }
+        conversionCopies = item.uri to { transcoder.copying }
         try {
             server.stream("video/mp4") { body ->
                 // A decoder that breaks right away ends the stream at once, not after the full wait.
@@ -926,9 +936,12 @@ class MediaCastSession(
         if (onlyFrom != null) options = options.dropWhile { it != onlyFrom }.ifEmpty { plan(item) }
         // Why the phone can't convert it, said once the other ways were tried too (one of them may play it).
         var refused: ConvertProblem? = null
-        for (d in options) {
+        val tries = ArrayDeque(options)
+        while (tries.isNotEmpty()) {
+            val d = tries.removeFirst()
             if (ended.get()) return
             val r = renderer ?: return
+            var failed = false
             try {
                 // Can the phone convert it at all? Asking the TV to wait for an empty stream helps nobody.
                 val problem = if (d == Delivery.CONVERT && !item.live) convertCheck(item).problem else null
@@ -938,9 +951,13 @@ class MediaCastSession(
                     // A read error may be passing: the converter tries anyway (it answers the TV at once if it can't).
                     if (problem != ConvertProblem.ReadFailed) continue
                 }
+                // A copied picture starts at a key frame: so do the TV's clock and the subtitles.
+                if (d == Delivery.CONVERT && !item.live) start = convertStart(item, start)
                 delivery = d
                 convertStartMs = if (d == Delivery.CONVERT) start else 0
                 if (d == Delivery.CONVERT) {
+                    // Set again when the TV fetches the conversion (whether it copies the picture).
+                    conversionCopies = null
                     update { it.copy(phase = CastPhase.CONVERTING, converting = true).withExtras() }
                 } else {
                     update { it.copy(converting = false).withExtras() }
@@ -972,7 +989,8 @@ class MediaCastSession(
                     // The other screens get the same item, from where the first one is now.
                     extras.reloadAll()
                     if (d == Delivery.CONVERT && !convertPicked(item)) {
-                        CastController.message(Txt.s(R.string.msg_converting, item.title))
+                        val copied = pictureCopied(item)
+                        CastController.message(Txt.s(if (copied) R.string.msg_converting_copied else R.string.msg_converting, item.title))
                     }
                     if (d == Delivery.CONVERT) convertChecks[convertKey(item)]?.droppedAudioMime?.let { warnNoSound(item, it) }
                     // Converting was asked for by hand, but it plays as it is: say why.
@@ -984,12 +1002,20 @@ class MediaCastSession(
                     return
                 }
                 Log.i(TAG, "${item.title}: $d didn't play, trying the next way")
+                failed = true
             } catch (e: CancellationException) {
                 throw e
             } catch (e: Exception) {
                 Log.i(TAG, "${item.title}: $d failed: ${e.message}")
+                failed = true
             } finally {
                 outcome = null
+            }
+            // The TV didn't take the copied picture (a level or a stream it doesn't like): convert it in full.
+            if (failed && PlaybackChecks.retryWithoutCopy(d, pictureCopied(item), item.uri in copyRefused)) {
+                Log.i(TAG, "${item.title}: the copied picture didn't play, converting it")
+                refuseCopy(item)
+                tries.addFirst(Delivery.CONVERT)
             }
         }
         // Nothing worked for this item: skip it (the way the user was going), saying why where it's known.
@@ -1019,6 +1045,32 @@ class MediaCastSession(
         // Unknown (0) leaves the TV's own length or a later reading.
         if (check.durationMs > 0) durationCache.putIfAbsent(item.uri, check.durationMs)
         return check
+    }
+
+    /**
+     * Where converting [item] from [startMs] begins: a picture copied as it is ([ConvertCheck.copiesPicture])
+     * can only begin at a key frame, the one at or before [startMs] ([PlaybackChecks.convertStartMs]).
+     */
+    private suspend fun convertStart(item: MediaItem, startMs: Long): Long {
+        if (startMs <= 0) return startMs
+        val copies = convertCheck(item).copiesPicture(convertHeightNow(), allowed = item.uri !in copyRefused)
+        if (!copies) return startMs
+        val keyFrameUs = runInterruptible {
+            try { Transcoder.keyFrameBefore(context, inputFor(item), startMs * 1000) } catch (_: Exception) { null }
+        }
+        return PlaybackChecks.convertStartMs(startMs, copies, keyFrameUs?.let { it / 1000 })
+    }
+
+    /** The latest conversion of [item] copies its picture as it is. */
+    private fun pictureCopied(item: MediaItem): Boolean =
+        conversionCopies?.takeIf { it.first == item.uri }?.second?.invoke() == true
+
+    /** [item]'s copied picture didn't play on this TV: the next conversions convert it in full. */
+    private fun refuseCopy(item: MediaItem) {
+        copyRefused += item.uri
+        conversionCopies = null
+        // An HLS conversion of the same address would be taken up again otherwise.
+        hls.stopAll()
     }
 
     private fun cantConvertMessage(item: MediaItem, problem: ConvertProblem): String = Txt.s(
@@ -1647,6 +1699,10 @@ class MediaCastSession(
         val s = CastController.state.value as? CastState.Active
         val position = s?.positionNow(SystemClock.elapsedRealtime()) ?: 0
         if (current.type == MediaType.VIDEO && !current.isHls && delivery != Delivery.CONVERT && settings.convert != ConvertMode.OFF) {
+            playIndex(index, position, onlyFrom = Delivery.CONVERT)
+        } else if (PlaybackChecks.retryWithoutCopy(delivery, pictureCopied(current), current.uri in copyRefused)) {
+            // The copied picture broke off on the TV: convert it in full from there.
+            refuseCopy(current)
             playIndex(index, position, onlyFrom = Delivery.CONVERT)
         } else if (queue.nextIndex(auto = false)?.takeIf { it != index } != null) {
             CastController.message(Txt.s(R.string.err_cant_play_item, device.name, current.title))

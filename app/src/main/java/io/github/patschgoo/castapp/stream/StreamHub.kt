@@ -5,13 +5,18 @@ import java.util.concurrent.TimeUnit
 import java.util.concurrent.locks.ReentrantLock
 import kotlin.concurrent.withLock
 
-/** An encoded audio or video access unit with its timing in microseconds. */
+/**
+ * An encoded audio or video access unit with its timing in microseconds. [ptsUs] is the decoding time,
+ * which is also the presentation time unless [compositionOffsetUs] says the frame is shown later
+ * (B-frames of an H.264 picture copied from the file); 0 for everything the phone encodes.
+ */
 class EncodedSample(
     val trackId: Int,
     val data: ByteArray,
     val ptsUs: Long,
     val durationUs: Long,
     val isKey: Boolean,
+    val compositionOffsetUs: Long = 0,
 )
 
 fun interface StreamSubscriber {
@@ -158,8 +163,11 @@ class StreamHub {
         }
     }
 
-    /** Called by the video encoder with an MP4-formatted (length-prefixed) access unit. */
-    fun pushVideo(data: ByteArray, ptsUs: Long, isKey: Boolean) {
+    /**
+     * Called by the video encoder with an MP4-formatted (length-prefixed) access unit. A copied picture
+     * passes its decoding time as [ptsUs] and shows the frame [compositionOffsetUs] later.
+     */
+    fun pushVideo(data: ByteArray, ptsUs: Long, isKey: Boolean, compositionOffsetUs: Long = 0) {
         val ready: EncodedSample?
         synchronized(videoLock) {
             val prev = pendingVideo
@@ -167,15 +175,15 @@ class StreamHub {
                 // Out-of-order or duplicate timestamp: keep the newer data, drop the old frame
                 // unless it was a key frame that clients may be waiting for.
                 if (!prev.isKey || isKey) {
-                    pendingVideo = EncodedSample(FragmentedMp4.VIDEO_TRACK_ID, data, prev.ptsUs, 0, isKey || prev.isKey)
+                    pendingVideo = EncodedSample(FragmentedMp4.VIDEO_TRACK_ID, data, prev.ptsUs, 0, isKey || prev.isKey, compositionOffsetUs)
                 }
                 return
             }
             ready = prev?.let {
                 val duration = (ptsUs - it.ptsUs).coerceIn(1_000L, 10_000_000L)
-                EncodedSample(it.trackId, it.data, it.ptsUs, duration, it.isKey)
+                EncodedSample(it.trackId, it.data, it.ptsUs, duration, it.isKey, it.compositionOffsetUs)
             }
-            pendingVideo = EncodedSample(FragmentedMp4.VIDEO_TRACK_ID, data, ptsUs, 0, isKey)
+            pendingVideo = EncodedSample(FragmentedMp4.VIDEO_TRACK_ID, data, ptsUs, 0, isKey, compositionOffsetUs)
         }
         if (ready != null) publish(ready)
     }
@@ -234,9 +242,15 @@ class Mp4FragmentSerializer(private val audioSampleRate: Int?) {
         val endTicks = toTicks(endUs, FragmentedMp4.VIDEO_TIMESCALE)
         videoEndUs = endUs
         val duration = (endTicks - startTicks).toInt().coerceAtLeast(1)
+        // A copied B-frame picture: shown later than decoded (rounded like the decoding times).
+        val offset = if (s.compositionOffsetUs > 0) {
+            (toTicks(startUs + s.compositionOffsetUs, FragmentedMp4.VIDEO_TIMESCALE) - startTicks).toInt()
+        } else {
+            0
+        }
         return FragmentedMp4.fragment(
             sequence++, FragmentedMp4.VIDEO_TRACK_ID, startTicks,
-            listOf(FragmentSample(s.data, duration, s.isKey)),
+            listOf(FragmentSample(s.data, duration, s.isKey, offset)),
         )
     }
 
