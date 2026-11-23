@@ -50,6 +50,12 @@ test checklist is [TESTING.md](TESTING.md); the intent API is [AUTOMATION.md](AU
 - Protocols are tested against fakes over real sockets (see `app/src/test/`): Cast, DLNA, AirPlay (pyatv's
   pairing as reference), Roku, Samsung/LG/Android TV remotes, Plex/Jellyfin, IPTV/HLS recording, peers.
 
+- **Commits (user's rule, 2026-11-23): Claude never appears as a contributor.** Commit as the user,
+  `git config user.name "patschgo"` and `git config user.email "88206373+patschgoo@users.noreply.github.com"`
+  (set it in every new clone), and add no `Co-Authored-By` or `Claude-Session` lines to commits or PRs. The
+  history was rewritten that day (all commits under the user's name), so commit IDs from before 2026-11-23
+  14:40 UTC are gone; never push from an older clone or merge old history back in.
+
 ## Layout
 
 `app/src/main/java/io/github/patschgoo/castapp/`: `cast/` Cast v2, `dlna/` UPnP, `airplay/`, `tv/` the
