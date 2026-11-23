@@ -216,6 +216,7 @@ For a Shield that holds the drives (Plex Media Server and/or **Transfer files ov
 | M3U list | Add an M3U address | Channels appear, grouped | Debug log + whether the list works in another player (never send the full address) |
 | Play a channel | Cast a channel to each device type you own | Plays; channel switch works | Debug log + device + channel format if known |
 | Radio | Cast a radio station | Plays | Debug log |
+| Lists after updating | Update from 4.0.0 (with channel lists added) to this version, open TV channels, then close and open the app again | All lists and favourites are still there, also after the restart (they are now saved encrypted) | Debug log + phone model and Android version |
 | Guide | Add an XMLTV address | Programme guide shows now and next | Debug log |
 | Catch-up | Try it on a channel whose provider offers it | Plays an earlier programme | Debug log |
 | Guide grid | Open the **Grid** tab, scroll through channels and hours, use **Now** and the day picker | Smooth scrolling; the *now* line is at the right time | Debug log + number of channels |

@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- What Android's automatic backup leaves out (Android 11 and older; data_extraction_rules.xml is the same for 12+). -->
+<full-backup-content>
+    <!-- Internet TV: playlist addresses, cached channel lists, favourites, reminders and planned recordings
+         can contain the provider's user name and password. -->
+    <exclude domain="sharedpref" path="iptv.xml" />
+    <exclude domain="sharedpref" path="iptv_extras.xml" />
+    <exclude domain="file" path="iptv" />
+    <!-- Recordings: video files would use up the 25 MB backup allowance and stop the backup. -->
+    <exclude domain="external" path="Movies" />
+    <exclude domain="file" path="Movies" />
+</full-backup-content>

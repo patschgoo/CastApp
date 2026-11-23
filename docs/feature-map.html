@@ -202,7 +202,7 @@ body.glance-only section.block:not(#glance) { display: none; }
       <span class="cb-item"><span class="cb-label">Next</span><span class="cb-value">4.1.0 <span>ready on main, not released yet</span></span></span>
     </div>
     <div class="facts">
-      <span>Last updated: <b>2026-11-23</b>, matching CastApp main <b>b861386</b></span>
+      <span>Last updated: <b>2026-11-23</b>, matching CastApp main <b>b861386</b> plus the internet TV encryption and backup rules</span>
       <span>Feature IDs like <b>H9</b> are stable: use them when you add to or check this page.</span>
       <span>Kept current: source <code>docs/feature-map.html</code> in the CastApp repository.</span>
     </div>
@@ -1046,7 +1046,8 @@ body.glance-only section.block:not(#glance) { display: none; }
     </ul></div>
     <div class="box"><h3>Your accounts and data</h3><ul>
       <li>No ads, no tracking, no account.</li>
-      <li>Passwords and sign-ins (network folders, Plex and Jellyfin, AirPlay pairings, OpenSubtitles, network remotes) and the Continue watching history are encrypted with the Android Keystore. The parental PIN is stored only as a salted hash.</li>
+      <li>Passwords and sign-ins (network folders, Plex and Jellyfin, AirPlay pairings, OpenSubtitles, network remotes, internet TV list and guide addresses with their Xtream log-in) and the Continue watching history are encrypted with the Android Keystore. The parental PIN is stored only as a salted hash.</li>
+      <li>Android's automatic backup and phone-to-phone transfer leave out everything internet TV keeps (channel lists, favourites, reminders, planned recordings: their addresses can hold a log-in) and the recordings themselves (too big for the backup).</li>
       <li>Plex and Jellyfin: CastApp reads; it only reports playback and watched marks, and never changes Plex's saved subtitle choice.</li>
       <li>Network shares: CastApp reads; the only thing it writes there is a TV recording you send to that folder.</li>
       <li>Automation is off by default; playback reports only go to the app that asked.</li>
@@ -1106,7 +1107,6 @@ body.glance-only section.block:not(#glance) { display: none; }
     <li>On Android 10+ TVs (Fire OS 8, recent Google TV) CastApp TV opens its player by itself only if it may display over other apps; Fire TVs need a one-time adb command or the app kept open.</li>
     <li>AirPlay was tested only against pyatv's code; Roku is experimental. YouTube's lounge protocol is unofficial and can change.</li>
     <li>Plex and Jellyfin were written against the documented APIs and simulated servers; the converting parameters may need changes on real servers.</li>
-    <li>Channel lists, including an Xtream log-in inside their address, are kept in the app's private storage without Keystore encryption.</li>
   </ul></div>
   <p class="note">To add to this page: keep each feature's ID, put new ones in the right area with the next free ID and a status, and add the files they live in. When a feature is tried on a real device, note what you saw next to its ID.</p>
 </section>

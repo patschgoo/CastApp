@@ -5,6 +5,7 @@ import io.github.patschgoo.castapp.R
 import android.content.Context
 import androidx.core.net.toUri
 import androidx.core.content.edit
+import io.github.patschgoo.castapp.network.SealedText
 import io.github.patschgoo.castapp.service.MediaItem
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -27,7 +28,11 @@ import java.util.UUID
  */
 data class Playlist(val id: String, val name: String, val source: String, val guide: String = "")
 
-/** IPTV playlists, their channels (cached on the phone) and favourite channels. */
+/**
+ * IPTV playlists, their channels (cached on the phone) and favourite channels. The playlist addresses
+ * can hold the provider's user name and password (Xtream), so the list is saved encrypted ([SealedText]);
+ * everything IPTV keeps on the phone is left out of Android's backups (res/xml/backup_rules.xml).
+ */
 class IptvRepository(context: Context) {
     private val appContext = context.applicationContext
     private val prefs = appContext.getSharedPreferences("iptv", Context.MODE_PRIVATE)
@@ -158,20 +163,36 @@ class IptvRepository(context: Context) {
         }
     }
 
-    private fun loadPlaylists(): List<Playlist> = try {
-        val arr = JSONArray(prefs.getString("playlists", "[]"))
-        (0 until arr.length()).map { i -> arr.getJSONObject(i).let { Playlist(it.getString("id"), it.optString("name"), it.optString("source"), it.optString("guide")) } }
-    } catch (_: Exception) {
-        emptyList()
+    private fun loadPlaylists(): List<Playlist> {
+        val stored = prefs.getString(KEY_PLAYLISTS, null) ?: return emptyList()
+        // Unreadable (restored onto another phone, or the Keystore key is gone): start empty, keep what's stored.
+        val list = SealedText.open(stored)?.let(::decodePlaylists) ?: return emptyList()
+        if (!SealedText.isSealed(stored) && list.isNotEmpty()) save(list) // saved in plain text by an older version
+        return list
     }
 
-    private fun persist() {
-        val arr = JSONArray()
-        _playlists.value.forEach { arr.put(JSONObject().put("id", it.id).put("name", it.name).put("source", it.source).put("guide", it.guide)) }
-        prefs.edit { putString("playlists", arr.toString()) }
+    private fun persist() = save(_playlists.value)
+
+    private fun save(list: List<Playlist>) {
+        prefs.edit { putString(KEY_PLAYLISTS, SealedText.seal(encodePlaylists(list))) }
     }
 
     companion object {
+        private const val KEY_PLAYLISTS = "playlists"
+
+        fun encodePlaylists(list: List<Playlist>): String {
+            val arr = JSONArray()
+            list.forEach { arr.put(JSONObject().put("id", it.id).put("name", it.name).put("source", it.source).put("guide", it.guide)) }
+            return arr.toString()
+        }
+
+        fun decodePlaylists(json: String): List<Playlist> = try {
+            val arr = JSONArray(json.ifBlank { "[]" })
+            (0 until arr.length()).map { i -> arr.getJSONObject(i).let { Playlist(it.getString("id"), it.optString("name"), it.optString("source"), it.optString("guide")) } }
+        } catch (_: Exception) {
+            emptyList()
+        }
+
         fun guessName(source: String): String =
             source.substringBefore('?').trimEnd('/').substringAfterLast('/').substringBeforeLast('.').ifBlank { "TV channels" }
 

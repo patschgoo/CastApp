@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- What Android's backup and phone-to-phone transfer leave out (Android 12+; backup_rules.xml for older). -->
+<data-extraction-rules>
+    <cloud-backup>
+        <!-- Internet TV data can contain the provider's user name and password. -->
+        <exclude domain="sharedpref" path="iptv.xml" />
+        <exclude domain="sharedpref" path="iptv_extras.xml" />
+        <exclude domain="file" path="iptv" />
+        <!-- Recordings would use up the backup allowance. -->
+        <exclude domain="external" path="Movies" />
+        <exclude domain="file" path="Movies" />
+    </cloud-backup>
+    <device-transfer>
+        <exclude domain="sharedpref" path="iptv.xml" />
+        <exclude domain="sharedpref" path="iptv_extras.xml" />
+        <exclude domain="file" path="iptv" />
+        <exclude domain="external" path="Movies" />
+        <exclude domain="file" path="Movies" />
+    </device-transfer>
+</data-extraction-rules>

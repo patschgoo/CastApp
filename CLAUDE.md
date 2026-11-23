@@ -37,7 +37,9 @@ test checklist is [TESTING.md](TESTING.md); the intent API is [AUTOMATION.md](AU
 - Casting to devices **without** CastApp must keep working unchanged; CastApp-to-CastApp features
   (low-latency player, swap, join, sync, hand-over) are extras with short timeouts and silent fallback.
 - Secrets (passwords, server tokens) go through `network/Secrets` (Android Keystore); the watch history file
-  is encrypted the same way. Peer and receiver endpoints only answer the local network.
+  and the IPTV playlist list (addresses can hold an Xtream log-in) are encrypted the same way (`SealedText`).
+  `res/xml/backup_rules.xml` and `data_extraction_rules.xml` keep IPTV data and recordings out of Android's
+  backups: add new files that hold log-ins there. Peer and receiver endpoints only answer the local network.
 - Protocols are tested against fakes over real sockets (see `app/src/test/`): Cast, DLNA, AirPlay (pyatv's
   pairing as reference), Roku, Samsung/LG/Android TV remotes, Plex/Jellyfin, IPTV/HLS recording, peers.
 
