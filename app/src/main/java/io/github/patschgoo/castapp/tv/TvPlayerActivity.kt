@@ -337,10 +337,15 @@ class TvPlayerActivity : ComponentActivity() {
                 failed = true
                 infoView.text = getString(io.github.patschgoo.castapp.R.string.tv_cant_play, error.errorCodeName)
                 infoView.visibility = View.VISIBLE
+                showing?.let { TvReceiver.failed(it, PlaybackFailure.of(error, it)) }
                 reportState()
             }
 
-            override fun onPlaybackStateChanged(playbackState: Int) = reportState()
+            override fun onPlaybackStateChanged(playbackState: Int) {
+                // Played to its end by itself: the item a sender queued (SetNextAVTransportURI) starts here.
+                if (playbackState == Player.STATE_ENDED && !failed) showing?.let { TvReceiver.playedToEnd(it) }
+                reportState()
+            }
             override fun onIsPlayingChanged(isPlaying: Boolean) = reportState()
             override fun onTracksChanged(tracks: Tracks) {
                 checkTracks(tracks)
@@ -365,18 +370,29 @@ class TvPlayerActivity : ComponentActivity() {
         when (val verdict = TrackSupport.verdict(TrackSupport.groupsOf(tracks), media.kind, media.lowLatency, media.joinedFrom != null)) {
             is TrackSupport.Verdict.CantPlay -> {
                 tracksChecked = true
-                failed = true
-                infoView.text = getString(io.github.patschgoo.castapp.R.string.tv_cant_play, verdict.codec)
-                infoView.visibility = View.VISIBLE
-                exo?.stop()
-                reportState()
+                cantPlay(media, verdict.codec, PlaybackFailure.noVideoDecoder(verdict.codec))
             }
-            is TrackSupport.Verdict.NoSound -> {
+            // Music without a sound decoder has nothing left to play: it fails like a picture without one.
+            is TrackSupport.Verdict.NoSound -> if (media.kind == TvMediaKind.AUDIO) {
+                tracksChecked = true
+                cantPlay(media, verdict.codec, PlaybackFailure.noAudioDecoder(verdict.codec))
+            } else {
                 tracksChecked = true
                 showNotice(getString(io.github.patschgoo.castapp.R.string.tv_no_sound_codec, verdict.codec))
+                TvReceiver.warn(media, PlaybackFailure.playsWithoutSound(verdict.codec))
             }
             TrackSupport.Verdict.Fine -> Unit
         }
+    }
+
+    /** Gives up on [media]: says why on the screen ([what]) and to the sender ([error]), and stops. */
+    private fun cantPlay(media: TvMedia, what: String, error: TvError) {
+        failed = true
+        infoView.text = getString(io.github.patschgoo.castapp.R.string.tv_cant_play, what)
+        infoView.visibility = View.VISIBLE
+        TvReceiver.failed(media, error)
+        exo?.stop()
+        reportState()
     }
 
     /**
@@ -452,14 +468,11 @@ class TvPlayerActivity : ComponentActivity() {
         )
         val ready = p.playbackState == Player.STATE_READY
         if (!pictureWatch.check(android.os.SystemClock.elapsedRealtime(), soundOnly, ready)) return
-        failed = true
-        infoView.text = getString(
-            io.github.patschgoo.castapp.R.string.tv_cant_play,
+        cantPlay(
+            media,
             getString(io.github.patschgoo.castapp.R.string.tv_no_picture),
+            PlaybackFailure.noPicture(PlaybackFailure.containerName(media.uri, media.mimeType)),
         )
-        infoView.visibility = View.VISIBLE
-        exo?.stop()
-        reportState()
     }
 
     /** A short line at the top that goes away by itself. */
@@ -568,9 +581,22 @@ class TvPlayerActivity : ComponentActivity() {
         photoState = TransportState.TRANSITIONING
         val metrics = resources.displayMetrics
         photoLoader = Thread({
-            val bitmap = try { downloadPhoto(url, metrics.widthPixels, metrics.heightPixels) } catch (_: Exception) { null }
+            var error: TvError? = null
+            val bitmap = try {
+                downloadPhoto(url, metrics.widthPixels, metrics.heightPixels).also {
+                    // Loaded, but not a picture Android can read.
+                    if (it == null) error = PlaybackFailure.unsupportedFormat(PlaybackFailure.containerName(url, showing?.mimeType))
+                }
+            } catch (e: PhotoHttpException) {
+                error = PlaybackFailure.network(httpStatus = e.status)
+                null
+            } catch (_: Exception) {
+                error = PlaybackFailure.network()
+                null
+            }
             runOnUiThread {
-                if (showing?.uri != url) return@runOnUiThread
+                val media = showing ?: return@runOnUiThread
+                if (media.uri != url) return@runOnUiThread
                 if (bitmap != null) {
                     photoView.setImageBitmap(bitmap)
                     photoState = TransportState.PLAYING
@@ -578,18 +604,21 @@ class TvPlayerActivity : ComponentActivity() {
                     infoView.text = getString(io.github.patschgoo.castapp.R.string.tv_cant_show_photo)
                     infoView.visibility = View.VISIBLE
                     photoState = TransportState.STOPPED
+                    error?.let { TvReceiver.failed(media, it) }
                 }
                 reportState()
             }
         }, "tv-photo").apply { isDaemon = true; start() }
     }
 
+    private class PhotoHttpException(val status: Int) : java.io.IOException("HTTP $status")
+
     private fun downloadPhoto(url: String, maxW: Int, maxH: Int): Bitmap? {
         val conn = URL(url).openConnection() as HttpURLConnection
         conn.connectTimeout = 10_000
         conn.readTimeout = 20_000
         val bytes = try {
-            if (conn.responseCode !in 200..299) return null
+            if (conn.responseCode !in 200..299) throw PhotoHttpException(conn.responseCode)
             conn.inputStream.use { it.readBytes() }
         } finally {
             conn.disconnect()

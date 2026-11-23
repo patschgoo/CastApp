@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="tv_reason_no_video_decoder">Der Fernseher hat keinen Decoder für %1$s-Video</string>
+    <string name="tv_reason_no_video_decoder_any">Der Fernseher hat keinen Decoder für das Bild dieses Videos</string>
+    <string name="tv_reason_no_audio_decoder">Der Fernseher hat keinen Decoder für %1$s-Ton</string>
+    <string name="tv_reason_no_audio_decoder_any">Der Fernseher hat keinen Decoder für den Ton dieser Datei</string>
+    <string name="tv_reason_no_picture">Der Fernseher kann nur den Ton abspielen: Das Bild dieser Datei kann er nicht lesen</string>
+    <string name="tv_reason_unsupported_format">Der Fernseher kann diese %1$s-Datei nicht öffnen</string>
+    <string name="tv_reason_unsupported_format_any">Der Fernseher kann diesen Dateityp nicht öffnen</string>
+    <string name="tv_reason_network_http">Der Fernseher konnte die Datei nicht laden (HTTP %1$d)</string>
+    <string name="tv_reason_network">Der Fernseher konnte die Datei nicht laden</string>
+    <string name="tv_reason_player_error">Der Player des Fernsehers ist mit einem Fehler stehen geblieben</string>
+    <string name="tv_reason_converting">%1$s. „%2$s“ wird auf dem Handy umgewandelt, damit er es abspielen kann.</string>
+    <string name="tv_reason_cant_play">%1$s konnte „%2$s“ nicht abspielen: %3$s</string>
+</resources>

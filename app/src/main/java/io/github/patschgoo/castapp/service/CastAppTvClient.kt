@@ -30,6 +30,30 @@ object CastAppTvClient {
     }
 
     /**
+     * Why the TV couldn't play what it was sent (`GET /castapp/status`, [io.github.patschgoo.castapp.tv.TvError]);
+     * null when it says nothing is wrong, is an older version or doesn't answer within [timeoutMs].
+     * [headers]: the pairing token for TVs that only accept paired phones.
+     */
+    fun failure(tv: CastDevice, headers: Map<String, String> = emptyMap(), timeoutMs: Int = 1500): io.github.patschgoo.castapp.tv.TvError? {
+        val base = SwapDirection.baseUrl(tv) ?: return null
+        return try {
+            val conn = URL("$base/castapp/status").openConnection() as HttpURLConnection
+            try {
+                conn.connectTimeout = timeoutMs
+                conn.readTimeout = timeoutMs
+                for ((k, v) in headers) conn.setRequestProperty(k, v)
+                if (conn.responseCode != 200) return null
+                val json = JSONObject(conn.inputStream.use { it.readBytes().toString(Charsets.UTF_8) })
+                io.github.patschgoo.castapp.tv.TvError.fromJson(json.optJSONObject("error"))
+            } finally {
+                conn.disconnect()
+            }
+        } catch (_: Exception) {
+            null
+        }
+    }
+
+    /**
      * Asks the TV to open [url] (a YouTube link) in its YouTube app; status code (-1 = unreachable) and
      * answer text. A TV that only accepts paired phones is paired first (asks for its code once).
      */

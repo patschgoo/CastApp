@@ -1,13 +1,16 @@
 package io.github.patschgoo.castapp.render
 
+import android.util.Log
 import io.github.patschgoo.castapp.R
 import io.github.patschgoo.castapp.Txt
 import io.github.patschgoo.castapp.cast.CastException
 import io.github.patschgoo.castapp.discovery.CastDevice
 import io.github.patschgoo.castapp.dlna.Dlna
+import io.github.patschgoo.castapp.service.CastAppTvClient
 import io.github.patschgoo.castapp.service.SwapDirection
 import io.github.patschgoo.castapp.tv.AppPairing
 import io.github.patschgoo.castapp.tv.PairingClient
+import io.github.patschgoo.castapp.tv.PlaybackFailure
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -29,6 +32,8 @@ class DlnaRenderer(
     override val device: CastDevice,
     /** Pairs with CastApp TVs that only accept paired phones; null = no pairing (tests). */
     private val pairing: PairingClient? = AppPairing.client,
+    /** Other TVs: how long after Play an ERROR_OCCURRED may still be left over from before (see [poll]). */
+    private val errorSettleMs: Long = ERROR_SETTLE_MS,
 ) : MediaRenderer {
     override var listener: MediaRenderer.Listener? = null
 
@@ -45,6 +50,14 @@ class DlnaRenderer(
     @Volatile private var loadedAt = 0L
     /** CastApp TVs: who we are and the pairing token (for receivers that only accept paired phones). */
     @Volatile private var authHeaders: Map<String, String> = emptyMap()
+    /** Counts [load]s: a poll that began before or during one can't tell about the new address. */
+    private val loads = java.util.concurrent.atomic.AtomicInteger()
+    @Volatile private var loading = false
+    @Volatile private var playSentAt = 0L
+    /** Polls in a row that said ERROR_OCCURRED while nothing played. */
+    @Volatile private var errorPolls = 0
+    /** CastApp TV's reason for the failure of a load (its number to the text), asked once. */
+    @Volatile private var reasonOfLoad: Pair<Int, String?>? = null
 
     private fun soapCall(url: String, service: String, action: String, args: List<Pair<String, String>>, timeoutMs: Int = 5000): String =
         Dlna.call(url, service, action, args, timeoutMs, authHeaders)
@@ -86,6 +99,29 @@ class DlnaRenderer(
         lastPosition = 0
         lastDuration = 0
         loadedAt = System.currentTimeMillis()
+        loads.incrementAndGet()
+        loading = true
+        errorPolls = 0
+        try {
+            start(media)
+        } finally {
+            loading = false
+            playSentAt = System.currentTimeMillis()
+        }
+        if (media.startMs > 0) {
+            // Most TVs only accept a seek once playback has started.
+            for (i in 0 until 20) {
+                if (sawPlaying) break
+                delay(500)
+                poll()
+            }
+            try { seekNow(media.startMs) } catch (_: Exception) {}
+        }
+        RendererStatus(PlayState.BUFFERING)
+    }
+
+    /** Stop, the new address and Play. */
+    private suspend fun start(media: RendererMedia) {
         try { soapCall(avt, Dlna.AV_TRANSPORT, "Stop", listOf("InstanceID" to "0")) } catch (_: Exception) {}
         val meta = Dlna.didl(
             media.title, media.url, media.mimeType, media.live, media.subtitleSrtUrl ?: media.subtitleUrl, media.lowLatency,
@@ -112,16 +148,6 @@ class DlnaRenderer(
             setUri()
         }
         soapCall(avt, Dlna.AV_TRANSPORT, "Play", listOf("InstanceID" to "0", "Speed" to "1"))
-        if (media.startMs > 0) {
-            // Most TVs only accept a seek once playback has started.
-            for (i in 0 until 20) {
-                if (sawPlaying) break
-                delay(500)
-                poll()
-            }
-            try { seekNow(media.startMs) } catch (_: Exception) {}
-        }
-        RendererStatus(PlayState.BUFFERING)
     }
 
     override suspend fun play() { call("Play", listOf("InstanceID" to "0", "Speed" to "1")) }
@@ -191,6 +217,9 @@ class DlnaRenderer(
 
     /** Reads transport state and position; reports them, or a lost connection after repeated failures. */
     private fun poll(): RendererStatus? {
+        // Asked before the answers come: a load in between makes this poll's error an old one.
+        val load = loads.get()
+        val settled = !loading
         return try {
             val info = soapCall(avt, Dlna.AV_TRANSPORT, "GetTransportInfo", listOf("InstanceID" to "0"), timeoutMs = 3000)
             val pos = soapCall(avt, Dlna.AV_TRANSPORT, "GetPositionInfo", listOf("InstanceID" to "0"), timeoutMs = 3000)
@@ -199,7 +228,10 @@ class DlnaRenderer(
             val duration = Dlna.parseTime(Dlna.tag(pos, "TrackDuration"))?.takeIf { it > 0 }
             position?.let { lastPosition = it }
             duration?.let { lastDuration = it }
-            val state = when (Dlna.tag(info, "CurrentTransportState")) {
+            val transport = Dlna.tag(info, "CurrentTransportState")
+            val failed = tvFailed(transport, Dlna.tag(info, "CurrentTransportStatus"), settled && load == loads.get() && !loading)
+            val nearEnd = sawPlaying && lastDuration > 0 && lastPosition >= lastDuration - 4000
+            val state = if (failed && !nearEnd) PlayState.ERROR else when (transport) {
                 "PLAYING" -> { sawPlaying = true; PlayState.PLAYING }
                 "PAUSED_PLAYBACK", "PAUSED_RECORDING" -> PlayState.PAUSED
                 "TRANSITIONING" -> PlayState.BUFFERING
@@ -212,9 +244,10 @@ class DlnaRenderer(
                 }
                 else -> if (sawPlaying) PlayState.STOPPED else PlayState.IDLE
             }
-            val status = RendererStatus(state, position, duration)
+            val reason = if (state == PlayState.ERROR && failed && device.isCastAppTv) reasonFor(load) else null
+            val status = RendererStatus(state, position, duration, reason)
             listener?.onStatus(status)
-            if (state == PlayState.FINISHED || state == PlayState.STOPPED) sawPlaying = false
+            if (state == PlayState.FINISHED || state == PlayState.STOPPED || state == PlayState.ERROR) sawPlaying = false
             status
         } catch (e: Exception) {
             if (++failures >= 5 && !closed) {
@@ -223,5 +256,35 @@ class DlnaRenderer(
             }
             null
         }
+    }
+
+    /**
+     * The TV says playback failed: `ERROR_OCCURRED` while nothing plays (most TVs never say it; then a
+     * file that doesn't start counts as failed after 8 s, as before). Only an answer to a poll [current]
+     * for the address loaded now counts. CastApp TV clears it with each new address, so its first answer
+     * counts; other TVs may still carry it over from the file before for a moment, so they must say it
+     * twice in a row, [errorSettleMs] after Play.
+     */
+    private fun tvFailed(transport: String?, status: String?, current: Boolean): Boolean {
+        val error = current && status.equals("ERROR_OCCURRED", ignoreCase = true) &&
+            transport != "PLAYING" && transport != "PAUSED_PLAYBACK" && transport != "PAUSED_RECORDING"
+        errorPolls = if (error) errorPolls + 1 else 0
+        if (!error) return false
+        return device.isCastAppTv || (errorPolls >= 2 && System.currentTimeMillis() - playSentAt >= errorSettleMs)
+    }
+
+    /** CastApp TV's reason for the failure of load number [load] (`/castapp/status`), asked once per load. */
+    private fun reasonFor(load: Int): String? {
+        reasonOfLoad?.takeIf { it.first == load }?.let { return it.second }
+        val error = CastAppTvClient.failure(device, authHeaders)
+        if (error != null) Log.i(TAG, "${device.name} can't play it: ${error.code}: ${error.message}")
+        return error?.let(PlaybackFailure::describe).also { reasonOfLoad = load to it }
+    }
+
+    private companion object {
+        const val TAG = "DlnaRenderer"
+
+        /** Other TVs: an ERROR_OCCURRED this soon after Play may still be about the file before. */
+        const val ERROR_SETTLE_MS = 3000L
     }
 }

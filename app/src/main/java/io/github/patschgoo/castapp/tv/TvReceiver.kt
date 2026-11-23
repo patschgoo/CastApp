@@ -16,6 +16,7 @@ import io.github.patschgoo.castapp.R
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.update
 import java.util.UUID
 
 /**
@@ -96,7 +97,7 @@ object TvReceiver : RendererBackend, CastAppCommands {
 
     override fun setMedia(media: TvMedia) {
         this.media = media
-        _state.value = _state.value.copy(state = TransportState.STOPPED, positionMs = 0, durationMs = 0)
+        _state.update { it.copy(state = TransportState.STOPPED, positionMs = 0, durationMs = 0, error = null, warning = null) }
         main.post {
             keepScreen()
             player?.load(media, autoPlay = false)
@@ -105,7 +106,10 @@ object TvReceiver : RendererBackend, CastAppCommands {
 
     override fun play() {
         val m = media ?: return
-        if (_state.value.state != TransportState.PAUSED) _state.value = _state.value.copy(state = TransportState.TRANSITIONING)
+        // Play again after a failure is a new try: no error until it fails again.
+        _state.update { s ->
+            s.copy(state = if (s.state != TransportState.PAUSED) TransportState.TRANSITIONING else s.state, error = null)
+        }
         main.post {
             keepScreen()
             val p = player
@@ -118,7 +122,7 @@ object TvReceiver : RendererBackend, CastAppCommands {
     }
 
     override fun stop() {
-        _state.value = _state.value.copy(state = TransportState.STOPPED)
+        _state.update { it.copy(state = TransportState.STOPPED) }
         main.post {
             // A phone moving on (next item, or its next way after "can't play") sends Stop, SetAVTransportURI
             // and Play in a row. Stop the picture now but keep the screen for a moment, so the next address
@@ -139,6 +143,27 @@ object TvReceiver : RendererBackend, CastAppCommands {
         }
     }
 
+    /** The item a sender queued starts now: straight on in the same screen, no STOPPED between the two. */
+    override fun advance(media: TvMedia) {
+        this.media = media
+        _state.update {
+            it.copy(state = TransportState.TRANSITIONING, positionMs = 0, durationMs = 0, error = null, warning = null)
+        }
+        val start = Runnable {
+            keepScreen()
+            val p = player
+            if (p != null) p.load(media, autoPlay = true) else openPlayer(media)
+        }
+        // From the player's "ended" (main thread) at once, so it never reports the old item stopped.
+        if (Looper.myLooper() == Looper.getMainLooper()) start.run() else main.post(start)
+    }
+
+    @Volatile private var events: RendererEvents? = null
+
+    override fun attach(events: RendererEvents?) {
+        this.events = events
+    }
+
     /** Main thread: a close planned by [stop] that a new address or Play calls off. */
     private var pendingClose: Runnable? = null
 
@@ -152,24 +177,44 @@ object TvReceiver : RendererBackend, CastAppCommands {
     }
 
     override fun setVolume(percent: Int) {
-        _state.value = _state.value.copy(volume = percent, muted = false)
+        _state.update { it.copy(volume = percent, muted = false) }
         main.post { player?.applyVolume() }
     }
 
     override fun setMuted(muted: Boolean) {
-        _state.value = _state.value.copy(muted = muted)
+        _state.update { it.copy(muted = muted) }
         main.post { player?.applyVolume() }
     }
 
     // ---- reported by the player screen (main thread) --------------------------------------------
 
     fun report(state: TransportState, positionMs: Long, durationMs: Long) {
-        _state.value = _state.value.copy(state = state, positionMs = positionMs, durationMs = durationMs)
+        _state.update { it.copy(state = state, positionMs = positionMs, durationMs = durationMs) }
     }
+
+    /**
+     * The player couldn't play [media]: senders see ERROR_OCCURRED and, in /castapp/status, why. A report
+     * about an item that was replaced meanwhile is dropped.
+     */
+    fun failed(media: TvMedia, error: TvError) {
+        // Checked inside the update: a new address set meanwhile (media first, then its state) wins.
+        _state.update { if (media === this.media) it.copy(state = TransportState.STOPPED, error = error) else it }
+    }
+
+    /** [media] plays, but with a problem the sender may want to know about (no sound decoder). */
+    fun warn(media: TvMedia, warning: TvError) {
+        _state.update { if (media === this.media) it.copy(warning = warning) else it }
+    }
+
+    /**
+     * Main thread: the player played [media] to its end by itself. True = the item a sender queued
+     * started (in the same screen); false = nothing follows.
+     */
+    fun playedToEnd(media: TvMedia): Boolean = media === this.media && events?.playedToEnd(media) == true
 
     /** The viewer left the player with Back: tell the phone playback stopped. */
     fun closedOnTv() {
-        _state.value = _state.value.copy(state = TransportState.STOPPED)
+        _state.update { it.copy(state = TransportState.STOPPED) }
     }
 
     private fun openPlayer(media: TvMedia) {

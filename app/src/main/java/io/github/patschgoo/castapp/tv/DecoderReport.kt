@@ -17,7 +17,8 @@ import io.github.patschgoo.castapp.capture.VideoCodecs
  *
  * Video, for each format `f`: `f` = a hardware decoder that does 1080p (plays smoothly), `f_sw` = a decoder,
  * but no such hardware one (software, or hardware below 1080p: fine for SD, may stutter or fail in HD). Audio: `f` = a decoder, or passed through to the
- * AV receiver over HDMI (`f_passthrough`). Subtitles: what the TV's player shows.
+ * AV receiver over HDMI (`f_passthrough`). Subtitles: what the TV's player shows. File types ([CONTAINERS]):
+ * what the player can open at all (the formats inside still need the decoders above).
  */
 object DecoderReport {
     /** One decoder for one format, as Android lists it. */
@@ -61,6 +62,29 @@ object DecoderReport {
         "vorbis" to "audio/vorbis",
     )
 
+    /**
+     * The file types CastApp TV's player (Media3 1.11.1 with its HLS and DASH modules) opens, checked against
+     * its DefaultExtractorsFactory: MP4/M4V/MOV (also fragmented), MKV, WebM, MPEG-TS with 188-byte packets
+     * (.ts), AVI (H.264, MPEG-4 ASP, MJPEG), FLV (H.264 with AAC or MP3 only), MPEG program streams
+     * (.mpg/.mpeg/.vob/.m2p). Not: Blu-ray / AVCHD transport streams with 192-byte packets (.m2ts/.mts:
+     * its TS reader only finds 188-byte ones), Ogg video (its Ogg reader knows Vorbis, Opus and FLAC, no
+     * Theora), ASF/WMV (no reader).
+     */
+    val CONTAINERS: Map<String, Boolean> = linkedMapOf(
+        "container_mp4" to true,
+        "container_mkv" to true,
+        "container_webm" to true,
+        "container_ts" to true,
+        "container_m2ts" to false,
+        "container_avi" to true,
+        "container_flv" to true,
+        "container_mpeg_ps" to true,
+        "container_ogg_video" to false,
+        "container_asf" to false,
+        "hls" to true,
+        "dash" to true,
+    )
+
     /** The keys that can be passed through to an AV receiver. */
     val PASSTHROUGH_KEYS = listOf("ac3", "eac3", "dts", "truehd")
 
@@ -91,6 +115,7 @@ object DecoderReport {
         out["sub_ass_full"] = false
         out["sub_pgs"] = true
         out["sub_vobsub"] = true
+        out.putAll(CONTAINERS)
         return out
     }
 

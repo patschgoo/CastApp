@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Why CastApp TV couldn't play a file, as it told the phone (/castapp/status). %1$s: a format such as "10-bit H.264 (High 10)", "DTS" or "WMV" -->
+    <string name="tv_reason_no_video_decoder">The TV has no decoder for %1$s video</string>
+    <string name="tv_reason_no_video_decoder_any">The TV has no decoder for the picture of this video</string>
+    <string name="tv_reason_no_audio_decoder">The TV has no decoder for %1$s sound</string>
+    <string name="tv_reason_no_audio_decoder_any">The TV has no decoder for the sound of this file</string>
+    <string name="tv_reason_no_picture">The TV can only play the sound: it can\'t read the picture of this file</string>
+    <string name="tv_reason_unsupported_format">The TV can\'t open this %1$s file</string>
+    <string name="tv_reason_unsupported_format_any">The TV can\'t open this file type</string>
+    <!-- %1$d: the HTTP status, e.g. 404 -->
+    <string name="tv_reason_network_http">The TV couldn\'t load the file (HTTP %1$d)</string>
+    <string name="tv_reason_network">The TV couldn\'t load the file</string>
+    <string name="tv_reason_player_error">The TV\'s player stopped with an error</string>
+    <!-- %1$s: one of the tv_reason_* texts, %2$s: the title -->
+    <string name="tv_reason_converting">%1$s. Converting \"%2$s\" on the phone so it can play it.</string>
+    <!-- %1$s: the TV's name, %2$s: the title, %3$s: one of the tv_reason_* texts -->
+    <string name="tv_reason_cant_play">%1$s couldn\'t play \"%2$s\": %3$s</string>
+</resources>

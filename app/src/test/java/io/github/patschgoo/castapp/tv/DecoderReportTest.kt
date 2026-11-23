@@ -81,4 +81,17 @@ class DecoderReportTest {
         assertEquals(true, r["hevc_10bit_sw"])
         assertTrue(r.values.all { it is Boolean })
     }
+
+    @Test
+    fun fileTypesThePlayerOpens() {
+        // The same on every device: what Media3 1.11.1's extractors (and its HLS and DASH modules) read.
+        val r = DecoderReport.report(emptyList(), passthrough = emptySet())
+        for (key in listOf("container_mp4", "container_mkv", "container_webm", "container_ts", "container_avi", "container_flv", "container_mpeg_ps", "hls", "dash")) {
+            assertEquals(key, true, r[key])
+        }
+        // Blu-ray/AVCHD 192-byte packets, Ogg Theora and ASF/WMV have no reader.
+        for (key in listOf("container_m2ts", "container_ogg_video", "container_asf")) assertEquals(key, false, r[key])
+        assertEquals(DecoderReport.CONTAINERS.keys, r.keys.filter { it.startsWith("container_") || it == "hls" || it == "dash" }.toSet())
+        assertEquals(3, UpnpRenderer.CAPABILITIES_VERSION)
+    }
 }

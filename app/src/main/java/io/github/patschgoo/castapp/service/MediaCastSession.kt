@@ -185,6 +185,8 @@ class MediaCastSession(
     @Volatile private var delivery = Delivery.SERVE
     @Volatile private var convertStartMs = 0L
     @Volatile private var outcome: CompletableDeferred<Boolean>? = null
+    /** Why the TV couldn't play an item, when it said so (CastApp TV): the item's address to the text. */
+    @Volatile private var tvReason: Pair<String, String>? = null
     @Volatile private var started = false
     @Volatile private var subtitlesOn = true
     @Volatile private var slideshowPaused = false
@@ -917,6 +919,8 @@ class MediaCastSession(
         } else if (PlaybackHub.resumeFlow.value?.uri != item.uri) {
             PlaybackHub.resumeFlow.value = null
         }
+        // A fresh start of the item: what the TV said about it last time is old.
+        if (onlyFrom == null) tvReason = null
         started = false
         CastController.update(this) {
             baseState(CastPhase.BUFFERING).copy(
@@ -1000,7 +1004,15 @@ class MediaCastSession(
                     extras.reloadAll()
                     if (d == Delivery.CONVERT && !convertPicked(item)) {
                         val copied = pictureCopied(item)
-                        CastController.message(Txt.s(if (copied) R.string.msg_converting_copied else R.string.msg_converting, item.title))
+                        // Why it had to be converted, when the TV said so.
+                        val why = reasonFor(item)
+                        CastController.message(
+                            if (why != null) {
+                                Txt.s(R.string.tv_reason_converting, why, item.title)
+                            } else {
+                                Txt.s(if (copied) R.string.msg_converting_copied else R.string.msg_converting, item.title)
+                            },
+                        )
                     }
                     if (d == Delivery.CONVERT) convertChecks[convertKey(item)]?.droppedAudioMime?.let { warnNoSound(item, it) }
                     // Converting was asked for by hand, but it plays as it is: say why.
@@ -1029,7 +1041,7 @@ class MediaCastSession(
             }
         }
         // Nothing worked for this item: skip it (the way the user was going), saying why where it's known.
-        CastController.message(refused?.let { cantConvertMessage(item, it) } ?: Txt.s(R.string.err_cant_play_item, device.name, item.title))
+        CastController.message(refused?.let { cantConvertMessage(item, it) } ?: cantPlayMessage(item))
         AppReports.failed(this, item, AutomationApi.REASON_CANNOT_PLAY)
         val nextIndex = i + direction
         if (nextIndex in items.indices && skipped < MAX_SKIPS) {
@@ -1041,6 +1053,13 @@ class MediaCastSession(
     }
 
     private fun convertKey(item: MediaItem, audio: Int = audioChoice[item.uri] ?: 0) = "${item.uri}|$audio"
+
+    /** What the TV said about [item]'s last failure (CastApp TV), if anything. */
+    private fun reasonFor(item: MediaItem): String? = tvReason?.takeIf { it.first == item.uri }?.second
+
+    /** "<TV> couldn't play <title>", with the TV's reason when it gave one. */
+    private fun cantPlayMessage(item: MediaItem): String = reasonFor(item)?.let { Txt.s(R.string.tv_reason_cant_play, device.name, item.title, it) }
+        ?: Txt.s(R.string.err_cant_play_item, device.name, item.title)
 
     /** Whether the phone can convert [item] with the chosen sound track (read once per file; also its length). */
     private suspend fun convertCheck(item: MediaItem): ConvertCheck = runInterruptible { probeConvert(item, audioChoice[item.uri] ?: 0) }
@@ -1669,6 +1688,10 @@ class MediaCastSession(
             PlayState.PAUSED -> { waiter?.complete(true); update { it.copy(phase = CastPhase.LIVE, paused = true) } }
             PlayState.BUFFERING -> update { it.copy(phase = if (it.converting && !started) CastPhase.CONVERTING else CastPhase.BUFFERING) }
             PlayState.ERROR -> {
+                status.reason?.let { why ->
+                    Log.i(TAG, "${current.title}: the TV says: $why")
+                    tvReason = current.uri to why
+                }
                 if (waiter != null) waiter.complete(false)
                 else if (started && current.type != MediaType.PHOTO) scope.launch { recoverFromError() }
             }
@@ -1724,12 +1747,12 @@ class MediaCastSession(
             refuseCopy(current)
             playIndex(index, position, onlyFrom = Delivery.CONVERT)
         } else if (queue.nextIndex(auto = false)?.takeIf { it != index } != null) {
-            CastController.message(Txt.s(R.string.err_cant_play_item, device.name, current.title))
+            CastController.message(cantPlayMessage(current))
             AppReports.failed(this, current, AutomationApi.REASON_CANNOT_PLAY)
             playIndex(queue.nextIndex(auto = false) ?: return, 0)
         } else {
             AppReports.failed(this, current, AutomationApi.REASON_CANNOT_PLAY)
-            finish(Txt.s(R.string.err_cant_play_item, device.name, current.title))
+            finish(cantPlayMessage(current))
         }
     }
 

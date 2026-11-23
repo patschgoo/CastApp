@@ -466,7 +466,8 @@ class ReceiverGuard(
             "ConnectionManager" -> Access.PUBLIC
             "RenderingControl" -> if (action.startsWith("Get") || action == "ListPresets") Access.PUBLIC else Access.CONTROL
             "AVTransport" -> when (action) {
-                "SetAVTransportURI" -> Access.START
+                // Queuing the next item starts it later without asking again: the same as starting it.
+                "SetAVTransportURI", "SetNextAVTransportURI" -> Access.START
                 "GetPositionInfo", "GetMediaInfo" -> Access.STATUS
                 "GetTransportInfo", "GetTransportSettings", "GetDeviceCapabilities", "GetCurrentTransportActions" -> Access.PUBLIC
                 else -> Access.CONTROL
