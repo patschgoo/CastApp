@@ -26,6 +26,8 @@ import androidx.media3.common.MimeTypes
 import androidx.media3.common.PlaybackException
 import androidx.media3.common.PlaybackParameters
 import androidx.media3.common.Player
+import androidx.media3.common.TrackSelectionOverride
+import androidx.media3.common.TrackSelectionParameters
 import androidx.media3.common.Tracks
 import androidx.media3.common.util.UnstableApi
 import androidx.media3.datasource.DefaultDataSource
@@ -62,6 +64,8 @@ class TvPlayerActivity : ComponentActivity() {
     private var failed = false
     /** The tracks of the media now loaded were judged ([checkTracks]). */
     private var tracksChecked = false
+    /** The subtitle track of the media now loaded was picked ([pickTextTrack]). */
+    private var textPicked = false
     private lateinit var noticeView: TextView
     private var closing = false
     private var speed = 1f
@@ -193,6 +197,7 @@ class TvPlayerActivity : ComponentActivity() {
         showing = media
         failed = false
         tracksChecked = false
+        textPicked = false
         startFollowing(media)
         infoView.visibility = View.GONE
         handler.removeCallbacks(hideNotice)
@@ -219,12 +224,14 @@ class TvPlayerActivity : ComponentActivity() {
             item.setSubtitleConfigurations(
                 listOf(
                     MediaItem.SubtitleConfiguration.Builder(sub.toUri())
+                        .setId(SIDECAR_ID)
                         .setMimeType(if (srt) MimeTypes.APPLICATION_SUBRIP else MimeTypes.TEXT_VTT)
                         .setSelectionFlags(C.SELECTION_FLAG_DEFAULT)
                         .build(),
                 ),
             )
         }
+        player.trackSelectionParameters = textParameters(player.trackSelectionParameters, media)
         applySubtitleStyle(io.github.patschgoo.castapp.subtitles.SubtitleStyle.decode(media.subtitleStyle))
         if (media.kind == TvMediaKind.AUDIO) {
             infoView.text = getString(io.github.patschgoo.castapp.R.string.tv_now_playing_audio, media.title)
@@ -323,7 +330,10 @@ class TvPlayerActivity : ComponentActivity() {
 
             override fun onPlaybackStateChanged(playbackState: Int) = reportState()
             override fun onIsPlayingChanged(isPlaying: Boolean) = reportState()
-            override fun onTracksChanged(tracks: Tracks) = checkTracks(tracks)
+            override fun onTracksChanged(tracks: Tracks) {
+                checkTracks(tracks)
+                pickTextTrack(tracks)
+            }
         })
         playerView.player = player
         exo = player
@@ -353,6 +363,45 @@ class TvPlayerActivity : ComponentActivity() {
             }
             TrackSupport.Verdict.Fine -> Unit
         }
+    }
+
+    /**
+     * The subtitle settings for [media], from scratch (the player stays between files): the phone's
+     * hint ([TextTrackHint]) switches the file's subtitles off or prefers its languages; without one
+     * the player picks as it always does (the file's default or forced track, the TV's caption settings).
+     */
+    private fun textParameters(current: TrackSelectionParameters, media: TvMedia): TrackSelectionParameters {
+        val hint = TextTrackHint.decode(media.subtitleTrack).takeIf { media.subtitleUri == null }
+        val languages = hint?.preferred ?: TrackSelectionParameters.getDefaults(this).preferredTextLanguages
+        return current.buildUpon()
+            .clearOverridesOfType(C.TRACK_TYPE_TEXT)
+            .setTrackTypeDisabled(C.TRACK_TYPE_TEXT, hint?.off == true)
+            .setPreferredTextLanguages(*languages.toTypedArray())
+            .build()
+    }
+
+    /**
+     * Once the file's tracks are known: the subtitle file the phone sent wins over the file's own
+     * default track; else the track inside the file the phone asked for ([TextTrackHint.pick]).
+     */
+    private fun pickTextTrack(tracks: Tracks) {
+        val media = showing ?: return
+        val player = exo ?: return
+        if (textPicked || tracks.isEmpty) return
+        val text = tracks.groups.filter { it.type == C.TRACK_TYPE_TEXT && it.length > 0 }
+        fun isSidecar(g: Tracks.Group) = g.getTrackFormat(0).id?.endsWith(SIDECAR_ID) == true
+        val chosen = if (media.subtitleUri != null) {
+            text.firstOrNull(::isSidecar) ?: return // not prepared yet
+        } else {
+            val hint = TextTrackHint.decode(media.subtitleTrack)
+            val inFile = text.filterNot(::isSidecar)
+            hint?.pick(inFile.map { TextTrackHint.Found(it.getTrackFormat(0).language, it.getTrackFormat(0).label) })?.let { inFile[it] }
+        }
+        textPicked = true
+        if (chosen == null || !chosen.isSupported) return
+        player.trackSelectionParameters = player.trackSelectionParameters.buildUpon()
+            .setOverrideForType(TrackSelectionOverride(chosen.mediaTrackGroup, 0))
+            .build()
     }
 
     /** A short line at the top that goes away by itself. */
@@ -497,5 +546,8 @@ class TvPlayerActivity : ComponentActivity() {
     private companion object {
         /** How long a notice ("No sound: …") stays on screen. */
         const val NOTICE_MS = 6000L
+
+        /** The id of the subtitle file the phone sends (Media3 puts "n:" in front of it). */
+        const val SIDECAR_ID = "castapp-sidecar"
     }
 }

@@ -1,6 +1,7 @@
 package io.github.patschgoo.castapp.service
 
 import io.github.patschgoo.castapp.mediaservers.ServerReporting
+import io.github.patschgoo.castapp.mediaservers.ServerSubtitle
 import io.github.patschgoo.castapp.Txt
 import android.content.ContentResolver
 import android.content.Context
@@ -66,6 +67,7 @@ import io.github.patschgoo.castapp.subtitles.CueParser
 import io.github.patschgoo.castapp.subtitles.EmbeddedSubtitles
 import io.github.patschgoo.castapp.subtitles.Sidecars
 import io.github.patschgoo.castapp.subtitles.SubtitleImport
+import io.github.patschgoo.castapp.tv.TextTrackHint
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.CoroutineScope
@@ -145,6 +147,12 @@ class MediaCastSession(
     @Volatile private var probingFor: String? = null
     @Volatile private var extractJob: Job? = null
     @Volatile private var extractProgress = -1
+    /** Reading a subtitle track out of a server's file ([readInFile]): the job, "video|subtitle file", the video. */
+    @Volatile private var inFileJob: Job? = null
+    @Volatile private var inFileReading: String? = null
+    @Volatile private var inFileFor: String? = null
+    /** "video|subtitle file" whose reading failed: not tried again by itself. */
+    private val inFileFailed: MutableSet<String> = ConcurrentHashMap.newKeySet()
     @Volatile private var offsetReload: Job? = null
 
     // Caches by item address, so they stay right when the play list is replaced.
@@ -438,7 +446,8 @@ class MediaCastSession(
     /** The cues of [choice] for [item], reading the subtitle file the first time (kept by its address). */
     private fun cuesFor(item: MediaItem, choice: SubtitleChoice): List<Cue>? {
         val file = item.subtitleFiles.getOrNull(choice.track)?.takeIf { choice.kind == SubtitleKind.FILE }
-        if (file != null && subtitleTracks.fileCues(item.uri, file) == null) {
+        // A track inside a server's file is read out in the background ([readInFile]), never here.
+        if (file != null && subtitleTracks.fileCues(item.uri, file) == null && !ServerSubtitle.isInFile(file)) {
             subtitleText(item, file)?.let { text ->
                 val cues = CueParser.parse(text)
                 subtitleTracks.setFileCues(item.uri, file, cues)
@@ -838,7 +847,15 @@ class MediaCastSession(
         // A converted video starts its clock at 0: move the subtitles along (and by the timing correction).
         val streamStart = if (d == Delivery.CONVERT) startMs else 0
         val choice = activeSubtitle(item)
-        val subtitlePath = if (subtitlesReady(item)) "/$t/st/$id/${choice.key}/$streamStart/${subtitleTracks.offsetMs(item.uri)}" else null
+        prepareInFile(item, choice, d, target)
+        // A CastApp TV playing a server's file itself shows the subtitle track inside it: no copy of it next to the file.
+        val tvShowsTrack = tvShowsFileTracks(d, target) && inFileTrack(item, choice) != null
+        val subtitlePath = if (subtitlesReady(item) && !tvShowsTrack) "/$t/st/$id/${choice.key}/$streamStart/${subtitleTracks.offsetMs(item.uri)}" else null
+        val tvTrack = if (tvShowsFileTracks(d, target)) {
+            TextTrackHint.forTv(inFileTrack(item, choice), subtitleTracks.chosen(item.uri, item.subtitleFiles) == SubtitleChoice.OFF, Sidecars.preferredLanguages())
+        } else {
+            null
+        }
         return RendererMedia(
             url = url,
             mimeType = mime,
@@ -850,6 +867,7 @@ class MediaCastSession(
             subtitlesOn = subtitlesOn,
             startMs = if (d == Delivery.CONVERT || item.live) 0 else startMs,
             subtitleStyle = SubtitleStyleSettings.get(context).current,
+            subtitleTrack = tvTrack?.encode(),
         )
     }
 
@@ -1195,10 +1213,14 @@ class MediaCastSession(
     /** The subtitle sources this file has (or can have). */
     private fun subtitleChoices(item: MediaItem): List<SubtitleChoice> = buildList {
         item.subtitleFiles.indices.forEach { add(SubtitleChoice.file(it)) }
-        trackCache[item.uri]?.textSupported?.forEach { add(SubtitleChoice.embedded(it.ordinal)) }
+        probedText(item).forEach { add(SubtitleChoice.embedded(it.ordinal)) }
         if (subtitleTracks.hasOnline(item.uri)) add(SubtitleChoice.ONLINE)
         if (!generated[item.uri].isNullOrEmpty()) add(SubtitleChoice.WRITTEN)
     }
+
+    /** The text tracks found in the file, unless the server listed them already (Plex: [ServerSubtitle.inFile]). */
+    private fun probedText(item: MediaItem): List<TextTrackInfo> =
+        if (item.subtitleFiles.any(ServerSubtitle::isInFile)) emptyList() else trackCache[item.uri]?.textSupported.orEmpty()
 
     private fun activeSubtitle(item: MediaItem): SubtitleChoice = subtitleTracks.effective(item.uri, subtitleChoices(item), item.subtitleFiles)
 
@@ -1207,7 +1229,8 @@ class MediaCastSession(
         val choice = activeSubtitle(item)
         return when (choice.kind) {
             SubtitleKind.OFF -> false
-            SubtitleKind.FILE -> true
+            // A track inside a server's file once it was read out of it.
+            SubtitleKind.FILE -> inFileTrack(item, choice)?.let { subtitleTracks.fileCues(item.uri, it)?.isNotEmpty() == true } ?: true
             else -> subtitleTracks.cuesFor(item.uri, choice, generated[item.uri], item.subtitleFiles) != null
         }
     }
@@ -1225,6 +1248,18 @@ class MediaCastSession(
             }
             choice.kind == SubtitleKind.WRITTEN && generated[item.uri].isNullOrEmpty() -> {
                 createSubtitles()
+                refreshExtras()
+                return
+            }
+            // A track inside a server's file, not read out yet (a CastApp TV playing that file shows it itself).
+            !tvShowsFileTracks(delivery, device) && inFileTrack(item, choice)?.let { subtitleTracks.fileCues(item.uri, it) == null } == true -> {
+                val file = inFileTrack(item, choice)!!
+                inFileFailed.remove("${item.uri}|$file") // picked by hand: try again
+                if (!subtitlesOn) {
+                    subtitlesOn = true
+                    update { it.copy(subtitlesOn = true) }
+                }
+                readInFile(item, file)
                 refreshExtras()
                 return
             }
@@ -1337,10 +1372,105 @@ class MediaCastSession(
         }
     }
 
+    // ---- subtitle tracks inside a server's file (Plex) --------------------------------------------
+
+    /** The subtitle file [choice] picks for [item] when it is a track inside the server's video file ([ServerSubtitle.inFile]). */
+    private fun inFileTrack(item: MediaItem, choice: SubtitleChoice): String? =
+        item.subtitleFiles.getOrNull(choice.track)?.takeIf { choice.kind == SubtitleKind.FILE && ServerSubtitle.isInFile(it) }
+
+    /** A CastApp TV playing the server's file itself shows the tracks inside it: nothing is read out on the phone for it. */
+    private fun tvShowsFileTracks(d: Delivery, target: CastDevice) = d == Delivery.ORIGINAL && target.isCastAppTv
+
+    /** Before [item] goes to [target] as [d]: the track inside the file to show is read out on the phone if that TV needs it. */
+    private fun prepareInFile(item: MediaItem, choice: SubtitleChoice, d: Delivery, target: CastDevice) {
+        val primary = target.id == device.id
+        if (primary) keepInFileReadsFor(item)
+        if (tvShowsFileTracks(d, target)) return
+        val file = inFileTrack(item, choice)
+        if (file != null) readInFile(item, file) else if (primary) readAheadInFile()
+    }
+
+    /** Stops reading for an item that no longer plays (the one after it may go on: read ahead). */
+    private fun keepInFileReadsFor(item: MediaItem) {
+        val reading = inFileFor ?: return
+        if (reading == item.uri) return
+        if (reading != items.getOrNull(index + 1)?.uri) inFileJob?.cancel()
+        if (extractJob?.isActive != true) extractProgress = -1
+    }
+
+    /** The next item's track inside the file, read while this one plays, so it starts with its subtitles. */
+    private fun readAheadInFile() {
+        if (ended.get() || tvShowsFileTracks(delivery, device)) return
+        val next = items.getOrNull(index + 1) ?: return
+        inFileTrack(next, activeSubtitle(next))?.let { readInFile(next, it, ahead = true) }
+    }
+
+    /**
+     * Reads the subtitle track [file] out of the server's video file (the whole file goes through:
+     * the server hands out only the track picked in it), then shows it if it still is the one
+     * picked. One at a time; [ahead] (the next item's) never stops another.
+     */
+    private fun readInFile(item: MediaItem, file: String, ahead: Boolean = false) {
+        val sub = ServerSubtitle.parse(file)?.takeIf { it.inFile } ?: return
+        val key = "${item.uri}|$file"
+        if (subtitleTracks.fileCues(item.uri, file) != null || key in inFileFailed) return
+        if (inFileJob?.isActive == true && (inFileReading == key || ahead)) return
+        inFileJob?.cancel()
+        inFileReading = key
+        inFileFor = item.uri
+        inFileJob = scope.launch {
+            val job = coroutineContext[Job]
+            fun shownNow() = current.uri == item.uri && inFileTrack(item, activeSubtitle(item)) == file
+            try {
+                val source = HttpMediaSource(ServerSubtitle.address(file), item.headers, item.trustAll)
+                val ordinal = ServerSubtitle.ordinalIn(EmbeddedSubtitles.list(source), sub)
+                    ?: throw IOException("${item.title}: no subtitle track ${sub.track} (${sub.language}) in the file")
+                var shown = -1
+                val cues = EmbeddedSubtitles.extract(source, ordinal, cancelled = { job?.isActive != true }) { p ->
+                    val percent = (p * 100).toInt()
+                    if (percent != shown && current.uri == item.uri) {
+                        shown = percent
+                        extractProgress = percent
+                        refreshExtras()
+                    }
+                }
+                if (job?.isActive != true) return@launch
+                subtitleTracks.setFileCues(item.uri, file, cues)
+                if (current.uri == item.uri) extractProgress = -1
+                refreshExtras()
+                if (shownNow()) {
+                    if (cues.isEmpty()) {
+                        CastController.message(context.getString(R.string.subs_track_empty))
+                    } else {
+                        // The TV went without them; it may still be starting: once it plays, it gets them.
+                        withTimeoutOrNull(60_000) { while (!started && !ended.get() && current.uri == item.uri) delay(300) }
+                        reloadForSubtitles(item)
+                    }
+                }
+                readAheadInFile()
+            } catch (e: CancellationException) {
+                if (current.uri == item.uri && inFileReading == key) extractProgress = -1
+                throw e
+            } catch (e: Exception) {
+                Log.w(TAG, "Reading the subtitle track out of ${item.title} failed", e)
+                inFileFailed += key
+                if (current.uri == item.uri) extractProgress = -1
+                refreshExtras()
+                if (shownNow()) CastController.message(context.getString(R.string.subs_track_failed))
+            } finally {
+                if (inFileReading == key) {
+                    inFileReading = null
+                    inFileFor = null
+                }
+            }
+        }
+    }
+
     private fun publishTracks(item: MediaItem) {
         val tracks = trackCache[item.uri]
         val active = activeSubtitle(item)
-        val media = (item.type == MediaType.VIDEO || item.type == MediaType.AUDIO) && !item.live && !item.isHls
+        // A server's converted stream (Plex, Jellyfin) is HLS too, but comes with the file's subtitles.
+        val media = (item.type == MediaType.VIDEO || item.type == MediaType.AUDIO) && !item.live && (!item.isHls || item.subtitleFiles.isNotEmpty())
         val options = ArrayList<SubtitleOptionView>()
         fun add(choice: SubtitleChoice, label: String, detail: String?) {
             options += SubtitleOptionView(choice.key, label, detail, choice == active)
@@ -1349,12 +1479,17 @@ class MediaCastSession(
         // Each subtitle file by its language ("English", from "Film.English.srt"), else by what its name adds.
         val display = context.resources.configuration.locales[0]
         item.subtitleFiles.forEachIndexed { i, uri ->
+            // A server's track (Plex): by its language and name, "Inside the video file · SSA/ASS".
+            ServerSubtitle.parse(uri)?.let { sub ->
+                add(SubtitleChoice.file(i), sub.label(), sub.detail().ifEmpty { null })
+                return@forEachIndexed
+            }
             // The name it was listed or picked with: content:// addresses often carry none ("…/document/msf%3A123").
             val name = item.subtitleName(uri)
             val label = Sidecars.label(item.title, name, display) ?: context.getString(R.string.subs_file)
             add(SubtitleChoice.file(i), label, name.takeIf { it.isNotBlank() })
         }
-        tracks?.textSupported?.forEach { add(SubtitleChoice.embedded(it.ordinal), it.describe(), context.getString(R.string.subs_in_file)) }
+        probedText(item).forEach { add(SubtitleChoice.embedded(it.ordinal), it.describe(), context.getString(R.string.subs_in_file)) }
         subtitleTracks.onlineLabel(item.uri)?.takeIf { subtitleTracks.hasOnline(item.uri) }?.let { add(SubtitleChoice.ONLINE, it, context.getString(R.string.subs_online)) }
         val written = !generated[item.uri].isNullOrEmpty()
         if (written || canCreateSubtitles(item) || subtitleFor == item.uri) {

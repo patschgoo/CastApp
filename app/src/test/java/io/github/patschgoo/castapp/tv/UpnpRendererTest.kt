@@ -117,6 +117,29 @@ class UpnpRendererTest {
     }
 
     @Test
+    fun phoneTellsTheTvWhichTrackInsideThePlexFileToShow() = runBlocking {
+        renderer.start(0, ssdp = false)
+        val location = "http://127.0.0.1:${renderer.port}/description.xml"
+        val device = SsdpBrowser.rendererDevice(location, Dlna.parseDescription(Dlna.fetch(location)!!, location))!!
+        val r = DlnaRenderer(device)
+        r.connect()
+        val hint = TextTrackHint(track = 1, language = "eng", title = "Full Subtitles", languages = listOf("de", "en"))
+        r.load(
+            RendererMedia(
+                url = "http://192.168.1.5:32400/library/parts/611/1/file.mkv?X-Plex-Token=t",
+                mimeType = "video/x-matroska",
+                title = "Vela · S1 E1",
+                subtitle = "TV",
+                subtitleTrack = hint.encode(),
+            ),
+        )
+        val m = tv.current!!
+        assertEquals(hint, TextTrackHint.decode(m.subtitleTrack))
+        assertEquals(null, m.subtitleUri) // no copy of the track next to the file
+        r.close()
+    }
+
+    @Test
     fun parsesMetadataFromOtherApps() {
         val didl = """<DIDL-Lite xmlns="urn:schemas-upnp-org:metadata-1-0/DIDL-Lite/" xmlns:dc="http://purl.org/dc/elements/1.1/" xmlns:upnp="urn:schemas-upnp-org:metadata-1-0/upnp/"><item id="1" parentID="0" restricted="1"><dc:title>Song &amp; Dance</dc:title><upnp:class>object.item.audioItem.musicTrack</upnp:class><res protocolInfo="http-get:*:audio/mpeg:DLNA.ORG_OP=01">http://nas/song.mp3</res></item></DIDL-Lite>"""
         val m = UpnpRenderer.parseMedia("http://nas/song.mp3", didl)

@@ -53,11 +53,33 @@ data class SubtitleTrack(
     val isExternal: Boolean,
     /** Plex: where the file of an external subtitle can be fetched. */
     val key: String? = null,
+    /** The track's own name in the file ("Signs & Songs", "Full"), where the server tells it apart from [title]. */
+    val name: String? = null,
+    /** Plex: the one picked for this item in Plex (by hand, or by the account's subtitle settings). */
+    val selected: Boolean = false,
+    /** For the deaf and hard of hearing (SDH). */
+    val hearingImpaired: Boolean = false,
+    /**
+     * Plex: a track inside the video file, its place among the file's subtitle tracks (in the
+     * file's order, picture ones included: the order Media3 reads them in). Null for external ones.
+     */
+    val fileOrdinal: Int? = null,
 ) {
     val isText: Boolean get() = codec.lowercase() in TEXT_CODECS
 
+    private val words: String get() = listOfNotNull(name, title).joinToString(" ")
+
+    /** Only part of what is said: forced, or "Signs & Songs" (anime releases rarely flag those forced). */
+    val isPartial: Boolean get() = isForced || (PARTIAL.containsMatchIn(words) && !FULL.containsMatchIn(words))
+
+    val isSdh: Boolean get() = hearingImpaired || SDH.containsMatchIn(words)
+
     companion object {
         val TEXT_CODECS = setOf("subrip", "srt", "ass", "ssa", "webvtt", "vtt", "mov_text", "ttml", "text", "smi", "subviewer")
+
+        private val PARTIAL = Regex("""(?i)\b(signs?|songs?|forced|karaoke|s\s*&\s*s)\b""")
+        private val FULL = Regex("""(?i)\b(full|dialog(ue)?s?)\b""")
+        private val SDH = Regex("""(?i)\b(sdh|cc|hearing[ -]impaired)\b""")
     }
 }
 
@@ -78,6 +100,8 @@ data class MediaInfo(
     val partKey: String? = null,
     val audioLanguage: String? = null,
     val subtitles: List<SubtitleTrack> = emptyList(),
+    /** Plex: the answer listed the file's streams; lists of items leave them out ([subtitles] is then empty). */
+    val streamDetails: Boolean = false,
 )
 
 /** A library, folder, show, season, movie, episode, album or track on a server. */
