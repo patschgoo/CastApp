@@ -127,8 +127,10 @@ class PlexClient(
     override val account: ServerAccount,
     private val info: ClientInfo,
     private val caps: PlaybackCaps = PlaybackCaps.TV,
+    /** Subtitles in this language alone, instead of the [subtitleLanguages] of the setting. */
+    deviceLanguage: String? = null,
     /** The languages subtitles are wanted in, best first (the subtitle setting's, then the phone's, then English). */
-    private val subtitleLanguages: () -> List<String> = { Sidecars.preferredLanguages() },
+    private val subtitleLanguages: () -> List<String> = deviceLanguage?.let { language -> { listOf(language) } } ?: { Sidecars.preferredLanguages() },
 ) : MediaServerClient {
     private val urls = PlexUrls(account, info, caps)
     private val base get() = urls.base

@@ -149,7 +149,8 @@ object Dlna {
             }
             // CastApp TV receivers play the screen stream with minimal buffering when they see this.
             if (lowLatency) append("<desc id=\"castapp\" nameSpace=\"urn:castapp\">castapp:lowlatency</desc>")
-            if (subtitleStyle != null && srtUrl != null) {
+            // The look goes with subtitles the TV shows: a file next to the video, or a track inside it.
+            if (subtitleStyle != null && (srtUrl != null || subtitleTrack != null)) {
                 append("<desc id=\"castapp-subtitles\" nameSpace=\"urn:castapp\">").append(SUBTITLE_STYLE_PREFIX).append(escape(subtitleStyle)).append("</desc>")
             }
             if (syncUrl != null) {

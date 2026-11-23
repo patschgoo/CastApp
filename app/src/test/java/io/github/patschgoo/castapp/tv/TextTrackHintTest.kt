@@ -31,6 +31,9 @@ class TextTrackHintTest {
         val media = UpnpRenderer.parseMedia("http://srv/file.mkv?X-Plex-Token=t", didl)
         assertEquals(hint, TextTrackHint.decode(media.subtitleTrack))
         assertNull(UpnpRenderer.parseMedia("http://srv/file.mkv", Dlna.didl("Film", "http://srv/file.mkv", "video/mp4", false)).subtitleTrack)
+        // The subtitle look goes along for a track inside the file too, not only for a file next to it.
+        val styled = Dlna.didl("Vela", "http://srv/file.mkv", "video/x-matroska", false, subtitleStyle = "look", subtitleTrack = hint.encode())
+        assertEquals("look", UpnpRenderer.parseMedia("http://srv/file.mkv", styled).subtitleStyle)
     }
 
     @Test
