@@ -233,6 +233,7 @@ For a Shield that holds the drives (Plex Media Server and/or **Transfer files ov
 | Home Assistant | Send `command_activity` with a URL to the companion app | The link plays on the TV | Debug log + Home Assistant app version |
 | Mirror from automation | `MIRROR` while the app is closed | A notification asks to mirror; tapping it opens Android's capture prompt | Debug log + Android version |
 | Wear OS remote | Install `CastApp-wear.apk` on the watch, cast from the phone | The watch shows the title; play/pause, next and volume work; **Mirror to …** shows the prompt on the phone | Debug log + watch model; both apps must be the same build |
+| Bezel / crown volume | While casting, turn the watch's bezel (Galaxy Watch Classic) or crown slowly, then fast, then back | One volume step per notch (crown: smooth steps), a tick you can feel, the level shown at the edge; fast turns don't flood the TV; the list scrolls by bezel again once the cast ends | Watch model + Wear OS version, TV type, and whether each notch was one step |
 
 ## First start, settings search and accessibility
 
