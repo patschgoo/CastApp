@@ -48,6 +48,12 @@ data class MediaItem(
      * picked file's content://…/document/msf%3A123, for the subtitle picker ([subtitleName]).
      */
     val subtitleNames: Map<String, String> = emptyMap(),
+    /**
+     * A picture of it for "Continue watching": a poster or episode still (Plex, Jellyfin, Xtream), a
+     * channel logo, a web page's poster; http(s)://… only. Null when none is known: files on the phone
+     * and on network shares get theirs from the file itself ([io.github.patschgoo.castapp.artwork.Artwork]).
+     */
+    val artUri: String? = null,
 ) {
     val type: MediaType
         get() = when {
@@ -84,6 +90,8 @@ data class MediaItem(
             subtitleUri?.let { subtitleNames[it] }?.let { o.put("subName", it) }
             if (moreSubtitles.any { it in subtitleNames }) o.put("subsNames", JSONArray(moreSubtitles.map { subtitleNames[it].orEmpty() }))
         }
+        // Only when there is one: older versions (hand-over, join, the watch history) don't know the key and skip it.
+        .also { o -> artUri?.let { o.put("art", it) } }
 
     companion object {
         fun fromJson(o: JSONObject): MediaItem {
@@ -110,8 +118,17 @@ data class MediaItem(
                 originalMime = o.optString("origMime").ifEmpty { null },
                 moreSubtitles = more,
                 subtitleNames = names,
+                artUri = o.optString("art").ifEmpty { null },
             )
         }
+
+        /** [url] if it can be an [artUri]: a web address (no data: or blob: pictures, no relative paths). */
+        fun pictureAddress(url: String?): String? = url?.trim()?.takeIf {
+            (it.startsWith("http://", ignoreCase = true) || it.startsWith("https://", ignoreCase = true)) && it.length <= MAX_ART_LENGTH
+        }
+
+        /** Longer addresses are rather inline data than a picture's address. */
+        private const val MAX_ART_LENGTH = 4096
 
         /** [subtitleNames] for subtitle files as (address, file name): the names their address doesn't show. */
         fun subtitleNamesOf(files: List<Pair<String, String>>): Map<String, String> =

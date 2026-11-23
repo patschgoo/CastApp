@@ -579,6 +579,7 @@ internal fun ChannelsScreen(repo: IptvRepository, onBack: () -> Unit) {
                     uri = account.timeshiftUrl(streamId, p.start, minutes),
                     mimeType = "video/mp2t",
                     headers = entry.channel.headers,
+                    artUri = MediaItem.pictureAddress(entry.channel.logo),
                 ),
             ),
         )

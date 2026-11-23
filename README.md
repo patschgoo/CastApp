@@ -84,7 +84,7 @@ Any device you've cast to once is **remembered**. If its IP address changes, Cas
 
 **Playback** (files, network, channels):
 
-- **Continue watching**: videos resume where you stopped. A history row on the main screen lists them.
+- **Continue watching**: videos resume where you stopped. A history row on the main screen lists them, each with its poster, channel logo or a picture from the video (files on network shares only on Wi-Fi).
 - **Queue editing**: reorder, remove, add, shuffle and repeat.
 - **Sleep timer**, also "end of video".
 - **Audio track choice**. Tracks the TV can't play are converted on the phone.

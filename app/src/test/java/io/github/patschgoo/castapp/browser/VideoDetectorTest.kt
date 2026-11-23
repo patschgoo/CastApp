@@ -40,4 +40,31 @@ class VideoDetectorTest {
         d.newPage("https://other.example/")
         assertEquals(0, d.videos.value.size)
     }
+
+    @Test
+    fun keepsThePlayersPosterElseThePagesPicture() {
+        val d = VideoDetector()
+        d.newPage("https://news.example/article")
+        // Seen in the network traffic first, then in the page with its poster.
+        d.onUrl("https://news.example/clip.mp4")
+        assertNull(d.videos.value.single().poster)
+        d.onUrl("https://news.example/clip.mp4", poster = "https://news.example/clip.jpg")
+        assertEquals("https://news.example/clip.jpg", d.videos.value.single().poster)
+
+        // No poster of its own: the page's og:image.
+        d.updatePagePicture("https://news.example/og.jpg")
+        d.onUrl("https://cdn.example/hls/master.m3u8")
+        val byUrl = d.videos.value.associate { it.url to it.poster }
+        assertEquals("https://news.example/og.jpg", byUrl["https://cdn.example/hls/master.m3u8"])
+        assertEquals("https://news.example/clip.jpg", byUrl["https://news.example/clip.mp4"]) // its own poster stays
+
+        // Inline pictures are no addresses.
+        d.onUrl("https://news.example/other.mp4", poster = "data:image/png;base64,AAAA")
+        assertEquals("https://news.example/og.jpg", d.videos.value.first { it.url.endsWith("other.mp4") }.poster)
+
+        d.newPage("https://other.example/")
+        assertNull(d.pagePicture)
+        d.onUrl("https://other.example/v.mp4")
+        assertNull(d.videos.value.single().poster)
+    }
 }
