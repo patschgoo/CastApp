@@ -39,6 +39,8 @@ data class RendererStatus(
     val state: PlayState,
     val positionMs: Long? = null,
     val durationMs: Long? = null,
+    /** With [PlayState.ERROR]: why, when the TV said so (CastApp TV), in the phone's language. */
+    val reason: String? = null,
 )
 
 /**

@@ -54,6 +54,13 @@ data class TvSnapshot(
     val durationMs: Long = 0,
     val volume: Int = 100,
     val muted: Boolean = false,
+    /**
+     * Why the media could not be played ([PlaybackFailure]): `ERROR_OCCURRED` for DLNA senders, the reason
+     * in `/castapp/status`. Kept until new media is set or played.
+     */
+    val error: TvError? = null,
+    /** It plays, but with a problem worth telling the sender (no sound decoder): `/castapp/status` only. */
+    val warning: TvError? = null,
 )
 
 /**
@@ -84,6 +91,28 @@ interface RendererBackend {
     fun setVolume(percent: Int)
     fun setMuted(muted: Boolean)
     val snapshot: TvSnapshot
+
+    /**
+     * Plays [media] right away as the next item (the one a sender queued with SetNextAVTransportURI, after
+     * the item before played to its end, or on Next): like [setMedia] and [play], without a STOPPED between.
+     * May be called on the main thread.
+     */
+    fun advance(media: TvMedia) {
+        setMedia(media)
+        play()
+    }
+
+    /** Where to tell that an item played to its end ([RendererEvents]); null when the renderer stops. */
+    fun attach(events: RendererEvents?) {}
+}
+
+/** What the backend tells the renderer. */
+fun interface RendererEvents {
+    /**
+     * [media] played to its end by itself (not stopped, not failed). True = the renderer started the item a
+     * sender queued ([RendererBackend.advance] was called); false = nothing follows, it stays stopped.
+     */
+    fun playedToEnd(media: TvMedia): Boolean
 }
 
 /**
@@ -97,7 +126,7 @@ class UpnpRenderer(
     private val uuid: String,
     private val backend: RendererBackend,
     private val modelNumber: String = "1",
-) {
+) : RendererEvents {
     @Volatile var port = 0
         private set
 
@@ -107,7 +136,10 @@ class UpnpRenderer(
     /** Decides who may cast here (see [ReceiverGuard]); null = anyone on the network. */
     @Volatile var guard: ReceiverGuard? = null
     @Volatile private var running = false
+    /** What plays now, and what a sender queued to follow it (SetNextAVTransportURI); changed under [queueLock]. */
     @Volatile private var media: TvMedia? = null
+    @Volatile private var next: TvMedia? = null
+    private val queueLock = Any()
     private var server: ServerSocket? = null
     private var ssdpSocket: MulticastSocket? = null
     private val workers = Executors.newCachedThreadPool { r -> Thread(r, "upnp-http").apply { isDaemon = true } }
@@ -118,6 +150,7 @@ class UpnpRenderer(
     fun start(preferredPort: Int = 0, ssdp: Boolean = true, interfaces: List<NetworkInterface> = emptyList()) {
         if (running) return
         running = true
+        backend.attach(this)
         val ss = try {
             ServerSocket(preferredPort)
         } catch (_: IOException) {
@@ -135,6 +168,7 @@ class UpnpRenderer(
     fun stop() {
         if (!running) return
         running = false
+        backend.attach(null)
         try { sendNotify("ssdp:byebye") } catch (_: Exception) {}
         try { server?.close() } catch (_: Exception) {}
         try { ssdpSocket?.close() } catch (_: Exception) {}
@@ -234,6 +268,7 @@ class UpnpRenderer(
                 "/RenderingControl.xml" -> xml(Scpd.RENDERING_CONTROL)
                 "/ConnectionManager.xml" -> xml(Scpd.CONNECTION_MANAGER)
                 "/castapp/capabilities" -> capabilitiesResponse(remote)
+                "/castapp/status" -> statusResponse(request, remote)
                 else -> Response(404, "Not Found", "text/plain", ByteArray(0))
             }
             request.method == "POST" && path.startsWith("/control/") -> soap(path.removePrefix("/control/"), request, remote)
@@ -332,6 +367,37 @@ class UpnpRenderer(
         return Response(200, "OK", "application/json; charset=utf-8", json.toString().toByteArray(Charsets.UTF_8))
     }
 
+    /**
+     * GET /castapp/status: what plays and, after a failure, why ([PlaybackFailure]), for senders on this
+     * network that may see what plays (the same rule as GetPositionInfo):
+     * {"version": 1, "state": "STOPPED", "uri": ..., "error": {"code": "no_video_decoder", "message": ...}, ...}.
+     */
+    private fun statusResponse(request: Request, remote: InetAddress?): Response {
+        if (!isLocal(remote)) return plain(403, "Forbidden", "Only devices on the local network may ask that")
+        val denied = guard?.authorize(senderOf(request, remote), Access.STATUS)
+        if (denied is Verdict.Denied) {
+            val pairing = denied.message == ReceiverGuard.PAIRING_REQUIRED
+            return plain(if (pairing) 401 else 403, if (pairing) "Unauthorized" else "Forbidden", denied.message)
+        }
+        val snap = backend.snapshot
+        val (current, queued) = synchronized(queueLock) { media to next }
+        val nothing = org.json.JSONObject.NULL
+        val json = org.json.JSONObject()
+            .put("version", STATUS_VERSION)
+            .put("state", stateOf(snap).upnp)
+            .put("uri", current?.uri ?: nothing)
+            .put("title", current?.title ?: nothing)
+            .put("position_ms", snap.positionMs)
+            .put("duration_ms", snap.durationMs)
+            .put("next_uri", queued?.uri ?: nothing)
+            .put("error", snap.error?.toJson() ?: nothing)
+            .put("warning", snap.warning?.toJson() ?: nothing)
+        return Response(200, "OK", "application/json; charset=utf-8", json.toString().toByteArray(Charsets.UTF_8))
+    }
+
+    /** After a failure the transport is stopped, whatever the player says. */
+    private fun stateOf(snap: TvSnapshot) = if (snap.error != null) TransportState.STOPPED else snap.state
+
     private fun plain(code: Int, reason: String, text: String) =
         Response(code, reason, "text/plain; charset=utf-8", text.toByteArray(Charsets.UTF_8))
 
@@ -398,23 +464,38 @@ class UpnpRenderer(
     private fun avTransport(action: String, arg: (String) -> String?): List<Pair<String, String>> {
         val snap = backend.snapshot
         val current = media
+        val queued = next
         return when (action) {
             "SetAVTransportURI" -> {
                 val uri = arg("CurrentURI")?.trim().orEmpty()
                 if (uri.isEmpty()) throw SoapFault(716, "Resource not found")
                 val parsed = parseMedia(uri, arg("CurrentURIMetaData").orEmpty())
-                media = parsed
-                backend.setMedia(parsed)
+                synchronized(queueLock) {
+                    media = parsed
+                    // A new address replaces the queue: what was to follow the old one doesn't follow this one.
+                    next = null
+                    backend.setMedia(parsed)
+                }
                 emptyList()
             }
-            "SetNextAVTransportURI" -> emptyList()
+            "SetNextAVTransportURI" -> {
+                // An empty address takes back what was queued.
+                val uri = arg("NextURI")?.trim().orEmpty()
+                val parsed = if (uri.isEmpty()) null else parseMedia(uri, arg("NextURIMetaData").orEmpty())
+                synchronized(queueLock) { next = parsed }
+                emptyList()
+            }
             "Play" -> {
                 if (current == null) throw SoapFault(701, "Transition not available")
                 backend.play()
                 emptyList()
             }
             "Pause" -> { backend.pause(); emptyList() }
-            "Stop" -> { backend.stop(); emptyList() }
+            "Stop" -> {
+                synchronized(queueLock) { next = null }
+                backend.stop()
+                emptyList()
+            }
             "Seek" -> {
                 val unit = arg("Unit").orEmpty()
                 val target = arg("Target").orEmpty()
@@ -424,10 +505,21 @@ class UpnpRenderer(
                 }
                 emptyList()
             }
-            "Next", "Previous" -> emptyList()
+            "Next" -> {
+                // Jumps to the queued item, if a sender queued one.
+                synchronized(queueLock) {
+                    next?.let { n ->
+                        media = n
+                        next = null
+                        backend.advance(n)
+                    }
+                }
+                emptyList()
+            }
+            "Previous" -> emptyList()
             "GetTransportInfo" -> listOf(
-                "CurrentTransportState" to snap.state.upnp,
-                "CurrentTransportStatus" to "OK",
+                "CurrentTransportState" to stateOf(snap).upnp,
+                "CurrentTransportStatus" to if (snap.error != null) "ERROR_OCCURRED" else "OK",
                 "CurrentSpeed" to "1",
             )
             "GetPositionInfo" -> listOf(
@@ -445,8 +537,8 @@ class UpnpRenderer(
                 "MediaDuration" to formatTime(snap.durationMs),
                 "CurrentURI" to (current?.uri ?: ""),
                 "CurrentURIMetaData" to (current?.metadata ?: ""),
-                "NextURI" to "",
-                "NextURIMetaData" to "",
+                "NextURI" to (queued?.uri ?: ""),
+                "NextURIMetaData" to (queued?.metadata ?: ""),
                 "PlayMedium" to "NETWORK",
                 "RecordMedium" to "NOT_IMPLEMENTED",
                 "WriteStatus" to "NOT_IMPLEMENTED",
@@ -457,9 +549,23 @@ class UpnpRenderer(
                 "RecMedia" to "NOT_IMPLEMENTED",
                 "RecQualityModes" to "NOT_IMPLEMENTED",
             )
-            "GetCurrentTransportActions" -> listOf("Actions" to "Play,Pause,Stop,Seek")
+            "GetCurrentTransportActions" -> listOf("Actions" to if (queued != null) "Play,Pause,Stop,Seek,Next" else "Play,Pause,Stop,Seek")
             else -> throw SoapFault(401, "Invalid Action")
         }
+    }
+
+    /**
+     * The player played [media] to its end: start the item a sender queued (SetNextAVTransportURI), if
+     * there is one and both are files that play one after the other. Never for photos, screen mirroring,
+     * live streams or playback that follows another screen (several screens, joined).
+     */
+    override fun playedToEnd(media: TvMedia): Boolean = synchronized(queueLock) {
+        val n = next ?: return false
+        if (this.media !== media || !autoAdvances(media, n)) return false
+        this.media = n
+        next = null
+        backend.advance(n)
+        true
     }
 
     private fun renderingControl(action: String, arg: (String) -> String?): List<Pair<String, String>> {
@@ -646,8 +752,18 @@ class UpnpRenderer(
 
     companion object {
         const val MODEL_NAME = "CastApp TV"
-        /** Version of the /castapp/capabilities answer (2: decoders, passthrough and subtitles). */
-        const val CAPABILITIES_VERSION = 2
+        /** Version of the /castapp/capabilities answer (2: decoders, passthrough and subtitles; 3: file types). */
+        const val CAPABILITIES_VERSION = 3
+
+        /** Version of the /castapp/status answer. */
+        const val STATUS_VERSION = 1
+
+        /** Whether [next] may start by itself after [ended] (see [playedToEnd]). */
+        fun autoAdvances(ended: TvMedia, next: TvMedia): Boolean {
+            fun follows(m: TvMedia) = m.syncUrl != null || m.joinedFrom != null
+            return ended.kind != TvMediaKind.PHOTO && !ended.lowLatency && !ended.live && !follows(ended) &&
+                next.kind != TvMediaKind.PHOTO && !next.lowLatency && !follows(next)
+        }
 
         /** Requests from this home network only (private, link-local or loopback addresses). */
         fun isLocal(remote: InetAddress?): Boolean =

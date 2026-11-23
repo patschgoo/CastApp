@@ -355,7 +355,7 @@ answers JSON with `true`/`false` values:
 
 | Keys | Meaning |
 |---|---|
-| `version` | `2` (a number, not true/false). |
+| `version` | `3` (a number, not true/false; 3 added the file types). |
 | `h264`, `h264_10bit` (also `hi10p`), `hevc_10bit`, `av1`, `vp9`, `vp8`, `mpeg2`, `mpeg4` | A hardware decoder for 1080p: plays smoothly. |
 | the same with `_sw` (`av1_sw` ...) | A decoder, but no such hardware one (software, or hardware below 1080p): fine for SD, may stutter or fail in HD. |
 | `hevc` | A hardware HEVC decoder for 1080p (the key older CastApp versions read). |
@@ -364,8 +364,48 @@ answers JSON with `true`/`false` values:
 | `sub_srt`, `sub_vtt`, `sub_ass`, `sub_pgs`, `sub_vobsub` | Subtitle formats it shows, as files and inside MKV. |
 | `sub_ass_full` | `false`: ASS keeps position, colours, bold and italic, but not effects, karaoke or embedded fonts. |
 | `youtube` | It opens YouTube links in the TV's YouTube app (CastApp's own use). |
+| `container_mp4` (MP4, M4V, MOV), `container_mkv`, `container_webm`, `container_ts` (MPEG-TS with 188-byte packets, `.ts`), `container_avi`, `container_flv`, `container_mpeg_ps` (`.mpg`, `.mpeg`, `.vob`) | File types the player opens: `true`. The picture and sound inside still need the decoders above; AVI carries H.264, MPEG-4 ASP (XviD/DivX 4+) or MJPEG, FLV only H.264 with AAC or MP3. |
+| `container_m2ts` (Blu-ray/AVCHD `.m2ts`, `.mts` with 192-byte packets), `container_ogg_video` (Ogg Theora), `container_asf` (ASF, WMV) | `false`: the player has no reader for them (remux to MKV/MP4 or convert first). |
+| `hls`, `dash` | Streams it plays: HLS (`.m3u8`) and MPEG-DASH (`.mpd`). |
 
-Keys may be added; read the ones you know and treat a missing key as unknown.
+Keys may be added; read the ones you know and treat a missing key as unknown. The file types are the
+same on every device (they come with the app); the decoders differ per device.
+
+**When it can't play:** after a failure `GetTransportInfo` answers `CurrentTransportState` `STOPPED` and
+`CurrentTransportStatus` `ERROR_OCCURRED` (otherwise `OK`) until the next `SetAVTransportURI` or `Play`.
+`GET http://<address>/castapp/status` (devices on the local network; with "Only paired phones" also the
+`X-CastApp-Token` header, like `GetPositionInfo`) tells why:
+
+```json
+{"version": 1, "state": "STOPPED", "uri": "http://192.168.1.5:8080/show/episode01.mkv", "title": "Episode 1",
+ "position_ms": 0, "duration_ms": 0, "next_uri": null,
+ "error": {"code": "no_video_decoder", "message": "No decoder for 10-bit H.264 (High 10) video on this TV",
+           "format": "10-bit H.264 (High 10)"},
+ "warning": null}
+```
+
+`state` is the UPnP transport state, `error` is `null` while nothing failed. `message` is an English
+sentence for people; `format` (the format it is about) and `http_status` come when known. The codes:
+
+| `code` | Meaning | What a sender can do |
+|---|---|---|
+| `no_video_decoder` | The picture's format has no decoder here (10-bit H.264 on a Shield, VC-1 ...). | Convert the video. |
+| `no_audio_decoder` | The sound's format has no decoder (music). For a video it is only a `warning`: it plays without sound. | Convert the sound, or pick another sound track. |
+| `no_picture` | Sound, but the picture in the file can't be read at all (DivX 3 in an AVI). | Convert the video. |
+| `unsupported_format` | The file type can't be opened (see `container_*`), or the file is damaged. | Remux or convert. |
+| `network` | The TV couldn't load the address: no connection, a time-out, an HTTP error (`http_status`). | Check the address, the server and its firewall. |
+| `player_error` | Anything else the player stopped with (a decoder that broke off, the sound output, copy protection ...; the message says which, often with Media3's error name). | Try another way, or report it. |
+
+`warning` (same fields) is set while a video plays with a problem, today only `no_audio_decoder`.
+
+**Next item:** `SetNextAVTransportURI` (with its DIDL-Lite metadata, like `SetAVTransportURI`) queues
+one item. `GetMediaInfo` shows it as `NextURI`/`NextURIMetaData`, `/castapp/status` as `next_uri`.
+When the current item plays to its end, CastApp TV starts it by itself: `TRANSITIONING`, then
+`PLAYING`, and `GetPositionInfo`/`GetMediaInfo` show the new address and metadata; the queue is empty
+again. `Next` starts it at once. A new `SetAVTransportURI` or `Stop` drops it, an empty `NextURI` too.
+It never moves on by itself after a live stream (`DLNA.ORG_OP=00`), a photo, CastApp's screen
+mirroring or playback that follows another screen, and never to a photo. Senders that send the next
+`SetAVTransportURI` themselves when an item ends (as CastApp on the phone does) need nothing of this.
 
 **Hints in the DIDL-Lite metadata** of `SetAVTransportURI`, each in its own `<desc>` with
 `nameSpace="urn:castapp"` inside the `<item>`:
