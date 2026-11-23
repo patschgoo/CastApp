@@ -237,7 +237,8 @@ class ExtraScreens(
                 val w = s.waiter
                 if (w != null) w.complete(false) else if (s.played) setState(s, ScreenState.ERROR)
             }
-            PlayState.STOPPED, PlayState.FINISHED -> if (live && s.played && s.waiter == null) gone(s, null)
+            // A start whose answer already came counts as done (the loader clears the waiter a moment later).
+            PlayState.STOPPED, PlayState.FINISHED -> if (live && s.played && s.waiter?.isCompleted != false) gone(s, null)
             PlayState.IDLE -> Unit
         }
     }

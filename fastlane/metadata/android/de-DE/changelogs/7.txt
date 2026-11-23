@@ -1,0 +1,6 @@
+• Plex: Untertitelspuren in MKV-Dateien jetzt auf jedem Fernseher
+• AVI/XviD wird auch auf Handys ohne AVI-Leser umgewandelt; H.264-Aufnahmen werden umverpackt statt umgewandelt
+• Andere Apps können eine Wiedergabeliste schicken und erfahren, was geschaut wurde
+• CastApp TV sagt Apps, was es abspielt, und ist nach dem Ruhemodus wieder auffindbar
+• Bilder bei Weiterschauen, bessere Darstellung bei großer Schrift
+• Samsung-Fernbedienung: seltener erneut „Zulassen?“

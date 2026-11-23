@@ -52,7 +52,7 @@ screens, join, sync and hand-over, `mediaservers/` Plex and Jellyfin, `iptv/`, `
 source tiles, cast bar; `DevicesScreen.kt` wires it and holds the casting card). Modules `wear/` and `wear-protocol/` are the
 Wear OS remote.
 
-## State (version 4.0.0)
+## State (version 4.1.0)
 
 Everything is built and unit-tested, but most features since 3.1 have **not been tried on real devices yet**.
 The redesigned main screen (violet theme and bundled Plus Jakarta Sans font, no Material You colors any more;
