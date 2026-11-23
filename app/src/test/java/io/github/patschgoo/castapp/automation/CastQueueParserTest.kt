@@ -180,6 +180,34 @@ class CastQueueParserTest {
     }
 
     @Test
+    fun soundAndSubtitleLanguagesAreRead() {
+        val q = queue(
+            """[{"url": "https://a.example/1.mkv", "audio_language": "ja", "subtitle_language": "de"},
+                {"url": "https://a.example/2.mkv", "audio_language": " pt-BR ", "subtitle_language": "OFF"},
+                {"url": "https://a.example/3.mkv", "audio_language": null, "subtitle_language": ""},
+                "https://a.example/4.mkv"]""",
+        ).queue
+        assertEquals(listOf("ja", "pt-BR", null, null), q.items.map { it.audioLanguage })
+        assertEquals(listOf("de", QueueParser.OFF, null, null), q.items.map { it.subtitleLanguage })
+    }
+
+    @Test
+    fun soundAndSubtitleLanguagesAreChecked() {
+        for (bad in listOf(""""English"""", """"e"""", """"de-"""", "42", """["de"]""", """{"lang": "de"}""", "true")) {
+            val r = refused("""[{"url": "https://a.example/1.mkv", "audio_language": $bad}]""")
+            assertEquals(bad, AutomationResult.CODE_INVALID, r.code)
+            assertTrue(r.message, r.message.startsWith("Item 0: \"audio_language\""))
+            val s = refused("""[{"url": "https://a.example/1.mkv", "subtitle_language": $bad}]""")
+            assertEquals(bad, AutomationResult.CODE_INVALID, s.code)
+            assertTrue(s.message, s.message.startsWith("Item 0: \"subtitle_language\""))
+        }
+        // "off" is for subtitles only.
+        assertTrue(refused("""[{"url": "https://a.example/1.mkv", "audio_language": "off"}]""").message.contains("only for subtitles"))
+        // The item's place is named.
+        assertTrue(refused("""["https://a.example/1.mkv", {"url": "https://a.example/2.mkv", "subtitle_language": "none"}]""").message.startsWith("Item 1"))
+    }
+
+    @Test
     fun missingOrMistypedFieldsAreRefused() {
         assertTrue(refused("""[{"title": "No address"}]""").message.contains("no \"url\""))
         assertEquals(AutomationResult.CODE_INVALID, refused("""[{"url": 42}]""").code)

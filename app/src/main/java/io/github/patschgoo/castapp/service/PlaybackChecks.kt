@@ -70,6 +70,22 @@ internal object PlaybackChecks {
     }
 
     /**
+     * The sound track a CastApp TV is told to play for [item] sent as [d] ([MediaItem.audioTrack]): only
+     * when it plays the very file the hint describes, not the phone's converted video and not a server's
+     * converted stream (its [MediaItem.original] is that file). Other TVs are never told.
+     */
+    fun audioTrackFor(item: MediaItem, d: Delivery, target: CastDevice): String? =
+        item.audioTrack?.takeIf { target.isCastAppTv && d != Delivery.CONVERT && (item.original == null || d == Delivery.ORIGINAL) }
+
+    /**
+     * The subtitle track an app asked for ([MediaItem.subtitleTrack]) that a CastApp TV is told to show
+     * inside the file: only when the TV plays the file itself, gets no subtitle file ([sendsFile]) and
+     * nothing was picked on the phone ([picked]). Other TVs are never told.
+     */
+    fun subtitleTrackFor(item: MediaItem, d: Delivery, target: CastDevice, sendsFile: Boolean, picked: Boolean): String? =
+        item.subtitleTrack?.takeIf { target.isCastAppTv && d != Delivery.CONVERT && !sendsFile && !picked && (item.original == null || d == Delivery.ORIGINAL) }
+
+    /**
      * The type a TV is told for a file of type [mime]. Chromecasts take MKV only as "video/webm";
      * DLNA TVs (Samsung, LG), Roku and the rest know "video/x-matroska" and may refuse "webm".
      */

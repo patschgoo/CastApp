@@ -2,6 +2,8 @@ package io.github.patschgoo.castapp.automation
 
 import io.github.patschgoo.castapp.service.MediaItem
 import io.github.patschgoo.castapp.subtitles.Sidecars
+import io.github.patschgoo.castapp.tv.TextTrackHint
+import io.github.patschgoo.castapp.tv.TrackHint
 import org.json.JSONArray
 import org.json.JSONException
 import org.json.JSONObject
@@ -21,6 +23,10 @@ data class QueueItem(
     val subtitles: List<QueueSubtitle> = emptyList(),
     /** Poster or cover (http(s)://): [MediaItem.artUri], shown in "Continue watching". */
     val art: String? = null,
+    /** The sound track to play, a language code ("ja"): [MediaItem.audioTrack] for CastApp TVs. */
+    val audioLanguage: String? = null,
+    /** The subtitles to show first, a language code, or [QueueParser.OFF] for none. */
+    val subtitleLanguage: String? = null,
 ) {
     val isContent: Boolean get() = isContentUri(url)
 }
@@ -59,6 +65,8 @@ object QueueParser {
     const val MAX_ART = 4096
     /** Ten days: more than any recording, less than nonsense. */
     const val MAX_START_POSITION_MS = 10L * 24 * 60 * 60 * 1000
+    /** "subtitle_language": no subtitles. */
+    const val OFF = "off"
 
     /** What the JSON holds; the start values only in the object form. */
     data class Parsed(val items: List<QueueItem>, val startIndex: Int? = null, val startPositionMs: Long? = null, val title: String? = null)
@@ -123,7 +131,22 @@ object QueueParser {
                 checkLength(it, MAX_ART, "$where: \"art\"")
                 checkHttp(it, "$where: \"art\"")
             },
+            audioLanguage = language(o, "audio_language", "$where: \"audio_language\"", offAllowed = false),
+            subtitleLanguage = language(o, "subtitle_language", "$where: \"subtitle_language\"", offAllowed = true),
         )
+    }
+
+    /** A language code field; "off" (any case) too where [offAllowed]. */
+    private fun language(o: JSONObject, key: String, what: String, offAllowed: Boolean): String? {
+        val v = text(o, key, what) ?: return null
+        if (v.equals(OFF, ignoreCase = true)) {
+            if (offAllowed) return OFF
+            throw BadRequest("$what must be a language code such as \"ja\" or \"pt-BR\" (\"off\" is only for subtitles)")
+        }
+        if (!languagePattern.matches(v)) {
+            throw BadRequest("$what must be a language code such as \"ja\" or \"pt-BR\"" + if (offAllowed) ", or \"off\"" else "")
+        }
+        return v
     }
 
     private fun subtitles(value: Any?, where: String, granted: Set<String>): List<QueueSubtitle> {
@@ -289,15 +312,36 @@ object QueueMapping {
             val fileName = names[sub.url] ?: Sidecars.fileName(sub.url)
             (subtitleName(sub, fileName) ?: names[sub.url])?.let { sub.url to it }
         }.toMap()
+        val subtitles = shownFirst(item.subtitles, item.subtitleLanguage, names)
         return MediaItem(
             title = title,
             uri = item.url,
             mimeType = mime,
-            subtitleUri = item.subtitles.firstOrNull()?.url,
-            moreSubtitles = item.subtitles.drop(1).map { it.url },
+            subtitleUri = subtitles.firstOrNull()?.url,
+            moreSubtitles = subtitles.drop(1).map { it.url },
             subtitleNames = subtitleNames,
             artUri = MediaItem.pictureAddress(item.art),
+            // Any track in that language: the TV's player picks the best one of them.
+            audioTrack = item.audioLanguage?.let { TrackHint(languages = listOf(it)).encode() },
+            subtitleTrack = when (val language = item.subtitleLanguage) {
+                null -> null
+                QueueParser.OFF -> TextTrackHint(off = true).encode()
+                // With subtitle files the wanted one goes first; else the TV looks inside the file.
+                else -> if (item.subtitles.isEmpty()) TextTrackHint(language = language).encode() else null
+            },
         )
+    }
+
+    /**
+     * The subtitles in the caller's order, the first one in [language] moved to the front (by its
+     * "language", else by its file name, "Film.de.srt"). As they are without a language or with "off".
+     */
+    fun shownFirst(subtitles: List<QueueSubtitle>, language: String?, names: Map<String, String> = emptyMap()): List<QueueSubtitle> {
+        if (language == null || language == QueueParser.OFF) return subtitles
+        fun languageOf(sub: QueueSubtitle): String? = sub.language
+            ?: Sidecars.tagWords(null, names[sub.url] ?: Sidecars.fileName(sub.url)).firstNotNullOfOrNull { Sidecars.language(it) }
+        val at = subtitles.indexOfFirst { sub -> languageOf(sub)?.let { TrackHint.sameLanguage(language, it) } == true }
+        return if (at <= 0) subtitles else listOf(subtitles[at]) + subtitles.filterIndexed { i, _ -> i != at }
     }
 
     /**

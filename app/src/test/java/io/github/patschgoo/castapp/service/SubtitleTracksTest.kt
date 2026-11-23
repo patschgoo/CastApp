@@ -133,6 +133,16 @@ class SubtitleTracksTest {
     }
 
     @Test
+    fun anAppMayAskToStartWithoutSubtitles() {
+        val t = SubtitleTracks()
+        val available = listOf(SubtitleChoice.FILE, SubtitleChoice.file(1))
+        assertEquals(SubtitleChoice.OFF, t.effective(uri, available, startOff = true))
+        // Until something is picked on the phone.
+        t.choose(uri, SubtitleChoice.file(1))
+        assertEquals(SubtitleChoice.file(1), t.effective(uri, available, startOff = true))
+    }
+
+    @Test
     fun onlineSubtitlesPlugIn() {
         val t = SubtitleTracks()
         t.setOnline(uri, "OpenSubtitles", cues)

@@ -2,6 +2,7 @@ package io.github.patschgoo.castapp.mediaservers
 
 import io.github.patschgoo.castapp.mediaservers.ServerHttp.enc
 import io.github.patschgoo.castapp.service.MediaItem
+import io.github.patschgoo.castapp.service.MediaType
 import io.github.patschgoo.castapp.subtitles.Sidecars
 import org.json.JSONObject
 import java.security.MessageDigest
@@ -282,8 +283,10 @@ class PlexClient(
                 }
             }
         }
+        // The sound track Plex picked, for a CastApp TV playing the file itself.
+        val audioTrack = media?.chosenAudio?.takeIf { mediaItem.type == MediaType.VIDEO }?.hint()
         // The poster or episode still, so "Continue watching" shows it (the address carries the token, like the stream).
-        return PlanEntry(mediaItem.copy(artUri = item.posterUrl), item.resumeMs, item.runtimeMs)
+        return PlanEntry(mediaItem.copy(artUri = item.posterUrl, audioTrack = audioTrack), item.resumeMs, item.runtimeMs)
     }
 
     /**
@@ -424,6 +427,16 @@ internal object PlexParser {
         val video = streams.firstOrNull { it.optInt("streamType") == 1 }
         val audios = streams.filter { it.optInt("streamType") == 2 }
         val audio = audios.firstOrNull { it.bool("selected") } ?: audios.firstOrNull()
+        // The one Plex marks for this item, when there is a choice: its place among the file's own sound tracks.
+        val chosenAudio = audios.firstOrNull { it.flag("selected") }?.takeIf { audios.size > 1 }?.let { s ->
+            val inFile = audios.filter { it.str("key") == null }
+                .withIndex().sortedWith(compareBy({ it.value.int("index") ?: Int.MAX_VALUE }, { it.index })).map { it.value }
+            ChosenAudio(
+                language = s.str("languageCode") ?: s.str("languageTag") ?: s.str("language"),
+                title = s.str("title"),
+                fileOrdinal = inFile.indexOfFirst { it === s }.takeIf { it >= 0 },
+            )
+        }
         val subtitleStreams = streams.filter { it.optInt("streamType") == 3 }
         // Tracks of their own inside the file, in the file's order (closed captions inside the picture aren't).
         val inFile = subtitleStreams.filter { it.str("key") == null && !it.flag("embeddedInVideo") }
@@ -459,6 +472,7 @@ internal object PlexParser {
             audioLanguage = audio?.str("languageCode") ?: audio?.str("languageTag") ?: audio?.str("language"),
             subtitles = subs,
             streamDetails = streams.isNotEmpty(),
+            chosenAudio = chosenAudio,
         )
     }
 

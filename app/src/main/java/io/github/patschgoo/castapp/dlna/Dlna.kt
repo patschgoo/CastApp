@@ -23,21 +23,33 @@ object Dlna {
     /** Marker of the shared timeline (several screens in sync) in metadata for CastApp TV receivers. */
     const val SYNC_PREFIX = "castapp:sync:"
 
+    /** The text after [prefix] up to the end of its element, unescaped and trimmed, or null. */
+    private fun markerIn(metadata: String, prefix: String): String? =
+        Regex(Regex.escape(prefix) + "([^<]*)").find(metadata)?.groupValues?.get(1)?.let(::unescape)?.trim()
+
     /** The shared-timeline address in DIDL-Lite metadata from CastApp, or null. */
-    fun syncUrlIn(metadata: String): String? =
-        Regex(Regex.escape(SYNC_PREFIX) + "([^<]*)").find(metadata)?.groupValues?.get(1)?.let(::unescape)?.trim()
-            ?.takeIf { it.startsWith("http://") }
+    fun syncUrlIn(metadata: String): String? = markerIn(metadata, SYNC_PREFIX)?.takeIf { it.startsWith("http://") }
 
     /** The subtitle look in DIDL-Lite metadata from CastApp, or null. */
-    fun subtitleStyleIn(metadata: String): String? =
-        Regex(Regex.escape(SUBTITLE_STYLE_PREFIX) + "([^<]*)").find(metadata)?.groupValues?.get(1)?.let(::unescape)?.trim()
+    fun subtitleStyleIn(metadata: String): String? = markerIn(metadata, SUBTITLE_STYLE_PREFIX)
 
     /** Marker of the subtitle track inside the file a CastApp TV receiver should show. */
     const val SUBTITLE_TRACK_PREFIX = "castapp:subtrack:"
 
     /** Which subtitle track inside the file to show, in DIDL-Lite metadata from CastApp, or null. */
-    fun subtitleTrackIn(metadata: String): String? =
-        Regex(Regex.escape(SUBTITLE_TRACK_PREFIX) + "([^<]*)").find(metadata)?.groupValues?.get(1)?.let(::unescape)?.trim()?.ifEmpty { null }
+    fun subtitleTrackIn(metadata: String): String? = markerIn(metadata, SUBTITLE_TRACK_PREFIX)?.ifEmpty { null }
+
+    /** Marker of the sound track inside the file a CastApp TV receiver should play (the same fields as [SUBTITLE_TRACK_PREFIX]). */
+    const val AUDIO_TRACK_PREFIX = "castapp:audiotrack:"
+
+    /** Which sound track inside the file to play ([io.github.patschgoo.castapp.tv.TrackHint.encode]), or null. */
+    fun audioTrackIn(metadata: String): String? = markerIn(metadata, AUDIO_TRACK_PREFIX)?.ifEmpty { null }
+
+    /** Marker of the subtitle files for a CastApp TV receiver: a JSON array ([io.github.patschgoo.castapp.tv.SubtitleFiles.encode]). */
+    const val SUBTITLE_FILES_PREFIX = "castapp:subfiles:"
+
+    /** The JSON of the subtitle files for a CastApp TV receiver, or null. */
+    fun subtitleFilesIn(metadata: String): String? = markerIn(metadata, SUBTITLE_FILES_PREFIX)?.ifEmpty { null }
 
     fun searchMessage(target: String = MEDIA_RENDERER): String =
         "M-SEARCH * HTTP/1.1\r\n" +
@@ -124,6 +136,10 @@ object Dlna {
         syncUrl: String? = null,
         /** CastApp TV receivers: the subtitle track inside the file to show ([io.github.patschgoo.castapp.tv.TextTrackHint]). */
         subtitleTrack: String? = null,
+        /** CastApp TV receivers: the sound track inside the file to play ([io.github.patschgoo.castapp.tv.TrackHint]). */
+        audioTrack: String? = null,
+        /** CastApp TV receivers: subtitle files to load, as JSON ([io.github.patschgoo.castapp.tv.SubtitleFiles.encode]). */
+        subtitleFiles: String? = null,
     ): String {
         val upnpClass = when {
             mimeType.startsWith("audio/") -> "object.item.audioItem.musicTrack"
@@ -150,7 +166,7 @@ object Dlna {
             // CastApp TV receivers play the screen stream with minimal buffering when they see this.
             if (lowLatency) append("<desc id=\"castapp\" nameSpace=\"urn:castapp\">castapp:lowlatency</desc>")
             // The look goes with subtitles the TV shows: a file next to the video, or a track inside it.
-            if (subtitleStyle != null && (srtUrl != null || subtitleTrack != null)) {
+            if (subtitleStyle != null && (srtUrl != null || subtitleTrack != null || subtitleFiles != null)) {
                 append("<desc id=\"castapp-subtitles\" nameSpace=\"urn:castapp\">").append(SUBTITLE_STYLE_PREFIX).append(escape(subtitleStyle)).append("</desc>")
             }
             if (syncUrl != null) {
@@ -158,6 +174,12 @@ object Dlna {
             }
             if (subtitleTrack != null) {
                 append("<desc id=\"castapp-subtrack\" nameSpace=\"urn:castapp\">").append(SUBTITLE_TRACK_PREFIX).append(escape(subtitleTrack)).append("</desc>")
+            }
+            if (audioTrack != null) {
+                append("<desc id=\"castapp-audiotrack\" nameSpace=\"urn:castapp\">").append(AUDIO_TRACK_PREFIX).append(escape(audioTrack)).append("</desc>")
+            }
+            if (subtitleFiles != null) {
+                append("<desc id=\"castapp-subfiles\" nameSpace=\"urn:castapp\">").append(SUBTITLE_FILES_PREFIX).append(escape(subtitleFiles)).append("</desc>")
             }
             append("</item></DIDL-Lite>")
         }

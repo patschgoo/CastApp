@@ -31,6 +31,11 @@ data class RendererMedia(
      * ([io.github.patschgoo.castapp.tv.TextTrackHint.encode]); only ever sent to CastApp TVs.
      */
     val subtitleTrack: String? = null,
+    /**
+     * A CastApp TV playing a file itself: which sound track inside it to play
+     * ([io.github.patschgoo.castapp.tv.TrackHint.encode]); only ever sent to CastApp TVs.
+     */
+    val audioTrack: String? = null,
 )
 
 enum class PlayState { PLAYING, PAUSED, BUFFERING, IDLE, FINISHED, ERROR, STOPPED }

@@ -103,9 +103,13 @@ class SubtitleTracks {
         return files.indexOf(file).takeIf { it >= 0 }?.let { SubtitleChoice.file(it) }
     }
 
-    /** The picked choice if it is still possible, else the default. [files]: the video's subtitle files now. */
-    fun effective(uri: String, available: Collection<SubtitleChoice>, files: List<String> = emptyList()): SubtitleChoice {
+    /**
+     * The picked choice if it is still possible, else the default. [files]: the video's subtitle files now.
+     * [startOff]: none until one is picked (the app that cast it asked for no subtitles).
+     */
+    fun effective(uri: String, available: Collection<SubtitleChoice>, files: List<String> = emptyList(), startOff: Boolean = false): SubtitleChoice {
         val c = chosen(uri, files)
+        if (c == null && startOff) return SubtitleChoice.OFF
         return if (c != null && (c == SubtitleChoice.OFF || c in available)) c else SubtitleChoice.default(available)
     }
 
