@@ -19,7 +19,17 @@ class WearStateTest {
         val n = WearState.nowPlaying(CastState.Idle, "Bedroom TV")
         assertFalse(n.active)
         assertEquals("Bedroom TV", n.lastTv)
-        assertEquals(NowPlaying(lastTv = "Bedroom TV"), n)
+        assertEquals(NowPlaying(lastTv = "Bedroom TV", revision = WearCodec.REVISION), n)
+    }
+
+    @Test
+    fun theWatchLearnsThatThisPhoneTakesVolumeLevels() {
+        // Without it the watch falls back to one VOLUME_UP / VOLUME_DOWN message per step.
+        assertEquals(WearCodec.REVISION, WearState.nowPlaying(CastState.Idle, "").revision)
+        assertEquals(WearCodec.REVISION, WearState.nowPlaying(CastState.Active(tv, CastPhase.LIVE, volume = 0.3f), "").revision)
+        assertTrue(WearCodec.REVISION >= WearCodec.REVISION_VOLUME_LEVELS)
+        val sent = WearState.nowPlaying(CastState.Active(tv, CastPhase.LIVE, volume = 0.3f), "")
+        assertEquals(WearCodec.REVISION, WearCodec.decodeState(WearCodec.encodeState(sent))!!.revision)
     }
 
     @Test

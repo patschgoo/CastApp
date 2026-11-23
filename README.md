@@ -84,7 +84,7 @@ Any device you've cast to once is **remembered**. If its IP address changes, Cas
 
 **Playback** (files, network, channels):
 
-- **Continue watching**: videos resume where you stopped. A history row on the main screen lists them.
+- **Continue watching**: videos resume where you stopped. A history row on the main screen lists them, each with its poster, channel logo or a picture from the video (files on network shares only on Wi-Fi).
 - **Queue editing**: reorder, remove, add, shuffle and repeat.
 - **Sleep timer**, also "end of video".
 - **Audio track choice**. Tracks the TV can't play are converted on the phone.
@@ -357,7 +357,7 @@ If the player doesn't start, CastApp falls back to Google's standard player auto
 
 **Automation (Tasker, MacroDroid, Home Assistant).** Under **Settings → Automation** you can let other apps control CastApp (off by default, with an optional secret). They can mirror to a TV, cast a link, a file or a whole play list (with subtitles and a start position), stop, play/pause, skip, set the volume and quality, switch "Receive on this phone" and open the remote, with a result code coming back. Apps such as media libraries can also offer "Play on TV" without the switch: CastApp then shows its "Cast to TV" sheet and casts only when you tap a TV. An app that sends a play list can ask to hear how it plays (started, progress, finished ...); CastApp tells only that app. [AUTOMATION.md](AUTOMATION.md) lists every intent and has examples for Tasker, MacroDroid, Home Assistant, `adb shell am` and app developers.
 
-**Wear OS remote.** The **CastApp-wear.apk** build artifact is a small Wear OS 3+ app that shows what your phone is casting and has play/pause, previous/next, volume, stop and a "Mirror to (your last TV)" button (the phone then shows a notification to confirm Android's capture prompt). It talks to the phone through the Wear Data Layer, so it needs Google Play services on the phone and the watch, and the same CastApp build on both (same signing key). Install it with `adb install CastApp-wear.apk` over the watch's Wi-Fi or Bluetooth debugging. A phone without Google Play services, or without a watch, works exactly as before.
+**Wear OS remote.** The **CastApp-wear.apk** build artifact is a small Wear OS 3+ app that shows what your phone is casting and has play/pause, previous/next, volume, stop and a "Mirror to (your last TV)" button; turning the bezel or crown (Galaxy Watch Classic bezel, Pixel Watch or TicWatch crown) changes the TV volume (the phone then shows a notification to confirm Android's capture prompt). It talks to the phone through the Wear Data Layer, so it needs Google Play services on the phone and the watch, and the same CastApp build on both (same signing key). Install it with `adb install CastApp-wear.apk` over the watch's Wi-Fi or Bluetooth debugging. A phone without Google Play services, or without a watch, works exactly as before.
 
 ## Help and reliability tools
 

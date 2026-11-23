@@ -31,6 +31,7 @@ import androidx.compose.ui.semantics.liveRegion
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.lifecycle.compose.LifecycleStartEffect
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import io.github.patschgoo.castapp.CompactRemote
@@ -38,7 +39,7 @@ import io.github.patschgoo.castapp.R
 import io.github.patschgoo.castapp.RemoteCodeDialog
 import io.github.patschgoo.castapp.RemoteViewModel
 import io.github.patschgoo.castapp.discovery.CastDevice
-import io.github.patschgoo.castapp.remote.RemoteProviders
+import io.github.patschgoo.castapp.remote.RemoteDiscovery
 import io.github.patschgoo.castapp.remote.RemoteTargets
 
 /**
@@ -80,11 +81,15 @@ internal fun HomeRemote(device: CastDevice, onOpenFull: () -> Unit) {
         val target = state.target?.takeIf { it.id == targetId }
 
         if (wanted) {
+            // Looks for the TV only while the main screen is visible; shared with the full remote ([RemoteDiscovery]).
+            LifecycleStartEffect(targetId) {
+                val discovery = RemoteDiscovery.acquire(context)
+                onStopOrDispose { discovery.close() }
+            }
             DisposableEffect(targetId) {
-                for (p in RemoteProviders.all) try { p.startDiscovery(context) } catch (_: Exception) {}
                 vm.setShowList(false)
                 vm.start(targetId, force = true)
-                onDispose { for (p in RemoteProviders.all) try { p.stopDiscovery() } catch (_: Exception) {} }
+                onDispose {}
             }
         }
 

@@ -228,6 +228,26 @@ class HandOverTest {
     }
 
     @Test
+    fun picturesTravelAndAreDroppedLastWhenTheOfferIsTooBig() {
+        val poster = "https://plex.example:32400/photo/:/transcode?width=480&height=270&url=%2Flibrary%2Fmetadata%2F201%2Fthumb&X-Plex-Token=srvtok"
+        val withArt = offer().copy(items = listOf(MediaItem("Film", "https://example.com/film.mp4", "video/mp4", artUri = poster)))
+        assertEquals(poster, HandOverOffer.fromJson(withArt.toJson())!!.items.single().artUri)
+
+        // 1000 episodes with long poster addresses: too big for the peer server because of the pictures.
+        val queue = (1..1000).map { e ->
+            MediaItem("Tern $e.mkv", "https://dav.example/Show/Tern $e.mkv", "video/x-matroska", artUri = "$poster&episode=$e")
+        }
+        val base = offer().copy(items = queue, index = 500)
+        assertTrue(base.sizeBytes() > HandOverOffer.MAX_OFFER_BYTES)
+        val fitted = base.fitted()
+        assertTrue(fitted.sizeBytes() <= HandOverOffer.MAX_OFFER_BYTES)
+        assertEquals(1000, fitted.items.size)
+        assertEquals("$poster&episode=501", fitted.items[500].artUri) // the one playing keeps its picture
+        assertNull(fitted.items[499].artUri)
+        assertEquals(queue.map { it.uri }, fitted.items.map { it.uri })
+    }
+
+    @Test
     fun offerTravelsAsJson() {
         val o = offer()
         val back = HandOverOffer.fromJson(o.toJson())!!
