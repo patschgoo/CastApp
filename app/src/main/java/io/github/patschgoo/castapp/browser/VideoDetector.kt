@@ -3,6 +3,7 @@ package io.github.patschgoo.castapp.browser
 import io.github.patschgoo.castapp.Txt
 import io.github.patschgoo.castapp.R
 import androidx.annotation.StringRes
+import io.github.patschgoo.castapp.service.MediaItem
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -14,6 +15,8 @@ data class FoundVideo(
     val kind: Kind,
     val pageUrl: String,
     val pageTitle: String,
+    /** The picture the page shows for it: the player's poster, else the page's own (og:image). */
+    val poster: String? = null,
 ) {
     enum class Kind(@StringRes val labelRes: Int) {
         HLS(R.string.kind_stream_hls),
@@ -61,6 +64,9 @@ class VideoDetector {
     @Volatile var pageUrl: String = ""
         private set
     @Volatile var pageTitle: String = ""
+    /** The page's own picture (og:image / twitter:image), for videos whose player has no poster. */
+    @Volatile var pagePicture: String? = null
+        private set
 
     @Synchronized
     fun newPage(url: String) {
@@ -68,17 +74,40 @@ class VideoDetector {
         if (url.substringBefore('#') == pageUrl.substringBefore('#')) return
         pageUrl = url
         pageTitle = ""
+        pagePicture = null
         found.clear()
         _videos.value = emptyList()
     }
 
-    /** A request the page made. [mimeHint] is a type from a <source> tag, if any. */
+    /**
+     * A request the page made. [mimeHint] is a type from a <source> tag, if any; [poster] the
+     * poster of the <video> it came from (web addresses only; data: pictures are left out).
+     */
     @Synchronized
-    fun onUrl(url: String, mimeHint: String? = null) {
+    fun onUrl(url: String, mimeHint: String? = null, poster: String? = null) {
         if (!url.startsWith("http")) return
+        val own = MediaItem.pictureAddress(poster)
+        found[url]?.let { known ->
+            // Seen through the network first: the player's poster comes with the next scan.
+            if (own != null && known.poster != own) {
+                found[url] = known.copy(poster = own)
+                publish()
+            }
+            return
+        }
         val kind = classify(url, mimeHint) ?: return
-        if (found.containsKey(url)) return
-        found[url] = FoundVideo(url, kind, pageUrl, pageTitle)
+        found[url] = FoundVideo(url, kind, pageUrl, pageTitle, own ?: pagePicture)
+        publish()
+    }
+
+    /** The page's og:image: the picture of every video found on it without a poster of its own. */
+    @Synchronized
+    fun updatePagePicture(url: String?) {
+        val picture = MediaItem.pictureAddress(url) ?: return
+        if (picture == pagePicture) return
+        val old = pagePicture
+        pagePicture = picture
+        for ((k, v) in found) if (v.poster == null || v.poster == old) found[k] = v.copy(poster = picture)
         publish()
     }
 
@@ -122,18 +151,23 @@ class VideoDetector {
             }
         }
 
-        /** JavaScript that lists the page's <video>/<audio> sources (blob: URLs can't be cast). */
+        /**
+         * JavaScript that lists the page's <video>/<audio> sources (blob: URLs can't be cast) with
+         * their posters, and the page's own picture.
+         */
         const val SCAN_SCRIPT = """
             (function () {
               var out = [];
               document.querySelectorAll('video, audio').forEach(function (m) {
+                var p = m.poster || '';
                 var s = m.currentSrc || m.src;
-                if (s && s.indexOf('blob:') !== 0) out.push({ src: s, type: '' });
+                if (s && s.indexOf('blob:') !== 0) out.push({ src: s, type: '', poster: p });
                 m.querySelectorAll('source').forEach(function (x) {
-                  if (x.src && x.src.indexOf('blob:') !== 0) out.push({ src: x.src, type: x.type || '' });
+                  if (x.src && x.src.indexOf('blob:') !== 0) out.push({ src: x.src, type: x.type || '', poster: p });
                 });
               });
-              return JSON.stringify({ title: document.title, items: out });
+              var meta = document.querySelector('meta[property="og:image"], meta[name="og:image"], meta[name="twitter:image"]');
+              return JSON.stringify({ title: document.title, picture: meta ? meta.content : '', items: out });
             })()
         """
 

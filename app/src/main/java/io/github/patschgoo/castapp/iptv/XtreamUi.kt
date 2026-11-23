@@ -164,6 +164,7 @@ internal fun VodPane(
                                                 title = item.name,
                                                 uri = client.account.movieUrl(item.id, ext),
                                                 mimeType = containerMime(ext),
+                                                artUri = MediaItem.pictureAddress(item.cover),
                                             ),
                                         ),
                                     )
@@ -274,6 +275,7 @@ private fun SeriesSheet(
                                         title = "$name · ${e.code} ${e.title}",
                                         uri = client.account.episodeUrl(e.id, e.extension),
                                         mimeType = containerMime(e.extension),
+                                        artUri = MediaItem.pictureAddress(e.cover) ?: MediaItem.pictureAddress(loaded.cover ?: cover),
                                     )
                                 }
                                 onDismiss()

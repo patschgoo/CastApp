@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="rotary_volume_level">TV-Lautstärke %1$d%%</string>
+    <string name="rotary_volume_up">TV lauter</string>
+    <string name="rotary_volume_down">TV leiser</string>
+</resources>

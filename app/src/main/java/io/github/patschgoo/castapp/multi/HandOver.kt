@@ -127,12 +127,15 @@ data class HandOverOffer(
 
     /**
      * This offer small enough for the other device's peer server, where possible: if it is too
-     * big, only the item playing keeps the subtitle files of other languages. Still too big (a very
-     * long play list), the other device answers 413 and the user is told.
+     * big, only the item playing keeps the subtitle files of other languages, and then its picture
+     * ([MediaItem.artUri], only for "Continue watching"). Still too big (a very long play list), the
+     * other device answers 413 and the user is told.
      */
     fun fitted(maxBytes: Int = MAX_OFFER_BYTES): HandOverOffer {
         if (items.isEmpty() || sizeBytes() <= maxBytes) return this
-        return copy(items = items.mapIndexed { i, item -> if (i == index || item.moreSubtitles.isEmpty()) item else item.copy(moreSubtitles = emptyList()) })
+        val lean = copy(items = items.mapIndexed { i, item -> if (i == index || item.moreSubtitles.isEmpty()) item else item.copy(moreSubtitles = emptyList()) })
+        if (lean.sizeBytes() <= maxBytes) return lean
+        return lean.copy(items = lean.items.mapIndexed { i, item -> if (i == index || item.artUri == null) item else item.copy(artUri = null) })
     }
 }
 
