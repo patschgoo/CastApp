@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- "Send debug log": the report is ready; share it, save it as a file, or copy the short version. -->
+    <string name="send_log_ready_title">Debug log ready</string>
+    <string name="send_log_ready_text">%1$s, with this app\'s own log, versions, settings and the devices found. Share it (mail, messenger), save it as a file to send it later or from the PC, or copy the short version (errors and test results) to paste into a chat.</string>
+    <string name="send_log_share">Share…</string>
+    <string name="send_log_save">Save as file…</string>
+    <string name="send_log_copy">Copy short version</string>
+    <string name="send_log_saved">Debug log saved</string>
+    <string name="send_log_save_failed">Could not save the file</string>
+    <string name="send_log_copied">Short version copied</string>
+    <string name="send_log_no_app">No app to share it with. Save it as a file instead.</string>
+</resources>

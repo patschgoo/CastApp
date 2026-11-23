@@ -43,7 +43,7 @@ What the JVM can't show: system bars, the keyboard, real thumbnails from the pho
 
 ### If something fails (always the same)
 
-1. **Settings → Help & support → Test this phone**, then **Send debug log** right in that sheet (or **Settings → Help & support → Send debug log**). The log contains the self-test result.
+1. **Settings → Help & support → Test this phone**, then **Send debug log** right in that sheet (or **Settings → Help & support → Send debug log**). The log contains the self-test result. When it is ready, pick **Share…**; if sharing doesn't work on the phone, **Save as file…** (e.g. into Downloads) or **Copy short version** and paste it into the chat.
 2. Send the log together with: the **phone model and Android version**, the **device model and its software version**, **what you did** step by step, and **what you expected and what happened**. A photo of the TV helps.
 
 Every item below ends with "if it fails" for this reason.
@@ -68,7 +68,10 @@ The main screen is new: **Cast to** on top, three big buttons, tiles for everyth
 | Pick another TV | Tap **Cast to**, tap another TV | The sheet closes, the row shows the new TV; **Mirror screen** now goes there. The Quick Settings tile uses it too | Screenshot |
 | TV not found | Turn the TV used last off, reopen the app | The row keeps that TV and says **Not found**; **Scan network**, **Add by IP** and the network check are in the **Cast to** sheet | Screenshot + debug log |
 | Video / Audio | In the **Cast to** sheet switch to **Audio** and pick a speaker | Speakers and groups appear; the buttons become **Phone sound** and **Music files** | Screenshot |
-| Big buttons | **Mirror screen**, **One app**, **Phone sound**, one after the other | Each starts on the TV in **Cast to**; while mirroring the first button is **Stop mirroring** | Debug log |
+| Big buttons | **Mirror screen**, **One app**, **Phone sound**, one after the other | Each starts on the TV in **Cast to**; while one runs, its own button is highlighted (**● Whole screen** / **● One app** / **● Phone sound**) and says **Stop** | Debug log |
+| Switch while mirroring (Android 14+) | Mirror the screen, tap **Switch to one app**, pick an app; then **Switch to whole screen** | Android asks again; the TV keeps playing (no reconnect, at most a short freeze) and shows only the app, then the whole screen again; the casting card says *one app* / *whole screen*; the sound keeps going | Debug log |
+| Quiet app | Mirror while an app that blocks recording plays sound (e.g. a streaming app) | After about 10 s: a note that this app's sound stays on the phone | Debug log |
+| Google Cast vs CastApp TV | Mirror to the box's plain Google Cast entry while CastApp TV runs on it | The casting card offers **Use CastApp TV**; after it, the delay is under half a second | Debug log |
 | Tiles | **Phone videos**, **Photos**, **Music** | The file picker offers only that kind; what you pick plays on the TV in **Cast to** | Debug log |
 | Plex / Jellyfin tiles | Tap **Plex**, press Back | Plex opens directly; Back returns to the main screen (not to the network list) | Screenshot |
 | Cast bar | Cast a video | A dark bar at the bottom shows title, TV, progress and pause; it stays above the navigation bar | Screenshot |

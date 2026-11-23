@@ -31,15 +31,22 @@ import io.github.patschgoo.castapp.stream.StreamHub
  */
 class AudioEncoder(
     private val context: Context,
-    private val projection: MediaProjection?,
+    projection: MediaProjection?,
     private val hub: StreamHub,
     /** Capture other apps' sound (needs Android 10+). */
     private val captureApps: Boolean = true,
     /** Mix in the microphone at this level (1 = as recorded, read while running), or null for no microphone. */
     private val micGain: (() -> Float)? = null,
+    /**
+     * Called once when the phone plays sound but none of it reaches the capture for a while
+     * (the playing app doesn't allow its sound to be recorded, or the capture went quiet).
+     */
+    private val onNoAppSound: (() -> Unit)? = null,
     private val onError: (Throwable) -> Unit,
 ) {
-    private var record: AudioRecord? = null
+    /** The capture's permission; the encoder thread moves its recording over when it changes. */
+    @Volatile private var projection: MediaProjection? = projection
+    @Volatile private var record: AudioRecord? = null
     private var mic: AudioRecord? = null
     private var micRate = SAMPLE_RATE
     private var codec: MediaCodec? = null
@@ -52,12 +59,21 @@ class AudioEncoder(
     /** Other apps' sound is being captured. */
     val appsActive: Boolean get() = record != null
 
+    /**
+     * Records other apps' sound through [newProjection] from now on (the user switched between the whole
+     * screen and one app). The sound track goes on without a gap the TV would notice.
+     */
+    fun switchProjection(newProjection: MediaProjection) {
+        projection = newProjection
+    }
+
     /** Returns false if no sound can be captured at all (no permission, no encoder, ...). */
     @SuppressLint("MissingPermission")
     fun start(): Boolean {
         if (context.checkSelfPermission(Manifest.permission.RECORD_AUDIO) != PackageManager.PERMISSION_GRANTED) return false
+        val p = projection
         return try {
-            val apps = if (captureApps && Build.VERSION.SDK_INT >= 29 && projection != null) playbackRecord(projection) else null
+            val apps = if (captureApps && Build.VERSION.SDK_INT >= 29 && p != null) playbackRecord(p) else null
             val m = if (micGain != null) microphoneRecord() else null
             if (apps == null && m == null) return false
             record = apps // released by stop() if anything below fails
@@ -74,7 +90,7 @@ class AudioEncoder(
             apps?.startRecording()
             m?.startRecording()
             running = true
-            thread = Thread({ loop(apps, m, c) }, "audio-encoder").apply { start() }
+            thread = Thread({ loop(apps, if (apps != null) p else null, m, c) }, "audio-encoder").apply { start() }
             true
         } catch (e: Exception) {
             Log.w(TAG, "Audio capture unavailable", e)
@@ -136,7 +152,32 @@ class AudioEncoder(
         return null
     }
 
-    private fun loop(r: AudioRecord?, m: AudioRecord?, c: MediaCodec) {
+    /**
+     * A new recording of other apps' sound through [p], already started; null if Android refuses it.
+     * [old] is stopped first (one capture per projection).
+     */
+    @SuppressLint("NewApi")
+    private fun replaceRecord(old: AudioRecord?, p: MediaProjection): AudioRecord? {
+        if (old != null) {
+            try { old.stop() } catch (_: Exception) {}
+            try { old.release() } catch (_: Exception) {}
+        }
+        record = null
+        val fresh = playbackRecord(p) ?: return null
+        return try {
+            fresh.startRecording()
+            record = fresh
+            fresh
+        } catch (e: Exception) {
+            Log.w(TAG, "Playback capture didn't start", e)
+            fresh.release()
+            null
+        }
+    }
+
+    private fun loop(firstRecord: AudioRecord?, firstProjection: MediaProjection?, m: AudioRecord?, c: MediaCodec) {
+        var r = firstRecord
+        var recordFor = firstProjection
         val pending = ByteArray(BYTES_PER_SECOND) // up to 1 s of PCM waiting for the encoder
         var pendingLen = 0
         val readBuf = ByteArray(CHUNK_BYTES)
@@ -152,9 +193,41 @@ class AudioEncoder(
         var framesQueued = 0L
         val info = MediaCodec.BufferInfo()
         var captureBroken = false
+        var brokenAtNs = 0L
+        var retries = 0
         var micBroken = false
+        // "The phone plays sound, but none comes through": checked about once a second.
+        val audioManager = context.getSystemService(android.media.AudioManager::class.java)
+        var lastSoundNs = startNs
+        var nextQuietCheckNs = startNs + 1_000_000_000L
+        var quietReported = false
         try {
             while (running) {
+                // A new permission (whole screen <-> one app): record through it from now on.
+                val wanted = projection
+                if (captureApps && Build.VERSION.SDK_INT >= 29 && wanted != null && recordFor != null && wanted !== recordFor) {
+                    recordFor = wanted
+                    r = replaceRecord(r, wanted)
+                    // Android may need a moment after the switch: then the retries below pick it up.
+                    captureBroken = r == null
+                    brokenAtNs = System.nanoTime()
+                    retries = 0
+                    lastSoundNs = System.nanoTime()
+                    Log.i(TAG, if (r != null) "Sound capture moved to the new permission" else "Sound capture unavailable with the new permission")
+                }
+                // The capture stopped delivering: try a fresh one a few times before settling for silence.
+                if (captureBroken && retries < MAX_CAPTURE_RETRIES && System.nanoTime() - brokenAtNs > CAPTURE_RETRY_NS) {
+                    retries++
+                    val p = recordFor
+                    val fresh = if (p != null && Build.VERSION.SDK_INT >= 29) replaceRecord(r, p) else null
+                    if (fresh != null) {
+                        r = fresh
+                        captureBroken = false
+                        Log.i(TAG, "Sound capture restarted (attempt $retries)")
+                    } else {
+                        brokenAtNs = System.nanoTime()
+                    }
+                }
                 var micGot = 0
                 if (m != null && !micBroken) {
                     micGot = m.read(micRead, 0, micRead.size, AudioRecord.READ_NON_BLOCKING)
@@ -180,7 +253,20 @@ class AudioEncoder(
                     // Keep the audio track alive with silence rather than freezing the stream.
                     Log.w(TAG, "AudioRecord.read failed: $n, continuing with silence")
                     captureBroken = true
+                    brokenAtNs = System.nanoTime()
                     n = 0
+                }
+                if (n > 0 && PcmLevel.hasSound(readBuf, n)) lastSoundNs = System.nanoTime()
+                if (r != null && !quietReported && onNoAppSound != null) {
+                    val now = System.nanoTime()
+                    if (now >= nextQuietCheckNs) {
+                        nextQuietCheckNs = now + 1_000_000_000L
+                        if (now - lastSoundNs > QUIET_HINT_NS && audioManager?.isMusicActive == true) {
+                            quietReported = true
+                            Log.w(TAG, "The phone plays sound, but the capture stays silent")
+                            onNoAppSound.invoke()
+                        }
+                    }
                 }
                 val queuedAndPending = framesQueued + pendingLen / BYTES_PER_FRAME
                 if (n > 0) {
@@ -283,5 +369,9 @@ class AudioEncoder(
         private const val FRAMES_PER_CHUNK = 1024
         private const val CHUNK_BYTES = FRAMES_PER_CHUNK * BYTES_PER_FRAME
         private const val MIC_READ = 2048
+        private const val MAX_CAPTURE_RETRIES = 5
+        private const val CAPTURE_RETRY_NS = 2_000_000_000L
+        /** How long the phone may play sound that never reaches the capture before the user is told. */
+        private const val QUIET_HINT_NS = 10_000_000_000L
     }
 }

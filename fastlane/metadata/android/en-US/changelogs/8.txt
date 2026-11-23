@@ -1,0 +1,5 @@
+Uninstall CastApp once on the phone, the TV box and the watch before installing 4.2.0: it is now signed with a new key.
+• Switch between the whole screen and one app while mirroring, without stopping
+• The main screen shows what is live: whole screen, one app or phone sound
+• Debug log: share it, save it as a file or copy a short version
+• Less delay: one tap moves mirroring to CastApp TV; a note when an app's sound can't be recorded

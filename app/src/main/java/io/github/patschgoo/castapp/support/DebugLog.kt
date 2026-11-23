@@ -167,7 +167,25 @@ object DebugLog {
             .setType("text/plain")
             .putExtra(Intent.EXTRA_STREAM, uri)
             .putExtra(Intent.EXTRA_SUBJECT, subject)
+            .putExtra(Intent.EXTRA_TITLE, file.name)
             .addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+            // The read grant travels with ClipData; some share targets ignore it on EXTRA_STREAM alone.
+            .apply { clipData = android.content.ClipData.newRawUri(file.name, uri) }
         return Intent.createChooser(send, subject).addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
     }
+
+    /** The part of a [build] report before the long log: versions, settings, devices, self-test, errors. */
+    fun shortVersion(report: String, maxChars: Int = SHORT_MAX_CHARS): String {
+        val cut = report.indexOf(LOG_HEADING)
+        val head = if (cut >= 0) report.substring(0, cut).trimEnd() else report
+        return if (head.length <= maxChars) head else head.take(maxChars) + "\n…"
+    }
+
+    /** A file name for saving the report, e.g. castapp-debug-log-20261123-1530.txt. */
+    fun fileName(now: java.util.Date = java.util.Date()): String =
+        "castapp-debug-log-" + java.text.SimpleDateFormat("yyyyMMdd-HHmm", java.util.Locale.US).format(now) + ".txt"
+
+    /** Pasted into a chat, a few dozen kilobytes is the most that goes through. */
+    const val SHORT_MAX_CHARS = 40_000
+    private const val LOG_HEADING = "\nLog\n---\n"
 }

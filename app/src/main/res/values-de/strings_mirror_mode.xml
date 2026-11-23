@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="mode_whole_screen">Ganzer Bildschirm</string>
+    <string name="mode_one_app">Eine App</string>
+    <string name="mode_stop">Beenden</string>
+    <string name="mode_switch_to_screen">Zum ganzen Bildschirm</string>
+    <string name="mode_switch_to_app">Zu einer App</string>
+    <string name="mode_live_now">Läuft gerade</string>
+    <string name="mode_details_screen">ganzer Bildschirm</string>
+    <string name="mode_details_app">eine App</string>
+    <string name="svc_mode_screen"> · ganzer Bildschirm</string>
+    <string name="svc_mode_app"> · eine App</string>
+    <string name="mode_no_app_sound">Das Handy spielt Ton ab, aber nichts davon kommt beim Fernseher an. Die App, die ihn abspielt, erlaubt vielleicht keine Aufnahme ihres Tons (manche Streaming-Apps, Anrufe); dann bleibt ihr Ton auf dem Handy.</string>
+    <string name="mode_faster_title">Weniger Verzögerung auf %1$s</string>
+    <string name="mode_faster_text">Google Cast hält 1 bis 3 Sekunden Bild in Reserve. CastApp TV auf demselben Fernseher spiegelt mit unter einer halben Sekunde.</string>
+    <string name="mode_faster_switch">CastApp TV nutzen</string>
+    <string name="mode_faster_install">Auf diesem Fernseher spiegelt CastApp TV mit unter einer halben Sekunde Verzögerung statt 1 bis 3 Sekunden. Installiere CastApp darauf und öffne es einmal.</string>
+</resources>

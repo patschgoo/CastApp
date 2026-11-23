@@ -7,7 +7,6 @@ import androidx.compose.ui.semantics.LiveRegionMode
 import androidx.compose.ui.semantics.liveRegion
 import androidx.compose.ui.semantics.semantics
 
-import android.widget.Toast
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -38,15 +37,14 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
+import androidx.core.net.toUri
 import io.github.patschgoo.castapp.R
-import kotlinx.coroutines.launch
 
 /** Settings entry "Test this phone". */
 @Composable
@@ -63,7 +61,7 @@ internal fun SelfTestItem() {
 @Composable
 private fun SelfTestSheet(onDismiss: () -> Unit) {
     val context = LocalContext.current
-    val scope = rememberCoroutineScope()
+    val sender = rememberLogSender()
     var round by remember { mutableIntStateOf(0) }
     var items by remember { mutableStateOf<List<SelfItem>?>(null) }
     LaunchedEffect(round) {
@@ -99,20 +97,17 @@ private fun SelfTestSheet(onDismiss: () -> Unit) {
                     SelfItemRow(item)
                     Spacer(Modifier.height(12.dp))
                 }
-                val subject = stringResource(R.string.send_log_subject)
-                val failed = stringResource(R.string.send_log_failed)
                 FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
                     OutlinedButton(onClick = { round++ }) { Text(stringResource(R.string.selftest_again)) }
-                    OutlinedButton(onClick = {
-                        scope.launch {
-                            try {
-                                val file = DebugLog.createReport(context)
-                                context.startActivity(DebugLog.shareIntent(context, file, subject))
-                            } catch (e: Exception) {
-                                Toast.makeText(context, failed + ": " + e.message, Toast.LENGTH_LONG).show()
-                            }
+                    OutlinedButton(onClick = { sender.prepare() }, enabled = !sender.busy) {
+                        if (sender.busy) {
+                            CircularProgressIndicator(Modifier.size(16.dp), strokeWidth = 2.dp)
+                            Spacer(Modifier.width(8.dp))
+                            Text(stringResource(R.string.send_log_preparing))
+                        } else {
+                            Text(stringResource(R.string.selftest_send))
                         }
-                    }) { Text(stringResource(R.string.selftest_send)) }
+                    }
                     TextButton(onClick = onDismiss) { Text(stringResource(R.string.support_close)) }
                 }
             }
@@ -145,7 +140,37 @@ private fun SelfItemRow(item: SelfItem) {
             )
             explanationOf(item.why)?.let { Text(stringResource(it), style = MaterialTheme.typography.bodyMedium) }
             item.detail?.let { Text(it, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant) }
+            FixButton(item)
         }
+    }
+}
+
+/** A way straight to the Android setting that clears a note (then "Test again"). */
+@Composable
+private fun FixButton(item: SelfItem) {
+    if (item.status == SelfStatus.PASS) return
+    val context = LocalContext.current
+    val (label, open) = when (item.why) {
+        "notif_off" -> R.string.selftest_fix_notifications to {
+            val pkg = context.packageName
+            val details = android.content.Intent(android.provider.Settings.ACTION_APPLICATION_DETAILS_SETTINGS, "package:$pkg".toUri())
+            val direct = if (android.os.Build.VERSION.SDK_INT >= 26) {
+                android.content.Intent(android.provider.Settings.ACTION_APP_NOTIFICATION_SETTINGS)
+                    .putExtra(android.provider.Settings.EXTRA_APP_PACKAGE, pkg)
+            } else {
+                details
+            }
+            try { context.startActivity(direct) } catch (_: Exception) { try { context.startActivity(details) } catch (_: Exception) {} }
+        }
+        "battery_limited" -> R.string.selftest_fix_battery to {
+            try { context.startActivity(BatteryHelp.requestIntent(context)) } catch (_: Exception) {
+                try { context.startActivity(BatteryHelp.listIntent()) } catch (_: Exception) {}
+            }
+        }
+        else -> return
+    }
+    TextButton(onClick = open, contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 0.dp, vertical = 4.dp)) {
+        Text(stringResource(label))
     }
 }
 

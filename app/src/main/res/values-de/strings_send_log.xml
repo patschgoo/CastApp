@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="send_log_ready_title">Debug-Protokoll ist fertig</string>
+    <string name="send_log_ready_text">%1$s, mit dem eigenen Protokoll der App, Versionen, Einstellungen und den gefundenen Geräten. Teile es (Mail, Messenger), speichere es als Datei, um es später oder vom PC zu senden, oder kopiere die Kurzfassung (Fehler und Testergebnisse), um sie in einen Chat einzufügen.</string>
+    <string name="send_log_share">Teilen …</string>
+    <string name="send_log_save">Als Datei speichern …</string>
+    <string name="send_log_copy">Kurzfassung kopieren</string>
+    <string name="send_log_saved">Debug-Protokoll gespeichert</string>
+    <string name="send_log_save_failed">Die Datei konnte nicht gespeichert werden</string>
+    <string name="send_log_copied">Kurzfassung kopiert</string>
+    <string name="send_log_no_app">Keine App zum Teilen gefunden. Speichere es stattdessen als Datei.</string>
+</resources>

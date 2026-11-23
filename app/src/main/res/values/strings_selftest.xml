@@ -55,4 +55,6 @@
     <string name="selftest_w_port_busy">Another app uses the receiver port. Receiving still works on another port, but other phones may take longer to find this one.</string>
     <string name="selftest_w_models_ok">Speech models for subtitles are installed.</string>
     <string name="selftest_w_models_none">No speech model installed. Subtitles written by the phone need one: Settings → Subtitles.</string>
+    <string name="selftest_fix_notifications">Turn on notifications</string>
+    <string name="selftest_fix_battery">Allow in the background</string>
 </resources>

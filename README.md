@@ -67,6 +67,9 @@ Any device you've cast to once is **remembered**. If its IP address changes, Cas
 - **Cast a single app.**
   - Android 14 and newer: Android's own picker; only that app is shown on the TV.
   - Android 13 and older: the screen is mirrored and the app you pick opens.
+  - **Switch between the whole screen and one app** while mirroring, without stopping: the TV keeps playing and only the picture changes.
+  - If an app doesn't allow its sound to be recorded (some streaming apps, calls), CastApp says so instead of leaving you guessing why the TV is quiet.
+- **Less delay on Android TV boxes:** mirroring to a box's Google Cast entry while it also runs CastApp TV offers **Use CastApp TV** (under half a second instead of 1 to 3 seconds).
 - **Videos, music and photos from the phone**, with the phone's screen off.
   - Pick several files to get a **play list**.
   - **Photos** become a slideshow, shrunk to TV size; HEIC and huge photos work too.
@@ -144,7 +147,7 @@ You need JDK 17+, the Android SDK with platform `android-37.1`, the Android **ND
 1. Connect your phone and the TV or speaker to the **same Wi-Fi**. Guest networks usually block device-to-device traffic.
 2. Open CastApp. **Cast to** at the top shows the TV everything goes to: the one you used last, or the first one found. Tap it to pick another TV, to switch between **Video** (TVs) and **Audio** (speakers and speaker groups too), to search again, scan the network or add a TV by its IP address. The ⋮ next to a TV has everything for that one TV (also its remote, forgetting it and waking it up).
 3. Choose what to send:
-   - **Mirror screen**, **One app** or **Phone sound** send what this phone shows or plays. For a speaker, the buttons are **Phone sound** and **Music files**.
+   - **Mirror screen**, **One app** or **Phone sound** send what this phone shows or plays. For a speaker, the buttons are **Phone sound** and **Music files**. While one runs, the buttons stay in place: the running one is highlighted (**● Whole screen**, **● One app** or **● Phone sound**) and stops it, and the other picture button switches over (**Switch to one app** / **Switch to whole screen**; Android asks again, the TV keeps playing).
    - The tiles below play something else: **Phone videos**, **Photos** and **Music** from this phone, **Plex**, **Jellyfin** (and Emby), **Network & cloud**, **TV channels** and **Web videos**. Files from the phone go to the TV in **Cast to**; in the other tiles you pick the TV when you start something. While a file or channel is already playing, anything new goes straight to that TV.
 
    **Recent on this phone** below the tiles shows your newest videos with their pictures; a tap plays one on the TV in **Cast to**. Listing videos needs Android's video permission, so the row first only offers **Show videos**. It is optional: **Not now** removes the row, and **Settings → Appearance → Recent videos on the main screen** brings it back. The list is only read on the phone.
@@ -364,7 +367,7 @@ If the player doesn't start, CastApp falls back to Google's standard player auto
 
 In **Settings → Help & support**:
 
-- **Send debug log** opens the share sheet. Nothing is sent automatically.
+- **Send debug log** makes the report, then offers **Share…**, **Save as file…** (to send it later or from the PC) and **Copy short version** (errors and test results, to paste into a chat). Nothing is sent automatically.
 - **Why can't I find my TV?** checks your network and explains what is wrong.
 - **Test this phone** checks encoders (H.264, HEVC, AAC), screen and app-sound capture, notifications, battery optimization, infrared, Bluetooth keyboard mode, Wi-Fi/VPN, multicast, the receiver port and speech models, explains each result in plain words and adds it to the debug log. See [TESTING.md](TESTING.md) for a real-device test checklist.
 - **Battery optimization**: CastApp asks to be left alone and shows tips for your phone's brand.

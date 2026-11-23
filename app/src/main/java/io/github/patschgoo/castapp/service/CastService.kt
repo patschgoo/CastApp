@@ -144,6 +144,31 @@ class CastService : Service() {
         }
 
         val manager = getSystemService(MediaProjectionManager::class.java)
+        val singleApp = intent.getBooleanExtra(EXTRA_SINGLE_APP, false)
+        val audioOnly = intent.getBooleanExtra(EXTRA_AUDIO_ONLY, false)
+        // Already mirroring to this TV: whole screen <-> one app without connecting again.
+        val running = session as? CastSession
+        if (running != null && running.canSwitchCapture(device, audioOnly)) {
+            val projection = try { manager.getMediaProjection(resultCode, data) } catch (e: Exception) { null }
+            if (projection == null) {
+                CastController.message(getString(R.string.svc_no_projection))
+                return
+            }
+            projection.registerCallback(object : MediaProjection.Callback() {
+                override fun onStop() = running.projectionStopped(projection)
+            }, mainHandler)
+            if (!singleApp) {
+                // "Dark screen" would black out the TV too when the whole screen is shared.
+                overlay?.hide()
+                overlay = null
+            }
+            running.switchCapture(projection, singleApp)
+            (CastController.state.value as? CastState.Active)?.let {
+                getSystemService(NotificationManager::class.java)?.notify(NOTIFICATION_ID, buildNotification(it))
+            }
+            return
+        }
+
         val projection = try {
             manager.getMediaProjection(resultCode, data)
         } catch (e: Exception) {
@@ -157,14 +182,10 @@ class CastService : Service() {
 
         replaceSession(device)
         val app = CastApp.get(this)
-        val singleApp = intent.getBooleanExtra(EXTRA_SINGLE_APP, false)
-        val audioOnly = intent.getBooleanExtra(EXTRA_AUDIO_ONLY, false)
         val newSession = CastSession(this, device, projection, app.settings.state, singleApp, audioOnly, ::onSessionEnded)
         // Android 14+ requires the callback to be registered before capture starts.
         projection.registerCallback(object : MediaProjection.Callback() {
-            override fun onStop() {
-                newSession.finish(null)
-            }
+            override fun onStop() = newSession.projectionStopped(projection)
         }, mainHandler)
         session = newSession
         app.devices.markUsed(device)
@@ -267,7 +288,8 @@ class CastService : Service() {
         overlay?.hide()
         overlay = null
         lockLandscape(false)
-        session?.let { it.finish(null, stopReceiver = it.device.host != newDevice.host) }
+        // The same TV keeps its player for the new cast; another player on it (Google Cast <-> CastApp TV) is closed.
+        session?.let { it.finish(null, stopReceiver = it.device.host != newDevice.host || it.device.kind != newDevice.kind) }
     }
 
     private fun onSessionEnded(ended: ActiveCast) {
@@ -328,6 +350,7 @@ class CastService : Service() {
 
         val text = buildString {
             append(state.phase.label)
+            if (!state.audioOnly) append(getString(if (state.singleApp) R.string.svc_mode_app else R.string.svc_mode_screen))
             if (state.compatibilityMode) append(getString(R.string.svc_compat_mode))
             if (state.lowLatencyPlayer) append(getString(R.string.svc_lowlat_player))
             state.volume?.let { append(getString(R.string.svc_volume, (it * 100).toInt())) }

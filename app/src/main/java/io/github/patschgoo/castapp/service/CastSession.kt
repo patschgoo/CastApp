@@ -73,14 +73,17 @@ import java.util.concurrent.atomic.AtomicBoolean
 class CastSession(
     private val context: Context,
     device: CastDevice,
-    private val projection: MediaProjection,
+    projection: MediaProjection,
     private val settingsFlow: StateFlow<CastSettings>,
     /** The user shared a single app (Android 14+), so the phone screen may be blacked out. */
-    private val singleApp: Boolean,
+    singleApp: Boolean,
     /** Only the phone's sound is cast (speakers, or a TV without picture). */
-    private val audioOnly: Boolean,
+    val audioOnly: Boolean,
     private val onEnded: (ActiveCast) -> Unit,
 ) : ActiveCast {
+    /** Android's permission to capture; replaced when the user switches between the whole screen and one app. */
+    @Volatile private var projection: MediaProjection = projection
+    @Volatile private var singleApp: Boolean = singleApp
     @Volatile override var device: CastDevice = device
         private set
 
@@ -138,6 +141,7 @@ class CastSession(
                 compatibilityMode = settings.streamMode == StreamMode.COMPATIBLE,
                 resolution = if (audioOnly) "" else settings.resolution.label,
                 canDarkScreen = singleApp && !audioOnly && Build.VERSION.SDK_INT >= 34,
+                singleApp = singleApp && !audioOnly,
                 audioOnly = audioOnly,
                 audio = audioOnly,
                 qualityLabel = if (audioOnly) "" else settings.resolution.short,
@@ -207,12 +211,14 @@ class CastSession(
             val a = AudioEncoder(
                 context, projection, h, captureApps = captureApps,
                 micGain = if (wantMic) ({ settingsFlow.value.micLevel / 100f }) else null,
+                onNoAppSound = { CastController.message(Txt.s(R.string.mode_no_app_sound)) },
             ) { e ->
                 Log.w(TAG, "Audio encoder error", e)
                 finish(Txt.s(R.string.err_audio_capture_stopped))
             }
             if (a.start()) {
                 audio = a
+                a.switchProjection(projection) // in case the user switched while it was starting
                 audioOn = true
                 micOn = a.micActive
                 if (wantMic && !a.micActive) CastController.message(context.getString(R.string.mic_unavailable))
@@ -719,6 +725,33 @@ class CastSession(
     }
 
     // ---- user controls ----------------------------------------------------------
+
+    /** True if a new permission for [target] can go into this cast instead of a new one. */
+    fun canSwitchCapture(target: CastDevice, targetAudioOnly: Boolean): Boolean =
+        !ended.get() && !audioOnly && !targetAudioOnly && target.id == device.id
+
+    /**
+     * The user switched between the whole screen and one app: Android gave a new permission
+     * ([newProjection]), the old one has ended. The encoders move over and the stream, the TV's
+     * player and the other screens go on. Call on the main thread, after registering the new
+     * projection's callback.
+     */
+    fun switchCapture(newProjection: MediaProjection, newSingleApp: Boolean) {
+        val old = projection
+        projection = newProjection
+        singleApp = newSingleApp
+        video?.switchProjection(newProjection, mainHandler)
+        audio?.switchProjection(newProjection)
+        if (old !== newProjection) try { old.stop() } catch (_: Exception) {}
+        Log.i(TAG, "Capture switched to " + if (newSingleApp) "one app" else "the whole screen")
+        val dark = newSingleApp && Build.VERSION.SDK_INT >= 34
+        update { it.copy(singleApp = newSingleApp, canDarkScreen = dark, darkScreen = it.darkScreen && dark) }
+    }
+
+    /** Android ended [stopped]: the cast ends with it, unless it was an old one replaced by [switchCapture]. */
+    fun projectionStopped(stopped: MediaProjection) {
+        if (stopped === projection) finish(null)
+    }
 
     /** Switches the mirroring resolution while casting (e.g. "720p", "4K"). */
     fun setQuality(label: String) {

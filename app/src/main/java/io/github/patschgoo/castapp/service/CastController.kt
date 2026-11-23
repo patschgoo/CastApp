@@ -36,6 +36,8 @@ sealed interface CastState {
         val resolution: String = "",
         /** Single-app screen casting on Android 14+: the phone screen can be blacked out. */
         val canDarkScreen: Boolean = false,
+        /** Mirroring shares one app (Android 14+), not the whole screen. */
+        val singleApp: Boolean = false,
         /** Sound only (speakers, or a TV without picture). */
         val audioOnly: Boolean = false,
         /** Current video bitrate (it adapts to the Wi-Fi). */

@@ -1,0 +1,5 @@
+Deinstalliere CastApp einmal auf Handy, TV-Box und Uhr, bevor du 4.2.0 installierst: Es ist jetzt mit einem neuen Schlüssel signiert.
+• Beim Spiegeln zwischen ganzem Bildschirm und einer App wechseln, ohne zu stoppen
+• Der Startbildschirm zeigt, was läuft: ganzer Bildschirm, eine App oder Handy-Ton
+• Debug-Protokoll: teilen, als Datei speichern oder Kurzfassung kopieren
+• Weniger Verzögerung: ein Tipp wechselt zu CastApp TV; Hinweis, wenn der Ton einer App nicht aufgenommen werden darf

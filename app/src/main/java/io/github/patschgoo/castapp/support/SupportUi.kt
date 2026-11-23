@@ -114,27 +114,10 @@ private fun SupportTitle(text: String) {
 
 @Composable
 private fun SendLogItem() {
-    val context = LocalContext.current
-    val scope = rememberCoroutineScope()
-    var busy by remember { mutableStateOf(false) }
-    val subject = stringResource(R.string.send_log_subject)
-    val failed = stringResource(R.string.send_log_failed)
+    val sender = rememberLogSender()
     ListItem(
-        onClick = {
-            if (busy) return@ListItem
-            busy = true
-            scope.launch {
-                try {
-                    val file = DebugLog.createReport(context)
-                    context.startActivity(DebugLog.shareIntent(context, file, subject))
-                } catch (e: Exception) {
-                    Toast.makeText(context, failed + ": " + e.message, Toast.LENGTH_LONG).show()
-                } finally {
-                    busy = false
-                }
-            }
-        },
-        supportingContent = { Text(stringResource(if (busy) R.string.send_log_preparing else R.string.send_log_summary)) },
+        onClick = { sender.prepare() },
+        supportingContent = { Text(stringResource(if (sender.busy) R.string.send_log_preparing else R.string.send_log_summary)) },
     ) { Text(stringResource(R.string.send_log_title)) }
 }
 

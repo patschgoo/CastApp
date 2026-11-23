@@ -30,7 +30,7 @@ import io.github.patschgoo.castapp.stream.VideoConfig
  */
 class ScreenEncoder(
     private val context: Context,
-    private val projection: MediaProjection,
+    private var projection: MediaProjection,
     private val hub: StreamHub,
     private var width: Int,
     private var height: Int,
@@ -49,6 +49,8 @@ class ScreenEncoder(
     private var codec: MediaCodec? = null
     private var inputSurface: Surface? = null
     private var display: VirtualDisplay? = null
+    /** What the virtual display draws into: the encoder's surface, or the scaler's in fill mode. */
+    private var target: Surface? = null
     private var scaler: GlScaler? = null
     private var displayListener: DisplayManager.DisplayListener? = null
     private var captureSize = Point(0, 0)
@@ -80,14 +82,38 @@ class ScreenEncoder(
             captureSize = Point(encodedWidth, encodedHeight)
             target = encoderSurface
         }
-        display = projection.createVirtualDisplay(
-            "CastApp", captureSize.x, captureSize.y, densityDpi,
-            DisplayManager.VIRTUAL_DISPLAY_FLAG_AUTO_MIRROR,
-            target, null, handler,
-        )
+        this.target = target
+        display = createDisplay(projection, target, handler)
         if (fill) watchRotation(handler)
         hub.keyFrameRequester = { requestKeyFrame() }
         drainThread = Thread({ drainLoop(c) }, "video-encoder").apply { start() }
+    }
+
+    private fun createDisplay(p: MediaProjection, surface: Surface, handler: Handler): VirtualDisplay? = p.createVirtualDisplay(
+        "CastApp", captureSize.x, captureSize.y, densityDpi,
+        DisplayManager.VIRTUAL_DISPLAY_FLAG_AUTO_MIRROR,
+        surface, null, handler,
+    )
+
+    /**
+     * Captures from [newProjection] from now on (the user switched between the whole screen and one app,
+     * which needs Android's permission again). The encoder and the stream go on, so the TV keeps playing
+     * and only sees the picture change. Call on [handler]'s thread.
+     */
+    fun switchProjection(newProjection: MediaProjection, handler: Handler) {
+        val surface = target ?: return
+        // A surface takes one producer at a time: the old display lets go first.
+        try { display?.surface = null } catch (_: Exception) {}
+        try { display?.release() } catch (_: Exception) {}
+        display = null
+        projection = newProjection
+        try {
+            display = createDisplay(newProjection, surface, handler) ?: throw IllegalStateException("No virtual display")
+        } catch (e: Exception) {
+            onError(e)
+            return
+        }
+        requestKeyFrame()
     }
 
     /** The phone's current screen shape, scaled so the long side is at most 1920 pixels. */
@@ -150,11 +176,14 @@ class ScreenEncoder(
         running = true
         if (fill) {
             val gl = GlScaler(encoderSurface, encodedWidth, encodedHeight, fill = true)
-            display?.surface = gl.start(captureSize.x, captureSize.y)
+            val input = gl.start(captureSize.x, captureSize.y)
+            target = input
+            display?.surface = input
             scaler = gl
         } else {
             captureSize = Point(encodedWidth, encodedHeight)
             try { display?.resize(encodedWidth, encodedHeight, densityDpi) } catch (_: Exception) {}
+            target = encoderSurface
             display?.surface = encoderSurface
         }
         drainThread = Thread({ drainLoop(c) }, "video-encoder").apply { start() }

@@ -290,6 +290,7 @@ internal fun castDetails(state: CastState.Active): String =
         buildList {
             add(state.phase.label)
             if (state.audioOnly) add(stringResource(R.string.main_phone_sound))
+            else add(stringResource(if (state.singleApp) R.string.mode_details_app else R.string.mode_details_screen))
             if (state.resolution.isNotEmpty()) add(state.resolution)
             if (state.bitrateKbps > 0 && !state.audioOnly) add(stringResource(R.string.main_bitrate, state.bitrateKbps / 1000f))
             if (state.videoCodec.isNotEmpty() && !state.audioOnly) add(state.videoCodec)
@@ -333,6 +334,7 @@ internal fun PlayerPanel(state: CastState.Active, actions: DevicesActions, modif
         if (file && state.isPhoto) PhotoControls(state, actions)
         else if (file) PlaybackControls(state, actions)
         ExtrasRow(state, actions)
+        FasterMirroringHint(state, actions)
         PlaybackExtras(state)
         MultiScreenSection(state)
         Spacer(Modifier.height(12.dp))

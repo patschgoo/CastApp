@@ -1,5 +1,6 @@
 package io.github.patschgoo.castapp.ui
 
+import android.os.Build
 import android.os.SystemClock
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -54,6 +55,7 @@ import androidx.compose.material.icons.rounded.Settings
 import androidx.compose.material.icons.rounded.SettingsRemote
 import androidx.compose.material.icons.rounded.Speaker
 import androidx.compose.material.icons.rounded.SpeakerGroup
+import androidx.compose.material.icons.rounded.SwapHoriz
 import androidx.compose.material.icons.rounded.Stop
 import androidx.compose.material.icons.rounded.Tv
 import androidx.compose.material.icons.rounded.VideoLibrary
@@ -405,10 +407,21 @@ private fun deviceIcon(device: CastDevice?): ImageVector = when {
     else -> Icons.Rounded.Tv
 }
 
+/** What this phone is sending right now, for the buttons below "Cast to". */
+internal enum class LiveMode { SCREEN, APP, SOUND }
+
+internal fun liveMode(running: CastState.Active?): LiveMode? = when {
+    running == null -> null
+    running.audioOnly -> LiveMode.SOUND
+    running.singleApp -> LiveMode.APP
+    else -> LiveMode.SCREEN
+}
+
 /**
  * What this phone itself can send: its screen, a single app, or only its sound. For a
- * speaker (or in audio mode) that is the sound and music files. While the screen or the
- * sound is being cast, the first button stops it.
+ * speaker (or in audio mode) that is the sound and music files. The buttons keep their
+ * places while one runs: the running one is highlighted ("● One app") and stops it, the
+ * other picture button switches over without stopping (Android asks again, the TV keeps playing).
  */
 @Composable
 private fun QuickActions(
@@ -422,21 +435,37 @@ private fun QuickActions(
 ) {
     // With a large font three buttons side by side break their words: one below the other then.
     val stacked = isLargeFont()
+    val mode = liveMode(running)
+    // Sharing a single app is Android 14's; before, "One app" mirrors the screen and opens the app.
+    val appSharing = Build.VERSION.SDK_INT >= 34
+    val idle = if (mode == null) QuickStyle.PRIMARY else QuickStyle.PLAIN
+    val stopLabel = stringResource(R.string.mode_stop)
     val buttons: @Composable (Modifier) -> Unit = { modifier ->
-        when {
-            running != null -> QuickButton(
-                Icons.Rounded.Stop,
-                stringResource(if (running.audioOnly) R.string.home_stop_sound else R.string.home_stop_mirroring),
-                QuickStyle.OUTLINED, onStop, modifier, stacked,
-            )
-            soundOnly -> QuickButton(Icons.Rounded.Speaker, stringResource(R.string.home_phone_sound), QuickStyle.PRIMARY, onSound, modifier, stacked)
-            else -> QuickButton(Icons.AutoMirrored.Rounded.ScreenShare, stringResource(R.string.home_mirror), QuickStyle.PRIMARY, onMirror, modifier, stacked)
-        }
         if (soundOnly) {
+            when (mode) {
+                null -> QuickButton(Icons.Rounded.Speaker, stringResource(R.string.home_phone_sound), QuickStyle.PRIMARY, onSound, modifier, stacked)
+                else -> QuickButton(Icons.Rounded.Stop, stopLabel, QuickStyle.ACTIVE, onStop, modifier, stacked, tag = modeName(mode))
+            }
             QuickButton(Icons.Rounded.LibraryMusic, stringResource(R.string.home_music_files), QuickStyle.PLAIN, onMusic, modifier, stacked)
         } else {
-            QuickButton(Icons.Rounded.Apps, stringResource(R.string.home_one_app), QuickStyle.PLAIN, onApp, modifier, stacked)
-            QuickButton(Icons.Rounded.Speaker, stringResource(R.string.home_phone_sound), QuickStyle.PLAIN, onSound, modifier, stacked)
+            when (mode) {
+                LiveMode.SCREEN -> QuickButton(Icons.Rounded.Stop, stopLabel, QuickStyle.ACTIVE, onStop, modifier, stacked, tag = modeName(mode))
+                LiveMode.APP -> QuickButton(Icons.Rounded.SwapHoriz, stringResource(R.string.mode_switch_to_screen), QuickStyle.PLAIN, onMirror, modifier, stacked)
+                else -> QuickButton(Icons.AutoMirrored.Rounded.ScreenShare, stringResource(R.string.home_mirror), idle, onMirror, modifier, stacked)
+            }
+            when (mode) {
+                LiveMode.APP -> QuickButton(Icons.Rounded.Stop, stopLabel, QuickStyle.ACTIVE, onStop, modifier, stacked, tag = modeName(mode))
+                LiveMode.SCREEN -> if (appSharing) {
+                    QuickButton(Icons.Rounded.SwapHoriz, stringResource(R.string.mode_switch_to_app), QuickStyle.PLAIN, onApp, modifier, stacked)
+                } else {
+                    QuickButton(Icons.Rounded.Apps, stringResource(R.string.home_one_app), QuickStyle.PLAIN, onApp, modifier, stacked)
+                }
+                else -> QuickButton(Icons.Rounded.Apps, stringResource(R.string.home_one_app), QuickStyle.PLAIN, onApp, modifier, stacked)
+            }
+            when (mode) {
+                LiveMode.SOUND -> QuickButton(Icons.Rounded.Stop, stopLabel, QuickStyle.ACTIVE, onStop, modifier, stacked, tag = modeName(mode))
+                else -> QuickButton(Icons.Rounded.Speaker, stringResource(R.string.home_phone_sound), QuickStyle.PLAIN, onSound, modifier, stacked)
+            }
         }
     }
     if (stacked) {
@@ -448,38 +477,84 @@ private fun QuickActions(
     }
 }
 
+/** "Whole screen", "One app" or "Phone sound": what is live right now. */
+@Composable
+internal fun modeName(mode: LiveMode): String = stringResource(
+    when (mode) {
+        LiveMode.SCREEN -> R.string.mode_whole_screen
+        LiveMode.APP -> R.string.mode_one_app
+        LiveMode.SOUND -> R.string.home_phone_sound
+    },
+)
+
 /** The user picked a large font (Android's font size 150 % and up): some rows become columns. */
 @Composable
 private fun isLargeFont(): Boolean = LocalDensity.current.fontScale >= 1.5f
 
-private enum class QuickStyle { PRIMARY, PLAIN, OUTLINED }
+/** ACTIVE: the mode that is live right now (filled, with a tag naming it). */
+private enum class QuickStyle { PRIMARY, PLAIN, OUTLINED, ACTIVE }
 
 @Composable
-private fun QuickButton(icon: ImageVector, label: String, style: QuickStyle, onClick: () -> Unit, modifier: Modifier, wide: Boolean) {
+private fun QuickButton(
+    icon: ImageVector,
+    label: String,
+    style: QuickStyle,
+    onClick: () -> Unit,
+    modifier: Modifier,
+    wide: Boolean,
+    /** A small line above the label: what is live ("● One app"). */
+    tag: String? = null,
+) {
     val scheme = MaterialTheme.colorScheme
     val container = when (style) {
-        QuickStyle.PRIMARY -> scheme.primary
+        QuickStyle.PRIMARY, QuickStyle.ACTIVE -> scheme.primary
         QuickStyle.PLAIN -> LocalCastColors.current.card
         QuickStyle.OUTLINED -> Color.Transparent
     }
     val content = when (style) {
-        QuickStyle.PRIMARY -> scheme.onPrimary
+        QuickStyle.PRIMARY, QuickStyle.ACTIVE -> scheme.onPrimary
         QuickStyle.PLAIN -> scheme.onSurface
         QuickStyle.OUTLINED -> scheme.primary
     }
+    val live = stringResource(R.string.mode_live_now)
     Surface(
         onClick = onClick,
         shape = RoundedCornerShape(20.dp),
         color = container,
         contentColor = content,
-        border = if (style == QuickStyle.OUTLINED) BorderStroke(2.dp, scheme.primary) else null,
-        modifier = modifier.semantics { role = Role.Button },
+        border = when (style) {
+            QuickStyle.OUTLINED -> BorderStroke(2.dp, scheme.primary)
+            // A ring inside the fill: "this one is on", also for people who can't tell the colours apart.
+            QuickStyle.ACTIVE -> BorderStroke(3.dp, scheme.onPrimary.copy(alpha = 0.55f))
+            else -> null
+        },
+        modifier = modifier.semantics {
+            role = Role.Button
+            if (tag != null) stateDescription = live + ": " + tag
+        },
     ) {
+        val tagLine: @Composable (TextAlign) -> Unit = { align ->
+            if (tag != null) {
+                Text(
+                    "\u25CF " + tag,
+                    fontSize = 11.sp,
+                    lineHeight = 13.sp,
+                    fontWeight = FontWeight.ExtraBold,
+                    textAlign = align,
+                    maxLines = 2,
+                    overflow = TextOverflow.Ellipsis,
+                )
+                Spacer(Modifier.height(4.dp))
+            }
+        }
         if (wide) {
             Row(Modifier.heightIn(min = 56.dp).padding(horizontal = 16.dp, vertical = 10.dp), verticalAlignment = Alignment.CenterVertically) {
                 Icon(icon, contentDescription = null, modifier = Modifier.size(22.dp))
                 Spacer(Modifier.width(12.dp))
-                Text(label, fontSize = 13.sp, lineHeight = 16.sp, fontWeight = FontWeight.Bold)
+                Column {
+                    tagLine(TextAlign.Start)
+                    Text(label, fontSize = 13.sp, lineHeight = 16.sp, fontWeight = FontWeight.Bold)
+                }
             }
             return@Surface
         }
@@ -488,6 +563,7 @@ private fun QuickButton(icon: ImageVector, label: String, style: QuickStyle, onC
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.Center,
         ) {
+            tagLine(TextAlign.Center)
             Icon(icon, contentDescription = null, modifier = Modifier.size(22.dp))
             Spacer(Modifier.height(6.dp))
             Text(label, fontSize = 13.sp, lineHeight = 16.sp, fontWeight = FontWeight.Bold, textAlign = TextAlign.Center, maxLines = 2, overflow = TextOverflow.Ellipsis)

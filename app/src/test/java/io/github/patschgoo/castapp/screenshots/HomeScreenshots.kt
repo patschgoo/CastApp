@@ -41,6 +41,9 @@ class HomeScreenshots(private val variant: Variant) {
 
     @Test fun mirroring() = home("home_mirroring", active = data.mirroring)
 
+    /** Sharing one app: that button is the highlighted one, the first one switches to the whole screen. */
+    @Test fun mirroringOneApp() = home("home_mirroring_app", active = data.mirroring.copy(singleApp = true))
+
     @Test fun castingFile() = home("home_file", active = data.playingFile())
 
     /** The sheet behind the cast bar: the casting card and the small remote (connected). */

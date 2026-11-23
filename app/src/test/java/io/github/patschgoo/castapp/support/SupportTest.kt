@@ -266,6 +266,20 @@ class DebugLogTest {
         assertFalse(text.contains("line100\n"))
         assertNotNull(text)
     }
+
+    @Test fun shortVersionLeavesOutTheLog() {
+        val report = DebugLog.build(input.copy(logLines = listOf("11-22 10:11:12.123  1234  1250 I Tag: hello there")))
+        val short = DebugLog.shortVersion(report)
+        assertTrue(short.contains("Settings"))
+        assertFalse(short.contains("hello there"))
+        assertTrue(report.contains("hello there"))
+        assertEquals(1001, DebugLog.shortVersion("x".repeat(5000), maxChars = 999).length)
+    }
+
+    @Test fun fileNameHasTheTime() {
+        val name = DebugLog.fileName(java.util.Date(0))
+        assertTrue(name.matches(Regex("castapp-debug-log-\\d{8}-\\d{4}\\.txt")))
+    }
 }
 
 class SupportRulesTest {

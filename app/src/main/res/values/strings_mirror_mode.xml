@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Mirroring: which mode is live (whole screen, one app, phone sound) and switching between them. -->
+    <string name="mode_whole_screen">Whole screen</string>
+    <string name="mode_one_app">One app</string>
+    <string name="mode_stop">Stop</string>
+    <string name="mode_switch_to_screen">Switch to whole screen</string>
+    <string name="mode_switch_to_app">Switch to one app</string>
+    <string name="mode_live_now">Live now</string>
+    <string name="mode_details_screen">whole screen</string>
+    <string name="mode_details_app">one app</string>
+    <string name="svc_mode_screen"> · whole screen</string>
+    <string name="svc_mode_app"> · one app</string>
+    <string name="mode_no_app_sound">The phone is playing sound, but none of it reaches the TV. The app playing it may not allow its sound to be recorded (some streaming apps, calls); then its sound stays on the phone.</string>
+    <!-- The TV is also reachable as CastApp TV, which mirrors with far less delay. -->
+    <string name="mode_faster_title">Less delay on %1$s</string>
+    <string name="mode_faster_text">Google Cast keeps 1 to 3 seconds of picture in reserve. CastApp TV on the same TV mirrors with under half a second.</string>
+    <string name="mode_faster_switch">Use CastApp TV</string>
+    <string name="mode_faster_install">On this TV, CastApp TV mirrors with under half a second of delay instead of 1 to 3 seconds. Install CastApp on it and open it once.</string>
+</resources>

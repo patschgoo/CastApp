@@ -55,4 +55,6 @@
     <string name="selftest_w_port_busy">Eine andere App belegt den Empfänger-Port. Empfangen klappt trotzdem über einen anderen Port, andere Handys finden dieses aber evtl. langsamer.</string>
     <string name="selftest_w_models_ok">Sprachmodelle für Untertitel sind installiert.</string>
     <string name="selftest_w_models_none">Kein Sprachmodell installiert. Vom Handy geschriebene Untertitel brauchen eines: Einstellungen → Untertitel.</string>
+    <string name="selftest_fix_notifications">Benachrichtigungen einschalten</string>
+    <string name="selftest_fix_battery">Im Hintergrund erlauben</string>
 </resources>
