@@ -584,11 +584,24 @@ Unit tests run with `./gradlew testDebugUnitTest`. Before a release, or when som
 `fastlane/metadata/android/` (English and German) holds title, descriptions, changelogs and screenshots in the layout that F-Droid, IzzyOnDroid and Fastlane read.
 
 - **GitHub Releases** (what you have now): the signed `CastApp.apk`, plus the in-app update check.
-- **IzzyOnDroid**: the easiest store. It accepts the APK from a GitHub release as it is, reads the Fastlane metadata, and needs an open-source license in the repository (see below). Request inclusion on its issue tracker once a release is out. Keep your own signing key stable: IzzyOnDroid serves your signed APK.
+- **IzzyOnDroid**: the easiest store. It accepts the APK from a GitHub release as it is, reads the Fastlane metadata, and needs an open-source license in the repository (it has GPL-3.0, see below). Request inclusion on its issue tracker once a release is out. Keep your own signing key stable: IzzyOnDroid serves your signed APK.
 - **F-Droid main repository**: F-Droid builds the app from source with its own build server and signs it with its own key, and it does not accept prebuilt native binaries. CastApp does not meet this yet because **Vosk ships prebuilt `.so` libraries** (`vosk-android` and the JNA AAR). To qualify, either drop Vosk and keep only the Whisper engine (whisper.cpp is vendored and built from source with CMake), or build Vosk's native libraries from source in the F-Droid recipe. The speech models are downloaded at run time, which is fine. An F-Droid build would also be signed with a different key than your GitHub releases, so users cannot switch between them without reinstalling. (Or use F-Droid's reproducible-build route, which needs deterministic builds and your own signature.)
 
 ## License
 
-No license has been chosen yet. Add one (for example MIT or GPL-3.0) if you want others to be able to reuse the code.
+CastApp is free software: you can use, study, share and change it under the terms of the **GNU General Public License, version 3** ([`LICENSE`](LICENSE)). Changed versions you share must stay under the same license, with their source code. Copyright © 2026 the CastApp authors.
+
+**Additional permission under GNU GPL version 3 section 7:** if you modify this program, or any covered work, by linking or combining it with Google Play services (the `play-services-wearable` library used for the Wear OS remote), containing parts covered by the terms of Google's license for that library, the licensors of this program grant you additional permission to convey the resulting work.
+
+It includes or uses code under other licenses, all compatible with GPL-3.0:
+
+| Part | License |
+|---|---|
+| [whisper.cpp](https://github.com/ggml-org/whisper.cpp) (vendored in `app/src/main/cpp/whisper.cpp`) | MIT ([its LICENSE](app/src/main/cpp/whisper.cpp/LICENSE)) |
+| [Vosk](https://alphacephei.com/vosk/) speech recognition | Apache 2.0 |
+| [AndroidX Media3 / ExoPlayer](https://github.com/androidx/media), Jetpack libraries | Apache 2.0 |
+| [smbj](https://github.com/hierynomus/smbj) | Apache 2.0 |
+| [Bouncy Castle](https://www.bouncycastle.org/) | MIT-style Bouncy Castle license |
+| Google Play services (`play-services-wearable`, for the Wear OS remote only) | Google's own license (not open source; see the additional permission above) |
 
 The bundled font, Plus Jakarta Sans, is © 2020 The Plus Jakarta Sans Project Authors and licensed under the SIL Open Font License 1.1; its text ships in the APK and is in [`app/src/main/assets/licenses/PlusJakartaSans-OFL.txt`](app/src/main/assets/licenses/PlusJakartaSans-OFL.txt).
