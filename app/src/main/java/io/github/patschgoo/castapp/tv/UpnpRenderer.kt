@@ -36,6 +36,8 @@ data class TvMedia(
     val syncUrl: String? = null,
     /** Joined from another CastApp device's cast ("http://host:port" of its peer server). */
     val joinedFrom: String? = null,
+    /** Which subtitle track inside the file to show, from CastApp on the phone ([TextTrackHint.encode]). */
+    val subtitleTrack: String? = null,
 )
 
 enum class TransportState(val upnp: String) {
@@ -698,6 +700,7 @@ class UpnpRenderer(
                 lowLatency = metadata.contains(LOW_LATENCY_MARKER),
                 subtitleStyle = Dlna.subtitleStyleIn(metadata),
                 syncUrl = Dlna.syncUrlIn(metadata),
+                subtitleTrack = Dlna.subtitleTrackIn(metadata),
             )
         }
     }

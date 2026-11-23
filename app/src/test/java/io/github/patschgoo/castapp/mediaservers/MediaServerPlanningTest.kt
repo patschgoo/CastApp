@@ -47,6 +47,62 @@ class MediaServerPlanningTest {
         assertNull(PlaybackPlanner.chooseSubtitle(listOf(sub(2, "eng")), "eng", "en"))
     }
 
+    private fun track(index: Int, lang: String?, name: String? = null, codec: String = "ass", default: Boolean = false, forced: Boolean = false, selected: Boolean = false, sdh: Boolean = false) =
+        SubtitleTrack(index, codec, lang, null, default, forced, isExternal = false, name = name, selected = selected, hearingImpaired = sdh, fileOrdinal = index)
+
+    @Test
+    fun theLanguagesOfTheSettingInTheirOrder() {
+        val tracks = listOf(track(0, "eng"), track(1, "ger"), track(2, "fre", default = true))
+        assertEquals(1, PlaybackPlanner.chooseSubtitle(tracks, "jpn", listOf("de", "en"))!!.index)
+        assertEquals(0, PlaybackPlanner.chooseSubtitle(tracks, "jpn", listOf("en", "de"))!!.index)
+        // None of them: the file's default.
+        assertEquals(2, PlaybackPlanner.chooseSubtitle(tracks, "jpn", listOf("it"))!!.index)
+        // A full track in the second language beats only signs in the first.
+        val signsOnly = listOf(track(0, "ger", "Signs & Songs"), track(1, "eng", "Full"))
+        assertEquals(1, PlaybackPlanner.chooseSubtitle(signsOnly, "jpn", listOf("de", "en"))!!.index)
+        // ...but signs in the first language beat nothing at all.
+        assertEquals(0, PlaybackPlanner.chooseSubtitle(listOf(track(0, "ger", "Signs/Songs")), "jpn", listOf("de", "en"))!!.index)
+    }
+
+    @Test
+    fun animeReleasesSignsAndSongsAreNotTheFullTrack() {
+        val tracks = listOf(track(0, "eng", "Signs & Songs", default = true), track(1, "eng", "Full Subtitles"), track(2, "eng", "Dialogue + Signs"))
+        assertEquals(1, PlaybackPlanner.chooseSubtitle(tracks, "jpn", listOf("en"))!!.index)
+        assertTrue(tracks[0].isPartial)
+        assertFalse(tracks[2].isPartial) // dialogue and signs is the full one
+        assertTrue(track(3, "eng", "[Forced]").isPartial)
+        // SDH only when there is nothing else in that language.
+        val sdh = listOf(track(0, "eng", "SDH"), track(1, "eng", sdh = true), track(2, "eng"))
+        assertEquals(2, PlaybackPlanner.chooseSubtitle(sdh, "jpn", listOf("en"))!!.index)
+        assertEquals(0, PlaybackPlanner.chooseSubtitle(sdh.take(2), "jpn", listOf("en"))!!.index)
+    }
+
+    @Test
+    fun plexsPickDecidesAmongEquals() {
+        val tracks = listOf(track(0, "eng", "Group A"), track(1, "eng", "Group B", selected = true), track(2, "ger"))
+        assertEquals(1, PlaybackPlanner.chooseSubtitle(tracks, "jpn", listOf("en"))!!.index)
+        // The setting's language still comes first.
+        assertEquals(2, PlaybackPlanner.chooseSubtitle(tracks, "jpn", listOf("de"))!!.index)
+        // Sound in the wanted language: what was picked in Plex rather than nothing.
+        assertEquals(1, PlaybackPlanner.chooseSubtitle(tracks, "eng", listOf("en"))!!.index)
+    }
+
+    @Test
+    fun soundInTheFirstLanguageGetsSignsOrForcedOnly() {
+        val tracks = listOf(track(0, "ger"), track(1, "ger", "Schilder & Songs"), track(2, "eng"))
+        assertEquals(1, PlaybackPlanner.chooseSubtitle(tracks, "ger", listOf("de", "en"))!!.index)
+        assertNull(PlaybackPlanner.chooseSubtitle(listOf(track(0, "ger"), track(2, "eng")), "ger", listOf("de", "en")))
+        // Foreign sound and no wanted language: a forced track for that sound.
+        assertEquals(1, PlaybackPlanner.chooseSubtitle(listOf(track(0, "fre"), track(1, "spa", forced = true)), "spa", listOf("de"))!!.index)
+        assertNull(PlaybackPlanner.chooseSubtitle(listOf(track(0, "fre", forced = true)), "spa", listOf("de")))
+    }
+
+    @Test
+    fun thePickerListsTheWantedLanguagesFirst() {
+        val tracks = listOf(track(0, "fre"), track(1, "eng", "Signs"), track(2, "ger"), track(3, "eng"))
+        assertEquals(listOf(2, 3, 1, 0), PlaybackPlanner.rankSubtitles(tracks, listOf("de", "en")).map { it.index })
+    }
+
     @Test
     fun noTextSubtitleNoSubtitle() {
         assertNull(PlaybackPlanner.chooseSubtitle(listOf(sub(2, "ger", codec = "pgssub", default = true)), "eng", "de"))

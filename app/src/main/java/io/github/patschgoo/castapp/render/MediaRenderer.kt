@@ -26,6 +26,11 @@ data class RendererMedia(
      * (only ever sent to CastApp TVs; other TVs never see it).
      */
     val syncUrl: String? = null,
+    /**
+     * A CastApp TV playing a server's file itself: which subtitle track inside it to show
+     * ([io.github.patschgoo.castapp.tv.TextTrackHint.encode]); only ever sent to CastApp TVs.
+     */
+    val subtitleTrack: String? = null,
 )
 
 enum class PlayState { PLAYING, PAUSED, BUFFERING, IDLE, FINISHED, ERROR, STOPPED }

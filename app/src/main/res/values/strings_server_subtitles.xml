@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Subtitle tracks of Plex videos in the subtitle picker -->
+    <!-- A subtitle track for the deaf and hard of hearing -->
+    <string name="track_sdh">SDH</string>
+</resources>
