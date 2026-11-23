@@ -573,6 +573,7 @@ Environment variables with the same names work too. Never commit a real key.
 1. Bump `versionCode` (a whole number, always higher) and `versionName` in `app/build.gradle.kts`, and add `fastlane/metadata/android/en-US/changelogs/<versionCode>.txt` and the German one.
 2. Commit and push to the main branch, and wait for the *Build APK* run to pass.
 3. Tag and push: `git tag v<versionName> && git push origin v<versionName>`. For `versionName = "4.0.0"` the tag is `v4.0.0`.
+   Without pushing a tag (for example from a session that can't push tags): **Actions → Build APK → Run workflow** on `main` with **release** ticked. It creates the tag `v<versionName>` on that commit and the release, with the notes from `fastlane/metadata/android/en-US/changelogs/<versionCode>.txt`, and refuses a version that already exists.
 
 On a `v*` tag the workflow first checks that the tag matches `versionName` (and fails if it doesn't), runs the tests, builds the release APK and publishes a GitHub release with generated release notes and `CastApp.apk` attached. The app's **Check for updates** reads exactly these releases.
 

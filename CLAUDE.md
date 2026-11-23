@@ -24,6 +24,8 @@ test checklist is [TESTING.md](TESTING.md); the intent API is [AUTOMATION.md](AU
 - Add `--offline` once the Gradle cache is filled. Never run `./gradlew --stop` while other builds run.
 - CI: `.github/workflows/build.yml` runs the tests, builds `CastApp.apk` and `CastApp-wear.apk`, and on a
   `v*` tag (which must equal `v<versionName>`) publishes a GitHub release that the in-app update check reads.
+  Cloud sessions can't push tags (the proxy answers 403): run the workflow by hand on `main` with the input
+  `release: true` instead; it creates `v<versionName>` and the release (notes from the fastlane changelog).
 
 ## Conventions
 

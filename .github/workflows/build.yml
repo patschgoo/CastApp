@@ -6,9 +6,14 @@ on:
     tags: ["v*"]
   pull_request:
   workflow_dispatch:
+    inputs:
+      release:
+        description: "Publish the GitHub release v<versionName> from this commit (instead of pushing a tag)"
+        type: boolean
+        default: false
 
 permissions:
-  contents: write # only used to attach the APK to a release when a v* tag is pushed
+  contents: write # only used to publish a release (a pushed v* tag, or a manual run with "release")
 
 jobs:
   build:
@@ -24,6 +29,22 @@ jobs:
             echo "::error::Tag ${GITHUB_REF_NAME} does not match versionName ${version} in app/build.gradle.kts. Bump the version, commit, then tag v<versionName>."
             exit 1
           fi
+
+      - name: Check that a manual release is new
+        if: github.event_name == 'workflow_dispatch' && inputs.release
+        run: |
+          if [ "${GITHUB_REF}" != "refs/heads/main" ]; then
+            echo "::error::Releases are only published from main."
+            exit 1
+          fi
+          version=$(sed -n 's/.*versionName = "\(.*\)".*/\1/p' app/build.gradle.kts | head -n1)
+          code=$(sed -n 's/.*versionCode = \([0-9]*\).*/\1/p' app/build.gradle.kts | head -n1)
+          if git ls-remote --exit-code --tags origin "refs/tags/v${version}" > /dev/null; then
+            echo "::error::v${version} already exists. Bump versionName and versionCode, commit, then run again."
+            exit 1
+          fi
+          echo "RELEASE_TAG=v${version}" >> "$GITHUB_ENV"
+          echo "RELEASE_NOTES=fastlane/metadata/android/en-US/changelogs/${code}.txt" >> "$GITHUB_ENV"
 
       - uses: actions/setup-java@v6
         with:
@@ -75,6 +96,22 @@ jobs:
         if: startsWith(github.ref, 'refs/tags/v')
         uses: softprops/action-gh-release@v3
         with:
+          files: |
+            CastApp.apk
+            CastApp-wear.apk
+          generate_release_notes: true
+          draft: false
+          prerelease: false
+
+      # A manual run with "release": creates the tag v<versionName> on this commit and the release.
+      - name: Publish release
+        if: github.event_name == 'workflow_dispatch' && inputs.release
+        uses: softprops/action-gh-release@v3
+        with:
+          tag_name: ${{ env.RELEASE_TAG }}
+          target_commitish: ${{ github.sha }}
+          name: CastApp ${{ env.RELEASE_TAG }}
+          body_path: ${{ env.RELEASE_NOTES }}
           files: |
             CastApp.apk
             CastApp-wear.apk
