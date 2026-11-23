@@ -2,6 +2,23 @@
 
 CastApp talks to many kinds of devices that no unit test can reach. This list is for the first rounds on real hardware and for every release. Do not try everything: pick the devices you own, and write down the result (OK / not OK / not tried) next to each item.
 
+## Start here: 30 minutes with a phone and an NVIDIA Shield
+
+The full list below is long. These ten checks cover most of what can go wrong, with a phone, a Shield (Plex server and CastApp TV) and, if you have one, a Chromecast or a smart TV. Tick each one, and for every *not OK* send the debug log (see "If something fails").
+
+| # | Check | OK when |
+|---|---|---|
+| 1 | Phone: **Settings → Help & support → Test this phone** | No *Problem* in the list |
+| 2 | Install the same APK on the Shield, open **CastApp TV** once | The phone's "Cast to" list shows the Shield as a CastApp TV |
+| 3 | **Mirror screen** to the Shield, open a video app on the phone | Picture and sound on the TV within a few seconds, under half a second of delay |
+| 4 | **Network & cloud → +**, paste a Shield share address from Explorer (e.g. `\\<Shield IP>\External USB drive-XXXX\NVIDIA_SHIELD\Anime2`), sign in, play an episode on the Shield | The folder opens in the right place; episodes are in order; seeking works |
+| 5 | Same episode to a Chromecast or a Samsung/LG TV (if you have one) | It plays, or you get a clear message (not "couldn't play") |
+| 6 | **Plex** (sign in with the code), play an anime episode on the Shield's CastApp TV | Plays without converting; its subtitles show; "Continue watching" in Plex knows where you stopped |
+| 7 | Pick another **subtitle** in the casting card (e.g. a 2nd language) | It switches; ASS/SRT files next to the video are listed by language |
+| 8 | **Remote** (top right) on the Shield; then the small remote in the casting card | D-pad, volume, Back and Home work; both don't stop each other |
+| 9 | Lock the phone during a file cast for 10 minutes | Keeps playing; lock-screen controls work |
+| 10 | Large font (Android settings → display size and font) and German phone language | Main screen, casting card and settings still readable, nothing cut off |
+
 ## Before you start
 
 1. Install the APK (see the README) on the phone, and open it once.

@@ -15,3 +15,8 @@ build/
 local.properties
 *.log
 .kotlin/
+
+# Your own release signing key (tools/make-signing-key.ps1): never commit it
+castapp-release*
+*.p12
+*.jks

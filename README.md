@@ -536,26 +536,29 @@ By default `app/castapp.keystore` (password `castapp`) is used. It is committed 
 
 **Create your key once** (keep the file and passwords safe and backed up; if you lose them you can never publish an update that installs over the old one):
 
-```bash
-keytool -genkeypair -v -keystore castapp-release.jks -alias castapp \
-  -keyalg RSA -keysize 4096 -validity 10000
-```
+- **Windows, the easy way:** download [`tools/make-signing-key.ps1`](tools/make-signing-key.ps1) into the folder where the key should live and run `powershell -ExecutionPolicy Bypass -File make-signing-key.ps1` there. It makes the key on your PC with OpenSSL (part of Git for Windows) or keytool (part of Android Studio), picks a strong password, and writes `castapp-release.p12`, `castapp-release-base64.txt` (the text for the GitHub secret) and `castapp-release-KEEP-SAFE.txt` (password, alias and exactly what to put into GitHub). It changes nothing else.
+- **Any system with a JDK:**
+
+  ```bash
+  keytool -genkeypair -v -storetype PKCS12 -keystore castapp-release.p12 -alias castapp \
+    -keyalg RSA -keysize 4096 -validity 10000
+  ```
 
 **Use it in GitHub Actions**: in the repository go to *Settings → Secrets and variables → Actions* and add these secrets:
 
 | Secret | Value |
 | --- | --- |
-| `CASTAPP_KEYSTORE_BASE64` | the key file as text: `base64 -w0 castapp-release.jks` (macOS: `base64 -i castapp-release.jks`) |
+| `CASTAPP_KEYSTORE_BASE64` | the key file as text: the content of `castapp-release-base64.txt` from the script, or `base64 -w0 castapp-release.p12` (macOS: `base64 -i castapp-release.p12`) |
 | `CASTAPP_KEYSTORE_PASSWORD` | the keystore password |
 | `CASTAPP_KEY_ALIAS` | `castapp` (the alias from above) |
 | `CASTAPP_KEY_PASSWORD` | the key password (optional; defaults to the keystore password) |
 
 The workflow decodes the key only when the secret exists. Without it, it signs with the committed key.
 
-**Use it on your PC**: put the same names into `~/.gradle/gradle.properties` (never into the project), with `CASTAPP_KEYSTORE_FILE=/path/to/castapp-release.jks` instead of the base64 text:
+**Use it on your PC**: put the same names into `~/.gradle/gradle.properties` (never into the project), with `CASTAPP_KEYSTORE_FILE=/path/to/castapp-release.p12` instead of the base64 text:
 
 ```properties
-CASTAPP_KEYSTORE_FILE=/home/me/keys/castapp-release.jks
+CASTAPP_KEYSTORE_FILE=/home/me/keys/castapp-release.p12
 CASTAPP_KEYSTORE_PASSWORD=...
 CASTAPP_KEY_ALIAS=castapp
 ```
