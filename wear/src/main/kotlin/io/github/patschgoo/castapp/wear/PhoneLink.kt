@@ -9,6 +9,7 @@ import com.google.android.gms.wearable.Wearable
 import io.github.patschgoo.castapp.wearproto.NowPlaying
 import io.github.patschgoo.castapp.wearproto.WearCodec
 import io.github.patschgoo.castapp.wearproto.WearCommand
+import io.github.patschgoo.castapp.wearproto.WearMessage
 import io.github.patschgoo.castapp.wearproto.WearPaths
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -89,9 +90,12 @@ class PhoneLink(context: Context) {
         }
     }
 
-    fun send(command: WearCommand) {
-        send(WearPaths.COMMAND, WearCodec.encodeCommand(command))
-        if (command == WearCommand.MIRROR_LAST) _state.update { it.copy(mirrorRequested = true) }
+    fun send(command: WearCommand) = send(WearMessage.Command(command))
+
+    /** A button, or a volume level or several steps from the bezel or crown (see [VolumeDial]). */
+    fun send(message: WearMessage) {
+        send(WearPaths.COMMAND, WearCodec.encodeMessage(message))
+        if (message == WearMessage.Command(WearCommand.MIRROR_LAST)) _state.update { it.copy(mirrorRequested = true) }
     }
 
     fun clearMirrorNotice() = _state.update { it.copy(mirrorRequested = false) }

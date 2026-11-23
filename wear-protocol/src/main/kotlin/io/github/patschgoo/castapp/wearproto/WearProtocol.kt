@@ -34,9 +34,30 @@ enum class WearCommand(val wire: String) {
     MIRROR_LAST("mirror_last"),
     ;
 
+    /** Volume up or down: the only commands a watch may send with a repeat count (see [WearMessage.Command]). */
+    val isVolumeStep: Boolean get() = this == VOLUME_UP || this == VOLUME_DOWN
+
     companion object {
         fun fromWire(value: String?): WearCommand? = entries.firstOrNull { it.wire == value }
     }
+}
+
+/**
+ * One message from the watch to the phone on [WearPaths.COMMAND].
+ *
+ * Phones before [WearCodec.REVISION_VOLUME_LEVELS] only know plain [Command]s: they do one step for
+ * a repeated volume command and ignore [SetVolume], so the watch sends those only to a phone whose
+ * [NowPlaying.revision] says it understands them.
+ */
+sealed interface WearMessage {
+    /**
+     * A button. VOLUME_UP and VOLUME_DOWN may carry [repeat] > 1: that many steps at once, for a fast
+     * turn of the bezel or crown. Other commands always have 1.
+     */
+    data class Command(val command: WearCommand, val repeat: Int = 1) : WearMessage
+
+    /** Sets the TV volume to [percent] (0..100). */
+    data class SetVolume(val percent: Int) : WearMessage
 }
 
 /** What the watch shows. Sent by the phone whenever it changes (not for every playback tick). */
@@ -57,6 +78,11 @@ data class NowPlaying(
     val volumePercent: Int = -1,
     /** Name of the TV used last, for the "Mirror to ..." button; empty if none. */
     val lastTv: String = "",
+    /**
+     * What the phone app understands ([WearCodec.REVISION]). A phone that does not send it (CastApp
+     * 4.0 and older) is 1: only plain button commands.
+     */
+    val revision: Int = 1,
 ) {
     val hasQueue: Boolean get() = queueSize > 1
 
@@ -67,18 +93,59 @@ data class NowPlaying(
 
 /** Encoding of the Data Layer messages: small JSON objects with a version number. Unknown input decodes to null. */
 object WearCodec {
+    /**
+     * Format version: a message of another one is ignored. New fields are added without changing it
+     * (old readers skip what they do not know); [REVISION] says which of them a phone understands.
+     */
     const val VERSION = 1
+
+    /** What this build understands; the phone sends it in [NowPlaying.revision]. */
+    const val REVISION = 2
+
+    /** First revision that understands [WearMessage.SetVolume] and repeated volume steps. */
+    const val REVISION_VOLUME_LEVELS = 2
+
+    /** Most volume steps in one [WearMessage.Command] (5 % each on the phone). */
+    const val MAX_REPEAT = 10
+
+    /** Wire name of [WearMessage.SetVolume]; not a [WearCommand], so older phones ignore it. */
+    const val CMD_SET_VOLUME = "volume_set"
 
     /** Titles are cut here so a message stays far below the Data Layer limit. */
     const val MAX_TEXT = 200
 
-    fun encodeCommand(command: WearCommand): ByteArray =
-        JSONObject().put("v", VERSION).put("cmd", command.wire).toString().toByteArray(Charsets.UTF_8)
+    fun encodeCommand(command: WearCommand): ByteArray = encodeMessage(WearMessage.Command(command))
 
-    fun decodeCommand(bytes: ByteArray?): WearCommand? {
+    /** Only the button: what a phone before [REVISION_VOLUME_LEVELS] reads from a message. */
+    fun decodeCommand(bytes: ByteArray?): WearCommand? = (decodeMessage(bytes) as? WearMessage.Command)?.command
+
+    fun encodeMessage(message: WearMessage): ByteArray {
+        val o = JSONObject().put("v", VERSION)
+        when (message) {
+            is WearMessage.Command -> {
+                o.put("cmd", message.command.wire)
+                val n = message.repeat.coerceIn(1, MAX_REPEAT)
+                if (message.command.isVolumeStep && n > 1) o.put("n", n)
+            }
+            is WearMessage.SetVolume -> o.put("cmd", CMD_SET_VOLUME).put("level", message.percent.coerceIn(0, 100))
+        }
+        return o.toString().toByteArray(Charsets.UTF_8)
+    }
+
+    fun decodeMessage(bytes: ByteArray?): WearMessage? {
         val o = parse(bytes) ?: return null
         if (o.optInt("v", 0) != VERSION) return null
-        return WearCommand.fromWire(o.optString("cmd", ""))
+        val cmd = o.opt("cmd") as? String ?: return null
+        if (cmd == CMD_SET_VOLUME) {
+            // A level that is missing or out of range is dropped rather than guessed: it sets a TV's volume.
+            val level = o.opt("level") as? Number ?: return null
+            val percent = level.toDouble()
+            if (percent.isNaN() || percent < 0.0 || percent > 100.0) return null
+            return WearMessage.SetVolume(Math.round(percent).toInt())
+        }
+        val command = WearCommand.fromWire(cmd) ?: return null
+        val repeat = if (command.isVolumeStep) (o.opt("n") as? Number)?.toInt()?.coerceIn(1, MAX_REPEAT) ?: 1 else 1
+        return WearMessage.Command(command, repeat)
     }
 
     fun encodeState(state: NowPlaying): ByteArray = JSONObject()
@@ -92,6 +159,7 @@ object WearCodec {
         .put("qs", state.queueSize)
         .put("vol", state.volumePercent)
         .put("last", state.lastTv.take(MAX_TEXT))
+        .put("rev", state.revision)
         .toString()
         .toByteArray(Charsets.UTF_8)
 
@@ -108,6 +176,7 @@ object WearCodec {
             queueSize = o.optInt("qs", 1).coerceAtLeast(1),
             volumePercent = o.optInt("vol", -1).let { if (it < 0) -1 else it.coerceAtMost(100) },
             lastTv = o.optString("last", "").take(MAX_TEXT),
+            revision = o.optInt("rev", 1).coerceAtLeast(1),
         )
     }
 

@@ -14,9 +14,11 @@ import kotlin.math.roundToInt
 
 /** What the watch is told about a cast. No Android code, so it is tested on the JVM. */
 object WearState {
+    /** Also tells the watch what this phone understands ([WearCodec.REVISION]: volume levels and repeated steps). */
     fun nowPlaying(state: CastState, lastTv: String): NowPlaying = when (state) {
-        CastState.Idle -> NowPlaying(lastTv = lastTv)
+        CastState.Idle -> NowPlaying(lastTv = lastTv, revision = WearCodec.REVISION)
         is CastState.Active -> NowPlaying(
+            revision = WearCodec.REVISION,
             active = true,
             title = if (state.kind == CastKind.FILE) state.title.orEmpty() else "",
             device = state.device.name,
