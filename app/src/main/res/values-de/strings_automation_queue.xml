@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- "Play on TV" from another app (CAST_QUEUE): the "Cast to TV" sheet for a play list -->
+    <plurals name="queue_sheet_more">
+        <item quantity="one">%1$s und %2$d weiteres</item>
+        <item quantity="other">%1$s und %2$d weitere</item>
+    </plurals>
+    <string name="queue_request_invalid">CastApp kann nicht abspielen, was diese App geschickt hat.</string>
+</resources>

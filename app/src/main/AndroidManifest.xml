@@ -65,6 +65,10 @@
             <action android:name="android.intent.action.VIEW" />
             <data android:scheme="https" />
         </intent>
+        <!-- Apps that asked to hear how their CAST_QUEUE plays (report_to) and receive it in their manifest -->
+        <intent>
+            <action android:name="io.github.patschgoo.castapp.automation.PLAYBACK" />
+        </intent>
     </queries>
 
     <application
@@ -395,8 +399,25 @@
                 <action android:name="io.github.patschgoo.castapp.automation.QUALITY" />
                 <action android:name="io.github.patschgoo.castapp.automation.RECEIVE" />
                 <action android:name="io.github.patschgoo.castapp.automation.OPEN_REMOTE" />
+                <action android:name="io.github.patschgoo.castapp.automation.CAST_QUEUE" />
             </intent-filter>
         </receiver>
+
+        <!-- "Play on TV" for other apps (AUTOMATION.md): a play list they send opens the "Cast to TV"
+             sheet and is cast only when you pick a TV, so it does not need the automation switch.
+             CAST_QUEUE without a class name lands here; AutomationActivity takes it only by name. -->
+        <activity
+            android:name=".automation.PlayOnTvActivity"
+            android:excludeFromRecents="true"
+            android:exported="true"
+            android:label="@string/share_label"
+            android:taskAffinity=""
+            android:theme="@style/Theme.CastApp.Transparent">
+            <intent-filter>
+                <action android:name="io.github.patschgoo.castapp.automation.CAST_QUEUE" />
+                <category android:name="android.intent.category.DEFAULT" />
+            </intent-filter>
+        </activity>
 
         <!-- The Wear OS remote: commands and "what is playing?" from a paired watch (Wear Data Layer).
              Play services starts it only when a watch sends something. -->

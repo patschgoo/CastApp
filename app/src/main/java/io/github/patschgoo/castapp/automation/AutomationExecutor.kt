@@ -33,6 +33,7 @@ class AutomationExecutor(private val context: Context) {
             is AutomationCommand.CastFile -> castFile(command, interactive)
             is AutomationCommand.Receive -> receive(command, interactive)
             is AutomationCommand.OpenRemote -> openRemote(command, interactive)
+            is AutomationCommand.CastQueue -> castQueue(command, interactive)
             else -> AutomationResult.failed("Not handled: $command")
         }
     }
@@ -111,6 +112,16 @@ class AutomationExecutor(private val context: Context) {
             AutomationResult.invalid("CastApp cannot read a video, music or photo at that URI (is read access granted to CastApp?)")
         } else {
             startMedia(device, items, interactive)
+        }
+    }
+
+    private fun castQueue(c: AutomationCommand.CastQueue, interactive: Boolean): AutomationResult = withDevice(c.device) { device ->
+        val items = QueueCast.mediaItems(context.contentResolver, c.queue)
+        try {
+            QueueCast.start(context, device, c.queue, items)
+            AutomationResult.ok("Casting ${items.size} item${if (items.size == 1) "" else "s"} to ${device.name}")
+        } catch (e: Exception) {
+            backgroundRefused(e, interactive)
         }
     }
 
