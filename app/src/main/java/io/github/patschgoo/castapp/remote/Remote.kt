@@ -75,7 +75,13 @@ interface RemoteProvider {
     /** Targets available now; updated while discovery runs. */
     fun targets(context: Context): StateFlow<List<RemoteTarget>>
 
+    /**
+     * Starts looking for targets. Only [RemoteDiscovery] calls this (for the first screen that
+     * needs it, with the application context); screens hold a [RemoteDiscovery.acquire] lease instead.
+     */
     fun startDiscovery(context: Context) {}
+
+    /** Stops looking; called by [RemoteDiscovery] once the last screen let go. */
     fun stopDiscovery() {}
 }
 

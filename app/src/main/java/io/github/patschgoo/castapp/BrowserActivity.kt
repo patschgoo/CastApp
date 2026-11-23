@@ -299,10 +299,11 @@ class BrowserActivity : ComponentActivity() {
             try {
                 val json = JSONObject(JSONObject("{\"v\":$result}").getString("v"))
                 detector.updateTitle(json.optString("title"))
+                detector.updatePagePicture(json.optString("picture").ifEmpty { null })
                 val items = json.optJSONArray("items") ?: return@evaluateJavascript
                 for (i in 0 until items.length()) {
                     val o = items.getJSONObject(i)
-                    detector.onUrl(o.optString("src"), o.optString("type").ifEmpty { null })
+                    detector.onUrl(o.optString("src"), o.optString("type").ifEmpty { null }, o.optString("poster").ifEmpty { null })
                 }
             } catch (_: Exception) {
             }
@@ -322,7 +323,7 @@ class BrowserActivity : ComponentActivity() {
         }
         CookieManager.getInstance().getCookie(video.url)?.let { headers["Cookie"] = it }
         val title = video.pageTitle.ifEmpty { video.url.substringBefore('?').substringAfterLast('/') }
-        CastService.startMedia(this, device, listOf(MediaItem(title = title, uri = video.url, mimeType = video.mimeType, headers = headers)))
+        CastService.startMedia(this, device, listOf(MediaItem(title = title, uri = video.url, mimeType = video.mimeType, headers = headers, artUri = video.poster ?: detector.pagePicture)))
         // Don't play it twice: pause the page's own player.
         webView?.evaluateJavascript(VideoDetector.PAUSE_SCRIPT, null)
         Toast.makeText(this, getString(R.string.browser_casting, device.name), Toast.LENGTH_LONG).show()

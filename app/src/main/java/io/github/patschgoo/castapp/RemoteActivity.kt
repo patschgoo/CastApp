@@ -135,6 +135,7 @@ import androidx.core.content.ContextCompat
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import io.github.patschgoo.castapp.remote.NetworkRemotes
+import io.github.patschgoo.castapp.remote.RemoteDiscovery
 import io.github.patschgoo.castapp.remote.RemoteKey
 import io.github.patschgoo.castapp.remote.RemoteProvider
 import io.github.patschgoo.castapp.remote.RemoteProviders
@@ -153,6 +154,8 @@ class RemoteActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         vm = ViewModelProvider(this)[RemoteViewModel::class.java]
         vm.start(intent?.getStringExtra(EXTRA_TARGET))
+        // Looks for TVs while the screen is visible; shared with the main screen's remote, and kept through a rotation.
+        RemoteDiscovery.whileStarted(this, this)
         val app = CastApp.get(this)
         setContent {
             val settings by app.settings.state.collectAsStateWithLifecycle()
@@ -167,14 +170,8 @@ class RemoteActivity : ComponentActivity() {
         intent.getStringExtra(EXTRA_TARGET)?.let { vm.start(it, force = true) }
     }
 
-    override fun onStart() {
-        super.onStart()
-        for (p in RemoteProviders.all) try { p.startDiscovery(this) } catch (_: Exception) {}
-    }
-
     override fun onStop() {
         vm.stopVoice()
-        for (p in RemoteProviders.all) try { p.stopDiscovery() } catch (_: Exception) {}
         super.onStop()
     }
 

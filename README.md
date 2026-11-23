@@ -85,7 +85,7 @@ Any device you've cast to once is **remembered**. If its IP address changes, Cas
 
 **Playback** (files, network, channels):
 
-- **Continue watching**: videos resume where you stopped. A history row on the main screen lists them.
+- **Continue watching**: videos resume where you stopped. A history row on the main screen lists them, each with its poster, channel logo or a picture from the video (files on network shares only on Wi-Fi).
 - **Queue editing**: reorder, remove, add, shuffle and repeat.
 - **Sleep timer**, also "end of video".
 - **Audio track choice**. Tracks the TV can't play are converted on the phone.
@@ -358,7 +358,7 @@ If the player doesn't start, CastApp falls back to Google's standard player auto
 
 **Automation (Tasker, MacroDroid, Home Assistant).** Under **Settings → Automation** you can let other apps control CastApp (off by default, with an optional secret). They can mirror to a TV, cast a link or a file, stop, play/pause, skip, set the volume and quality, switch "Receive on this phone" and open the remote, with a result code coming back. [AUTOMATION.md](AUTOMATION.md) lists every intent and has examples for Tasker, MacroDroid, Home Assistant and `adb shell am`.
 
-**Wear OS remote.** The **CastApp-wear.apk** build artifact is a small Wear OS 3+ app that shows what your phone is casting and has play/pause, previous/next, volume, stop and a "Mirror to (your last TV)" button (the phone then shows a notification to confirm Android's capture prompt). It talks to the phone through the Wear Data Layer, so it needs Google Play services on the phone and the watch, and the same CastApp build on both (same signing key). Install it with `adb install CastApp-wear.apk` over the watch's Wi-Fi or Bluetooth debugging. A phone without Google Play services, or without a watch, works exactly as before.
+**Wear OS remote.** The **CastApp-wear.apk** build artifact is a small Wear OS 3+ app that shows what your phone is casting and has play/pause, previous/next, volume, stop and a "Mirror to (your last TV)" button; turning the bezel or crown (Galaxy Watch Classic bezel, Pixel Watch or TicWatch crown) changes the TV volume (the phone then shows a notification to confirm Android's capture prompt). It talks to the phone through the Wear Data Layer, so it needs Google Play services on the phone and the watch, and the same CastApp build on both (same signing key). Install it with `adb install CastApp-wear.apk` over the watch's Wi-Fi or Bluetooth debugging. A phone without Google Play services, or without a watch, works exactly as before.
 
 ## Help and reliability tools
 
@@ -537,26 +537,29 @@ By default `app/castapp.keystore` (password `castapp`) is used. It is committed 
 
 **Create your key once** (keep the file and passwords safe and backed up; if you lose them you can never publish an update that installs over the old one):
 
-```bash
-keytool -genkeypair -v -keystore castapp-release.jks -alias castapp \
-  -keyalg RSA -keysize 4096 -validity 10000
-```
+- **Windows, the easy way:** download [`tools/make-signing-key.ps1`](tools/make-signing-key.ps1) into the folder where the key should live and run `powershell -ExecutionPolicy Bypass -File make-signing-key.ps1` there. It makes the key on your PC with OpenSSL (part of Git for Windows) or keytool (part of Android Studio), picks a strong password, and writes `castapp-release.p12`, `castapp-release-base64.txt` (the text for the GitHub secret) and `castapp-release-KEEP-SAFE.txt` (password, alias and exactly what to put into GitHub). It changes nothing else.
+- **Any system with a JDK:**
+
+  ```bash
+  keytool -genkeypair -v -storetype PKCS12 -keystore castapp-release.p12 -alias castapp \
+    -keyalg RSA -keysize 4096 -validity 10000
+  ```
 
 **Use it in GitHub Actions**: in the repository go to *Settings → Secrets and variables → Actions* and add these secrets:
 
 | Secret | Value |
 | --- | --- |
-| `CASTAPP_KEYSTORE_BASE64` | the key file as text: `base64 -w0 castapp-release.jks` (macOS: `base64 -i castapp-release.jks`) |
+| `CASTAPP_KEYSTORE_BASE64` | the key file as text: the content of `castapp-release-base64.txt` from the script, or `base64 -w0 castapp-release.p12` (macOS: `base64 -i castapp-release.p12`) |
 | `CASTAPP_KEYSTORE_PASSWORD` | the keystore password |
 | `CASTAPP_KEY_ALIAS` | `castapp` (the alias from above) |
 | `CASTAPP_KEY_PASSWORD` | the key password (optional; defaults to the keystore password) |
 
 The workflow decodes the key only when the secret exists. Without it, it signs with the committed key.
 
-**Use it on your PC**: put the same names into `~/.gradle/gradle.properties` (never into the project), with `CASTAPP_KEYSTORE_FILE=/path/to/castapp-release.jks` instead of the base64 text:
+**Use it on your PC**: put the same names into `~/.gradle/gradle.properties` (never into the project), with `CASTAPP_KEYSTORE_FILE=/path/to/castapp-release.p12` instead of the base64 text:
 
 ```properties
-CASTAPP_KEYSTORE_FILE=/home/me/keys/castapp-release.jks
+CASTAPP_KEYSTORE_FILE=/home/me/keys/castapp-release.p12
 CASTAPP_KEYSTORE_PASSWORD=...
 CASTAPP_KEY_ALIAS=castapp
 ```
@@ -582,11 +585,24 @@ Unit tests run with `./gradlew testDebugUnitTest`. Before a release, or when som
 `fastlane/metadata/android/` (English and German) holds title, descriptions, changelogs and screenshots in the layout that F-Droid, IzzyOnDroid and Fastlane read.
 
 - **GitHub Releases** (what you have now): the signed `CastApp.apk`, plus the in-app update check.
-- **IzzyOnDroid**: the easiest store. It accepts the APK from a GitHub release as it is, reads the Fastlane metadata, and needs an open-source license in the repository (see below). Request inclusion on its issue tracker once a release is out. Keep your own signing key stable: IzzyOnDroid serves your signed APK.
+- **IzzyOnDroid**: the easiest store. It accepts the APK from a GitHub release as it is, reads the Fastlane metadata, and needs an open-source license in the repository (it has GPL-3.0, see below). Request inclusion on its issue tracker once a release is out. Keep your own signing key stable: IzzyOnDroid serves your signed APK.
 - **F-Droid main repository**: F-Droid builds the app from source with its own build server and signs it with its own key, and it does not accept prebuilt native binaries. CastApp does not meet this yet because **Vosk ships prebuilt `.so` libraries** (`vosk-android` and the JNA AAR). To qualify, either drop Vosk and keep only the Whisper engine (whisper.cpp is vendored and built from source with CMake), or build Vosk's native libraries from source in the F-Droid recipe. The speech models are downloaded at run time, which is fine. An F-Droid build would also be signed with a different key than your GitHub releases, so users cannot switch between them without reinstalling. (Or use F-Droid's reproducible-build route, which needs deterministic builds and your own signature.)
 
 ## License
 
-No license has been chosen yet. Add one (for example MIT or GPL-3.0) if you want others to be able to reuse the code.
+CastApp is free software: you can use, study, share and change it under the terms of the **GNU General Public License, version 3** ([`LICENSE`](LICENSE)). Changed versions you share must stay under the same license, with their source code. Copyright © 2026 the CastApp authors.
+
+**Additional permission under GNU GPL version 3 section 7:** if you modify this program, or any covered work, by linking or combining it with Google Play services (the `play-services-wearable` library used for the Wear OS remote), containing parts covered by the terms of Google's license for that library, the licensors of this program grant you additional permission to convey the resulting work.
+
+It includes or uses code under other licenses, all compatible with GPL-3.0:
+
+| Part | License |
+|---|---|
+| [whisper.cpp](https://github.com/ggml-org/whisper.cpp) (vendored in `app/src/main/cpp/whisper.cpp`) | MIT ([its LICENSE](app/src/main/cpp/whisper.cpp/LICENSE)) |
+| [Vosk](https://alphacephei.com/vosk/) speech recognition | Apache 2.0 |
+| [AndroidX Media3 / ExoPlayer](https://github.com/androidx/media), Jetpack libraries | Apache 2.0 |
+| [smbj](https://github.com/hierynomus/smbj) | Apache 2.0 |
+| [Bouncy Castle](https://www.bouncycastle.org/) | MIT-style Bouncy Castle license |
+| Google Play services (`play-services-wearable`, for the Wear OS remote only) | Google's own license (not open source; see the additional permission above) |
 
 The bundled font, Plus Jakarta Sans, is © 2020 The Plus Jakarta Sans Project Authors and licensed under the SIL Open Font License 1.1; its text ships in the APK and is in [`app/src/main/assets/licenses/PlusJakartaSans-OFL.txt`](app/src/main/assets/licenses/PlusJakartaSans-OFL.txt).

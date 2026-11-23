@@ -49,7 +49,9 @@ object NetworkRemotes : RemoteProvider {
     private val probed = ConcurrentHashMap.newKeySet<String>()
     @Volatile private var loaded = false
 
-    private var users = 0
+    /** Started by [RemoteDiscovery], which counts the screens; here a second start or stop changes nothing. */
+    private var running = false
+    private var repositoryStarted = false
     private var devicesJob: Job? = null
     private var mdns: MdnsServiceBrowser? = null
     private val ssdp = ArrayList<SsdpBrowser>()
@@ -73,13 +75,14 @@ object NetworkRemotes : RemoteProvider {
     @Synchronized
     override fun startDiscovery(context: Context) {
         load(context)
-        users++
-        if (users > 1) return
+        if (running) return
+        running = true
         val app = context.applicationContext
         appContext = app
         probed.clear()
         val repository = CastApp.get(app).devices
         repository.startDiscovery()
+        repositoryStarted = true
         devicesJob = scope.launch {
             repository.devices.collect { entries -> entries.filter { it.online }.forEach { check(it.device) } }
         }
@@ -103,14 +106,15 @@ object NetworkRemotes : RemoteProvider {
 
     @Synchronized
     override fun stopDiscovery() {
-        if (users == 0) return
-        users--
-        if (users > 0) return
+        if (!running) return
+        running = false
         devicesJob?.cancel(); devicesJob = null
         mdns?.stop(); mdns = null
         ssdp.forEach { it.stop() }
         ssdp.clear()
-        appContext?.let { CastApp.get(it).devices.stopDiscovery() }
+        // Only what this provider started: the device list's discovery is counted for every screen.
+        if (repositoryStarted) appContext?.let { CastApp.get(it).devices.stopDiscovery() }
+        repositoryStarted = false
     }
 
     /** A TV from the app's device list: see whether it also takes remote control. */

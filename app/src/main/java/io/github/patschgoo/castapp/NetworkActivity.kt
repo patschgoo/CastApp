@@ -417,7 +417,7 @@ private fun Folder(network: NetworkSources, place: Place, launcher: CastLauncher
                 is Place.Server -> {
                     val entries = network.browseServer(place.server, place.objectId)
                     val files = entries.filter { !it.isFolder && it.url != null }
-                    val playable = files.map { e -> MediaItem(e.title, e.url!!, e.mimeType ?: MediaItem.mimeForUrl(e.url)) }
+                    val playable = files.map { e -> MediaItem(e.title, e.url!!, e.mimeType ?: MediaItem.mimeForUrl(e.url), artUri = MediaItem.pictureAddress(e.artUrl)) }
                     items = playable
                     rows = entries.map { e ->
                         if (e.isFolder) Row(e.title, true, null, null, e.artUrl, open = Place.Server(place.server, e.id, e.title))
