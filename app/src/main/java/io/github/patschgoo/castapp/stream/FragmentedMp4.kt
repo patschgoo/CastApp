@@ -31,8 +31,12 @@ class AudioConfig(
     val bitrate: Int,
 )
 
-/** One sample ready to be written into a fragment. Duration is in track timescale units. */
-class FragmentSample(val data: ByteArray, val duration: Int, val isSync: Boolean)
+/**
+ * One sample ready to be written into a fragment. Duration is in track timescale units, and so is
+ * [compositionOffset]: how much later than its decoding time the frame is shown (B-frames of a copied
+ * H.264 picture; never negative). 0 for everything the phone encodes itself.
+ */
+class FragmentSample(val data: ByteArray, val duration: Int, val isSync: Boolean, val compositionOffset: Int = 0)
 
 /**
  * Minimal fragmented MP4 (ISO BMFF) writer: an init segment (ftyp + moov) followed
@@ -256,8 +260,10 @@ object FragmentedMp4 {
             box("traf") {
                 fullBox("tfhd", 0, 0x020000) { u32(trackId) } // default-base-is-moof
                 fullBox("tfdt", 1, 0) { u64(baseDecodeTime) }
-                // data-offset, sample-duration, sample-size, sample-flags present
-                fullBox("trun", 0, 0x000001 or 0x000100 or 0x000200 or 0x000400) {
+                // data-offset, sample-duration, sample-size, sample-flags present (and composition
+                // time offsets when a frame is shown later than it's decoded: B-frames)
+                val offsets = samples.any { it.compositionOffset != 0 }
+                fullBox("trun", 0, 0x000001 or 0x000100 or 0x000200 or 0x000400 or if (offsets) 0x000800 else 0) {
                     u32(samples.size)
                     dataOffsetPos = size
                     u32(0) // patched below
@@ -265,6 +271,7 @@ object FragmentedMp4 {
                         u32(s.duration)
                         u32(s.data.size)
                         u32(if (s.isSync) 0x02000000 else 0x01010000)
+                        if (offsets) u32(s.compositionOffset.coerceAtLeast(0))
                     }
                 }
             }

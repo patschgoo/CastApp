@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="msg_converting_copied">„%1$s“ wird auf dem Handy neu verpackt, damit der Fernseher es abspielen kann (Bild unverändert)</string>
+
+    <string name="tv_no_picture">kein Bild: Videoformat wird nicht unterstützt</string>
+</resources>

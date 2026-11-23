@@ -162,6 +162,10 @@ For a Shield that holds the drives (Plex Media Server and/or **Transfer files ov
 | `.ass` on a cloud folder | Play a WebDAV folder (Nextcloud, Apache, rclone) with `Video.English.ass` files next to the videos | The `.ass` files are only offered as subtitles, never played as music in the queue | Debug log + the server's name |
 | Plex on the Shield → CastApp TV on the Shield | Sign in to Plex in CastApp, play an anime episode (MKV/HEVC) on the Shield's CastApp TV | Plays the file itself (no converting on the Shield), with its subtitles; seeking works | Debug log + file details; say if it fell back to the converted stream |
 | Plex on the Shield → Chromecast | The same episode on a Chromecast | Plex converts it; plays | Debug log + whether other converts were running |
+| TV recording → Chromecast | Play an HD recording (`.ts`, H.264, e.g. ARD/ZDF HD) from the share on a Chromecast, seek twice | "Repackaging …" message; starts within a few seconds, sharp picture, sound (MP2/AC-3 converted to AAC), seeking works | Debug log + the recording's details (MediaInfo); say if the phone got warm |
+| SD / MPEG-2 recording → Chromecast | The same with an SD recording (MPEG-2) | "Converting …" message; plays | Debug log + file details |
+| XviD AVI on a Pixel → Chromecast | Play an XviD/DivX 5 `.avi` from the share on a Chromecast, seek | Converted; picture and sound in step, also after seeking | Debug log + phone model + file details |
+| DivX 3 AVI → CastApp TV | Play a DivX 3 `.avi` (FourCC DIV3) from the share, then the same file through Plex, on CastApp TV | From the share: "no picture" on the TV, then the phone says it can't convert it (no decoder for DivX 3); through Plex: the server's stream plays with picture | Debug log + file details |
 
 ## IPTV and the programme guide
 

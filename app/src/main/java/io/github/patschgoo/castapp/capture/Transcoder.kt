@@ -9,12 +9,16 @@ import android.media.MediaFormat
 import android.net.Uri
 import android.util.Log
 import io.github.patschgoo.castapp.network.HttpMediaSource
+import io.github.patschgoo.castapp.service.ContentMediaSource
 import io.github.patschgoo.castapp.stream.AudioConfig
 import io.github.patschgoo.castapp.stream.AvcUtils
 import io.github.patschgoo.castapp.stream.FragmentedMp4
 import io.github.patschgoo.castapp.stream.InterleavingQueue
+import io.github.patschgoo.castapp.stream.MediaSource
 import io.github.patschgoo.castapp.stream.StreamHub
 import io.github.patschgoo.castapp.stream.VideoConfig
+import java.io.IOException
+import java.io.InterruptedIOException
 import java.nio.ByteBuffer
 import java.nio.ByteOrder
 
@@ -25,6 +29,13 @@ import java.nio.ByteOrder
  *
  * Video: extractor → hardware decoder → OpenGL scale (max 1920×1080) → H.264 encoder.
  * Audio: extractor → decoder → 16-bit stereo PCM → AAC encoder.
+ *
+ * An H.264 picture the TV plays as it is (TV recordings, most MKV files: [Remux.videoRoute]) is copied
+ * instead, sample by sample, and AAC-LC stereo sound with it; only other sound is converted then. If the
+ * copy can't start (no key frame, no SPS), the picture is converted after all.
+ *
+ * Files Android's MediaExtractor can't open are read by Media3's AVI reader where they're AVI
+ * ([TranscodeInput.openReader]).
  */
 class Transcoder(
     private val context: Context,
@@ -36,6 +47,8 @@ class Transcoder(
     val hub: StreamHub = StreamHub(),
     /** Which sound track to use: its place among the file's sound tracks (0 = the first). */
     private val audioTrackOrdinal: Int = 0,
+    /** The picture may be copied where it can be ([Remux]); false after a copy didn't play on this TV. */
+    private val allowCopy: Boolean = true,
 ) {
     @Volatile private var running = false
     private val threads = ArrayList<Thread>()
@@ -50,6 +63,10 @@ class Transcoder(
     @Volatile var droppedAudioMime: String? = null
         private set
 
+    /** The picture is copied as it is, not converted (false again if the copy couldn't start). */
+    @Volatile var copying = false
+        private set
+
     /** The decoder [start] found for the picture track. */
     @Volatile private var videoDecoderName: String? = null
 
@@ -60,18 +77,19 @@ class Transcoder(
      */
     fun start() {
         val probe = try {
-            newExtractor()
+            newReader()
         } catch (e: Exception) {
             Log.w(TAG, "Can't open the file for converting", e)
             throw ConvertException(if (input.readable(context)) ConvertProblem.UnreadableFileType(null) else ConvertProblem.ReadFailed)
                 .apply { initCause(e) }
         }
+        val decodeOrder = probe.decodeOrderTimes
         val formats = try {
-            (0 until probe.trackCount).map { probe.getTrackFormat(it) }
+            (0 until probe.trackCount).map { probe.trackFormat(it) }
         } finally {
             probe.release()
         }
-        val check = check(formats, audioTrackOrdinal) { videoDecoderName = it }
+        val check = check(formats, audioTrackOrdinal, declaredVideo = { input.declaredVideo(context) }) { videoDecoderName = it }
         val (videoTrack, audioTrack) = ConvertChecks.pickTracks(formats.map { ConvertChecks.TrackFacts(it.getString(MediaFormat.KEY_MIME)) }, audioTrackOrdinal)
         val videoFormat = formats.getOrNull(videoTrack)
         val audioFormat = formats.getOrNull(audioTrack)
@@ -82,14 +100,31 @@ class Transcoder(
         check.problem?.let { throw ConvertException(it) }
         if (videoFormat == null) throw ConvertException(ConvertProblem.NoVideoTrack)
 
-        droppedAudioMime = check.droppedAudioMime
+        val route = Remux.videoRoute(videoFacts(videoFormat, decodeOrder), maxHeight, allowCopy)
+        copying = route == Remux.VideoRoute.Copy
+        Log.i(TAG, "Picture: " + if (copying) "copied as it is" else "converted (${(route as Remux.VideoRoute.Convert).why})")
+        // The sound is copied too where it's AAC the TV plays, but only next to a copied picture.
+        val copyAudio = copying && audioFormat != null && Remux.canCopyAudio(
+            audioFormat.getString(MediaFormat.KEY_MIME), audioFormat.bytes("csd-0"),
+            audioFormat.intOrNull(MediaFormat.KEY_CHANNEL_COUNT) ?: 0, audioFormat.intOrNull(MediaFormat.KEY_SAMPLE_RATE) ?: 0,
+        )
+
+        droppedAudioMime = if (copyAudio) null else check.droppedAudioMime
         if (droppedAudioMime != null) Log.w(TAG, "No decoder for the sound ($droppedAudioMime): converting without sound")
         val audioPossible = audioFormat != null && droppedAudioMime == null
         hub.expectAudio(audioPossible)
         if (!audioPossible) queue.endTrack(FragmentedMp4.AUDIO_TRACK_ID)
         running = true
-        threads += Thread({ runVideo(videoTrack, videoFormat) }, "transcode-video").apply { start() }
-        if (audioFormat != null && audioPossible) threads += Thread({ runAudio(audioTrack, audioFormat) }, "transcode-audio").apply { start() }
+        threads += Thread({
+            // A copy that can't start (no key frame, no SPS) leaves nothing behind: convert instead.
+            if (!copying || !runVideoCopy(videoTrack, videoFormat)) {
+                copying = false
+                if (running) runVideo(videoTrack, videoFormat, decodeOrder) else queue.endTrack(FragmentedMp4.VIDEO_TRACK_ID)
+            }
+        }, "transcode-video").apply { start() }
+        if (audioFormat != null && audioPossible) {
+            threads += Thread({ if (copyAudio) runAudioCopy(audioTrack, audioFormat) else runAudio(audioTrack, audioFormat) }, "transcode-audio").apply { start() }
+        }
     }
 
     fun stop() {
@@ -98,20 +133,20 @@ class Transcoder(
         threads.forEach { it.interrupt() }
     }
 
-    private fun newExtractor(): MediaExtractor = input.open(context)
+    private fun newReader(): SampleReader = input.openReader(context)
 
     // ---- video ----------------------------------------------------------------------------
 
-    private fun runVideo(track: Int, format: MediaFormat) {
-        var extractor: MediaExtractor? = null
+    private fun runVideo(track: Int, format: MediaFormat, decodeOrder: Boolean) {
+        var extractor: SampleReader? = null
         var decoder: MediaCodec? = null
         var encoder: MediaCodec? = null
         var scaler: GlScaler? = null
         var drain: Thread? = null
         try {
-            extractor = newExtractor().apply {
+            extractor = newReader().apply {
                 selectTrack(track)
-                seekTo(startUs, MediaExtractor.SEEK_TO_PREVIOUS_SYNC)
+                seekTo(startUs)
             }
             val srcW = format.getInteger(MediaFormat.KEY_WIDTH)
             val srcH = format.getInteger(MediaFormat.KEY_HEIGHT)
@@ -123,7 +158,7 @@ class Transcoder(
             val scale = minOf(1f, maxLong.toFloat() / maxOf(dispW, dispH).coerceAtLeast(1), maxShort.toFloat() / minOf(dispW, dispH).coerceAtLeast(1))
             val outW = ((dispW * scale).toInt() / 2) * 2
             val outH = ((dispH * scale).toInt() / 2) * 2
-            val fps = if (format.containsKey(MediaFormat.KEY_FRAME_RATE)) format.getInteger(MediaFormat.KEY_FRAME_RATE).coerceIn(10, 60) else 30
+            val fps = frameRate(format)?.coerceIn(10, 60) ?: 30
 
             val enc = MediaCodec.createEncoderByType(MediaFormat.MIMETYPE_VIDEO_AVC)
             val encFormat = MediaFormat.createVideoFormat(MediaFormat.MIMETYPE_VIDEO_AVC, outW, outH).apply {
@@ -145,7 +180,7 @@ class Transcoder(
                     }
                 }
             }
-            drain =Thread({ drainVideoEncoder(enc, outW, outH) }, "transcode-venc").apply { start() }
+            drain = Thread({ drainVideoEncoder(enc, outW, outH) }, "transcode-venc").apply { start() }
 
             val gl = GlScaler(encSurface, outW, outH, fill = false)
             val decSurface = gl.start(dispW, dispH)
@@ -157,6 +192,10 @@ class Transcoder(
             dec.configure(format, decSurface, null, 0)
             dec.start()
             decoder = dec
+            // AVI: the samples' times are their decoding order; pictures come back in display order.
+            val shownAt = if (decodeOrder) DisplayOrderTimes() else null
+            // XviD in AVI: the open GOP's B-pictures after the first key frame can't be decoded.
+            val leading = if (decodeOrder && format.getString(MediaFormat.KEY_MIME) == MediaFormat.MIMETYPE_VIDEO_MPEG4) Mpeg4Video.LeadingPictures() else null
 
             val info = MediaCodec.BufferInfo()
             var inputDone = false
@@ -165,12 +204,18 @@ class Transcoder(
                     val inIdx = dec.dequeueInputBuffer(10_000)
                     if (inIdx >= 0) {
                         val buf = dec.getInputBuffer(inIdx)!!
-                        val size = extractor.readSampleData(buf, 0)
+                        var size = extractor.readSampleData(buf, 0)
+                        while (size > 0 && leading != null && leading.skip(head(buf, size), extractor.sampleIsSync)) {
+                            extractor.advance()
+                            size = extractor.readSampleData(buf, 0)
+                        }
                         if (size < 0) {
                             dec.queueInputBuffer(inIdx, 0, 0, 0, MediaCodec.BUFFER_FLAG_END_OF_STREAM)
                             inputDone = true
                         } else {
-                            dec.queueInputBuffer(inIdx, 0, size, extractor.sampleTime, 0)
+                            val time = extractor.sampleTime
+                            if (size > 0) shownAt?.queued(time)
+                            dec.queueInputBuffer(inIdx, 0, size, time, 0)
                             extractor.advance()
                         }
                     }
@@ -178,9 +223,10 @@ class Transcoder(
                 val outIdx = dec.dequeueOutputBuffer(info, 10_000)
                 if (outIdx >= 0) {
                     val eos = info.flags and MediaCodec.BUFFER_FLAG_END_OF_STREAM != 0
-                    val render = info.size > 0 && info.presentationTimeUs >= startUs
+                    val timeUs = if (shownAt != null && info.size > 0) shownAt.shown(info.presentationTimeUs) else info.presentationTimeUs
+                    val render = info.size > 0 && timeUs >= startUs
                     val before = gl.framesDrawn
-                    dec.releaseOutputBuffer(outIdx, render)
+                    if (render && shownAt != null) dec.releaseOutputBuffer(outIdx, timeUs * 1000) else dec.releaseOutputBuffer(outIdx, render)
                     // Draw synchronously: one decoded frame in, one encoded frame out, nothing dropped.
                     if (render) gl.awaitFrameAfter(before, 2000)
                     if (eos) {
@@ -248,16 +294,123 @@ class Transcoder(
         }
     }
 
+    /**
+     * Copies the H.264 picture sample by sample (no decoder, no encoder): [PictureCopier]. Starts at the
+     * key frame before [startUs] (the session moves the start there: [keyFrameBefore]). Returns false
+     * when it couldn't start (no key frame or SPS / PPS soon enough, an SPS that isn't copied after all,
+     * a reading error before anything went out): nothing was sent then, and the caller converts.
+     */
+    private fun runVideoCopy(track: Int, format: MediaFormat): Boolean {
+        var reader: SampleReader? = null
+        val copier = PictureCopier(
+            format.bytes("csd-0"), format.bytes("csd-1"), maxHeight, COPY_LOOKAHEAD,
+            onStart = { facts, sps, pps -> hub.setVideoConfig(VideoConfig(facts.width, facts.height, sps, pps)) },
+            onSample = { data, dtsUs, key, offsetUs -> hub.pushVideo(data, dtsUs, key, offsetUs) },
+        )
+        try {
+            reader = newReader().apply {
+                selectTrack(track)
+                seekTo(startUs)
+            }
+            var buffer = ByteBuffer.allocateDirect(inputSize(format))
+            while (running) {
+                val size = try {
+                    reader.readSampleData(buffer, 0)
+                } catch (e: IllegalArgumentException) {
+                    if (buffer.capacity() >= MAX_SAMPLE_BYTES) throw e
+                    buffer = ByteBuffer.allocateDirect(buffer.capacity() * 2)
+                    continue
+                }
+                if (size < 0) break
+                val ptsUs = reader.sampleTime
+                val sync = reader.sampleIsSync
+                val bytes = ByteArray(size)
+                buffer.position(0)
+                buffer.limit(size)
+                buffer.get(bytes)
+                reader.advance()
+                if (!copier.add(bytes, ptsUs, sync)) {
+                    Log.i(TAG, "The picture can't be copied (${copier.refused}): converting it")
+                    return false
+                }
+            }
+            // The file ended before a key frame came: the converter knows how to say so.
+            if (!copier.started) return !running
+            if (running) copier.finish()
+            return true
+        } catch (e: InterruptedException) {
+            return true
+        } catch (e: InterruptedIOException) {
+            return true
+        } catch (e: Exception) {
+            if (!copier.started && running) {
+                Log.w(TAG, "Copying the picture couldn't start: converting it", e)
+                return false
+            }
+            Log.w(TAG, "Copying the picture failed", e)
+            error = e
+            return true
+        } finally {
+            reader?.release()
+            if (copier.started || !running) {
+                queue.endTrack(FragmentedMp4.VIDEO_TRACK_ID)
+                running = false
+            }
+        }
+    }
+
     // ---- audio ------------------------------------------------------------------------------
 
+    /** Copies AAC sound frame by frame (next to a copied picture). */
+    private fun runAudioCopy(track: Int, format: MediaFormat) {
+        var reader: SampleReader? = null
+        try {
+            reader = newReader().apply {
+                selectTrack(track)
+                seekTo(startUs)
+            }
+            val rate = format.getInteger(MediaFormat.KEY_SAMPLE_RATE)
+            val channels = format.getInteger(MediaFormat.KEY_CHANNEL_COUNT)
+            val asc = format.bytes("csd-0") ?: throw IOException("AAC without its configuration")
+            hub.setAudioConfig(AudioConfig(rate, channels, asc, format.intOrNull(MediaFormat.KEY_BIT_RATE)?.takeIf { it > 0 } ?: 128_000))
+            var buffer = ByteBuffer.allocate(16 * 1024)
+            while (running) {
+                val size = try {
+                    reader.readSampleData(buffer, 0)
+                } catch (e: IllegalArgumentException) {
+                    if (buffer.capacity() >= MAX_SAMPLE_BYTES) throw e
+                    buffer = ByteBuffer.allocate(buffer.capacity() * 2)
+                    continue
+                }
+                if (size < 0) break
+                val ptsUs = reader.sampleTime
+                if (size > 0) {
+                    val bytes = ByteArray(size)
+                    buffer.position(0)
+                    buffer.limit(size)
+                    buffer.get(bytes)
+                    hub.pushAudio(bytes, ptsUs)
+                }
+                reader.advance()
+            }
+        } catch (e: InterruptedException) {
+        } catch (e: InterruptedIOException) {
+        } catch (e: Exception) {
+            Log.w(TAG, "Copying the sound failed", e)
+        } finally {
+            queue.endTrack(FragmentedMp4.AUDIO_TRACK_ID)
+            reader?.release()
+        }
+    }
+
     private fun runAudio(track: Int, format: MediaFormat) {
-        var extractor: MediaExtractor? = null
+        var extractor: SampleReader? = null
         var decoder: MediaCodec? = null
         var encoder: MediaCodec? = null
         try {
-            extractor = newExtractor().apply {
+            extractor = newReader().apply {
                 selectTrack(track)
-                seekTo(startUs, MediaExtractor.SEEK_TO_PREVIOUS_SYNC)
+                seekTo(startUs)
             }
             val dec = MediaCodec.createDecoderByType(format.getString(MediaFormat.KEY_MIME)!!)
             dec.configure(format, null, null, 0)
@@ -430,33 +583,70 @@ class Transcoder(
 
     companion object {
         private const val TAG = "Transcoder"
-        private const val MAX_W = 1920
         private const val MAX_H = 1080
+
+        /** Frames looked at for a key frame (and SPS / PPS) before the copy gives up and converts. */
+        private const val COPY_LOOKAHEAD = 300
+        private const val MAX_SAMPLE_BYTES = 32 * 1024 * 1024
 
         /**
          * Whether the phone can convert [input] (with sound track [audioOrdinal]), and its length.
          * Reads only the file's header; nothing is decoded. [fileType] ("AVI") names the type in the reason.
          */
         fun probe(context: Context, input: TranscodeInput, audioOrdinal: Int = 0, fileType: String? = null): ConvertCheck {
-            val ex = try {
+            val reader = try {
                 // A second try covers a share or server connection that had gone stale.
-                ConvertChecks.openTwice { input.open(context) }
+                ConvertChecks.openTwice { input.openReader(context) }
             } catch (e: Exception) {
                 Log.i(TAG, "Can't open the file for converting: ${e.message}")
                 return ConvertCheck(ConvertChecks.openFailed(fileType) { input.readable(context) })
             }
             return try {
-                check((0 until ex.trackCount).map { ex.getTrackFormat(it) }, audioOrdinal)
+                val formats = (0 until reader.trackCount).map { reader.trackFormat(it) }
+                val check = check(formats, audioOrdinal, declaredVideo = { input.declaredVideo(context) })
+                val video = ConvertChecks.pickTracks(formats.map { ConvertChecks.TrackFacts(it.getString(MediaFormat.KEY_MIME)) }, audioOrdinal).first
+                check.copy(video = formats.getOrNull(video)?.let { videoFacts(it, reader.decodeOrderTimes) })
             } catch (e: Exception) {
                 Log.i(TAG, "Can't read the file's tracks: ${e.message}")
                 ConvertCheck(ConvertProblem.ReadFailed)
             } finally {
-                ex.release()
+                reader.release()
             }
         }
 
+        /**
+         * Where a copied picture starting at or after [timeUs] has to start: its key frame at or before it
+         * (null if it can't be told). A conversion that copies the picture can only start there, so the
+         * TV's clock and the subtitles are set to it.
+         */
+        fun keyFrameBefore(context: Context, input: TranscodeInput, timeUs: Long): Long? {
+            val reader = input.openReader(context)
+            return try {
+                val formats = (0 until reader.trackCount).map { reader.trackFormat(it) }
+                val video = ConvertChecks.pickTracks(formats.map { ConvertChecks.TrackFacts(it.getString(MediaFormat.KEY_MIME)) }, 0).first
+                if (video < 0) return null
+                reader.selectTrack(video)
+                reader.seekTo(timeUs)
+                reader.sampleTime.takeIf { it in 0..timeUs }
+            } finally {
+                reader.release()
+            }
+        }
+
+        /** What [Remux.videoRoute] needs to know of a picture track. */
+        private fun videoFacts(format: MediaFormat, decodeOrder: Boolean): Remux.VideoFacts {
+            val mime = format.getString(MediaFormat.KEY_MIME)
+            val sps = if (mime.equals("video/avc", ignoreCase = true)) format.bytes("csd-0")?.let { Remux.parseSps(it) } else null
+            return Remux.VideoFacts(mime, sps, format.intOrNull(MediaFormat.KEY_ROTATION) ?: 0, decodeOrder)
+        }
+
         /** [ConvertChecks.decide] for these track formats; [onDecoder] gets the picture decoder found. */
-        private fun check(formats: List<MediaFormat>, audioOrdinal: Int, onDecoder: (String) -> Unit = {}): ConvertCheck {
+        private fun check(
+            formats: List<MediaFormat>,
+            audioOrdinal: Int,
+            declaredVideo: () -> AviCodecs.Codec?,
+            onDecoder: (String) -> Unit = {},
+        ): ConvertCheck {
             val facts = formats.map { f ->
                 ConvertChecks.TrackFacts(
                     f.getString(MediaFormat.KEY_MIME),
@@ -465,9 +655,13 @@ class Transcoder(
             }
             return ConvertChecks.decide(
                 facts, audioOrdinal,
-                videoDecoder = { i -> findVideoDecoder(formats[i])?.also(onDecoder) != null },
+                // Microsoft's MPEG-4 (DivX 3) has no decoder on Android: not even asked.
+                videoDecoder = { i -> AviCodecs.msMpeg4Name(facts[i].mime) == null && findVideoDecoder(formats[i])?.also(onDecoder) != null },
                 audioDecoder = { i -> hasDecoder(formats[i]) },
-                videoCodec = { i -> ConvertChecks.videoCodecName(facts[i].mime, formats[i].intOrNull(MediaFormat.KEY_PROFILE)) },
+                videoCodec = { i ->
+                    AviCodecs.msMpeg4Name(facts[i].mime) ?: ConvertChecks.videoCodecName(facts[i].mime, formats[i].intOrNull(MediaFormat.KEY_PROFILE))
+                },
+                droppedVideo = declaredVideo,
             )
         }
 
@@ -517,8 +711,44 @@ class Transcoder(
             }
         }
 
+        /** Room for one picture sample: what the file says, at least 2 MB (an H.264 key frame of a TV recording fits). */
+        private fun inputSize(format: MediaFormat): Int =
+            (format.intOrNull(MediaFormat.KEY_MAX_INPUT_SIZE) ?: 0).coerceIn(2 * 1024 * 1024, MAX_SAMPLE_BYTES)
+
+        /** The first bytes of the sample [readSampleData][SampleReader.readSampleData] put in [buf] (its headers). */
+        private fun head(buf: ByteBuffer, size: Int): ByteArray {
+            val d = buf.duplicate()
+            d.position(0)
+            return ByteArray(minOf(size, 64)).also { d.get(it) }
+        }
+
+        /** Frames per second: an integer from MediaExtractor, a float from Media3's formats. */
+        private fun frameRate(format: MediaFormat): Int? = try {
+            if (!format.containsKey(MediaFormat.KEY_FRAME_RATE)) {
+                null
+            } else {
+                try {
+                    format.getInteger(MediaFormat.KEY_FRAME_RATE)
+                } catch (_: ClassCastException) {
+                    Math.round(format.getFloat(MediaFormat.KEY_FRAME_RATE))
+                }
+            }
+        } catch (_: Exception) {
+            null
+        }
+
         private fun MediaFormat.intOrNull(key: String): Int? = try {
             if (containsKey(key)) getInteger(key) else null
+        } catch (_: Exception) {
+            null
+        }
+
+        private fun MediaFormat.bytes(key: String): ByteArray? = try {
+            getByteBuffer(key)?.let { b ->
+                val d = b.duplicate()
+                d.rewind()
+                ByteArray(d.remaining()).also { d.get(it) }
+            }
         } catch (_: Exception) {
             null
         }
@@ -527,10 +757,53 @@ class Transcoder(
 
 /** Where a video to convert (or to transcribe for subtitles) comes from. */
 sealed class TranscodeInput {
+    /** Android's MediaExtractor on this input (the subtitle writer reads the sound with it). */
     abstract fun open(context: Context): MediaExtractor
 
     /** Whether the file's first bytes can be read at all: tells "unknown file type" from "file not reachable". */
     abstract fun readable(context: Context): Boolean
+
+    /** The file's bytes from any position (for Media3's readers), null if there's no way to get them. */
+    abstract fun mediaSource(context: Context): MediaSource?
+
+    /** What opened this input last time: an AVI MediaExtractor couldn't open goes straight to Media3 afterwards. */
+    @Volatile private var known: ReaderKind? = null
+
+    /**
+     * A reader for the converter: Android's MediaExtractor wherever it opens the file (what works today
+     * stays as it is), Media3's AVI reader for AVI and .divx files it can't open ([ReaderChoice]).
+     */
+    fun openReader(context: Context): SampleReader {
+        if (known != ReaderKind.MEDIA3_AVI) {
+            try {
+                val ex = open(context)
+                known = ReaderKind.ANDROID
+                return AndroidSampleReader(ex)
+            } catch (e: Exception) {
+                if (e is InterruptedException || e is InterruptedIOException || Thread.currentThread().isInterrupted) throw e
+                val source = try { mediaSource(context) } catch (_: Exception) { null } ?: throw e
+                if (ReaderChoice.choose(extractorOpened = false, head = ReaderChoice.head(source)) != ReaderKind.MEDIA3_AVI) throw e
+                Log.i("TranscodeInput", "MediaExtractor can't open this AVI: reading it with Media3")
+                known = ReaderKind.MEDIA3_AVI
+                return Media3SampleReader(Media3Samples.avi(source))
+            }
+        }
+        val source = mediaSource(context) ?: throw IOException("No way to read the file")
+        return Media3SampleReader(Media3Samples.avi(source))
+    }
+
+    /**
+     * The picture codec an AVI file declares (asked when no reader hands out a picture track: a DivX 3
+     * stream is dropped by Media3's AVI reader), null for other files.
+     */
+    fun declaredVideo(context: Context): AviCodecs.Codec? = try {
+        val source = mediaSource(context)
+        val head = source?.let { ReaderChoice.head(it) }
+        if (source != null && head != null && AviHeader.isAvi(head)) AviHeader.videoCodec(AviHeader.read(source))?.let { AviCodecs.video(it) } else null
+    } catch (e: Exception) {
+        if (e is InterruptedException || e is InterruptedIOException) throw e
+        null
+    }
 
     /** A new extractor on this input, released again if the file can't be opened. */
     protected fun extractor(setSource: MediaExtractor.() -> Unit): MediaExtractor {
@@ -552,6 +825,9 @@ sealed class TranscodeInput {
             if (web) setDataSource(uri.toString(), headers) else setDataSource(context, uri, headers)
         }
 
+        override fun mediaSource(context: Context): MediaSource =
+            if (web) HttpMediaSource(uri.toString(), headers) else ContentMediaSource(context.contentResolver, uri)
+
         override fun readable(context: Context): Boolean = try {
             if (web) {
                 // A real request with the item's log-in headers, for its first byte only.
@@ -570,8 +846,10 @@ sealed class TranscodeInput {
     }
 
     /** Anything readable from any position, e.g. a file on a network share. */
-    class FromSource(val source: io.github.patschgoo.castapp.stream.MediaSource) : TranscodeInput() {
+    class FromSource(val source: MediaSource) : TranscodeInput() {
         override fun open(context: Context) = extractor { setDataSource(SourceDataSource(source)) }
+
+        override fun mediaSource(context: Context): MediaSource = source
 
         override fun readable(context: Context): Boolean = try {
             source.open(0).use { it.read() >= 0 }
@@ -582,7 +860,7 @@ sealed class TranscodeInput {
 }
 
 /** Lets Android's MediaExtractor read from a [io.github.patschgoo.castapp.stream.MediaSource]. */
-class SourceDataSource(private val source: io.github.patschgoo.castapp.stream.MediaSource) : android.media.MediaDataSource() {
+class SourceDataSource(private val source: MediaSource) : android.media.MediaDataSource() {
     private var stream: java.io.InputStream? = null
     private var streamPos = -1L
 
