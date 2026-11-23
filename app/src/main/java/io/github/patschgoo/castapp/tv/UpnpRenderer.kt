@@ -323,7 +323,7 @@ class UpnpRenderer(
         local = isLocal(remote),
     )
 
-    /** GET /castapp/capabilities: {"version": 1, "hevc": true, "youtube": true, ...} for phones on this network. */
+    /** GET /castapp/capabilities: {"version": 2, "hevc": true, "youtube": true, "av1": false, ...} for devices on this network. */
     private fun capabilitiesResponse(remote: InetAddress?): Response {
         val c = commands ?: return Response(404, "Not Found", "text/plain", ByteArray(0))
         if (!isLocal(remote)) return plain(403, "Forbidden", "Only devices on the local network may ask that")
@@ -646,8 +646,8 @@ class UpnpRenderer(
 
     companion object {
         const val MODEL_NAME = "CastApp TV"
-        /** Version of the /castapp/capabilities answer. */
-        const val CAPABILITIES_VERSION = 1
+        /** Version of the /castapp/capabilities answer (2: decoders, passthrough and subtitles). */
+        const val CAPABILITIES_VERSION = 2
 
         /** Requests from this home network only (private, link-local or loopback addresses). */
         fun isLocal(remote: InetAddress?): Boolean =

@@ -221,11 +221,20 @@ object TvReceiver : RendererBackend, CastAppCommands {
 
     // ---- CastAppCommands: what this TV can do, and YouTube links ------------------------------------
 
-    /** Phones read this before mirroring: HEVC only goes to TVs that decode it. */
-    override fun capabilities(): Map<String, Any> = mapOf(
-        "hevc" to io.github.patschgoo.castapp.capture.VideoCodecs.hasHevcDecoder(),
-        "youtube" to true,
-    )
+    /**
+     * Phones read this before mirroring (HEVC only goes to TVs that decode it); sender apps read the
+     * decoders before they send a file ([DecoderReport]).
+     */
+    override fun capabilities(): Map<String, Any> {
+        val decoders = decoderList ?: DecoderReport.scan().also { decoderList = it }
+        return mapOf(
+            "hevc" to io.github.patschgoo.castapp.capture.VideoCodecs.hasHevcDecoder(),
+            "youtube" to true,
+        ) + DecoderReport.report(decoders, DecoderReport.passthrough(appContext))
+    }
+
+    /** The decoders don't change while the app runs; the HDMI output does, so passthrough is asked each time. */
+    @Volatile private var decoderList: List<DecoderReport.Decoder>? = null
 
     /** Opens a (checked, canonical) YouTube link in the TV's YouTube app, or whatever handles such links. */
     override fun openYouTube(url: String): String? {

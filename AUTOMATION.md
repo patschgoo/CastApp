@@ -342,6 +342,50 @@ queued and the watched marks kept in the library:
 4. Its receiver saves `position_ms` on `progress`, `paused` and `stopped`, marks the episode watched on
    `finished`, and shows a note on `failed`. When the user later casts something else, the reports stop.
 
+## CastApp TV for other sender apps
+
+CastApp TV (CastApp on a Fire TV, Android TV or Google TV box) is a normal DLNA/UPnP media renderer:
+any DLNA sender finds it with an SSDP search (`urn:schemas-upnp-org:device:MediaRenderer:1`; its
+`modelName` is `CastApp TV`) and plays with `SetAVTransportURI` and `Play`. Its home screen shows its
+address (`Address: 192.168.1.20:49595`), which senders that add a TV by hand can use. These extras are
+optional; TVs without CastApp never need them.
+
+**What it plays:** `GET http://<address>/castapp/capabilities` (devices on the local network only)
+answers JSON with `true`/`false` values:
+
+| Keys | Meaning |
+|---|---|
+| `version` | `2` (a number, not true/false). |
+| `h264`, `h264_10bit` (also `hi10p`), `hevc_10bit`, `av1`, `vp9`, `vp8`, `mpeg2`, `mpeg4` | A hardware decoder for 1080p: plays smoothly. |
+| the same with `_sw` (`av1_sw` ...) | A decoder, but no such hardware one (software, or hardware below 1080p): fine for SD, may stutter or fail in HD. |
+| `hevc` | A hardware HEVC decoder for 1080p (the key older CastApp versions read). |
+| `aac`, `mp3`, `ac3`, `eac3`, `dts`, `truehd`, `flac`, `opus`, `vorbis` | Plays this sound: a decoder, or passed through to the AV receiver. |
+| `ac3_passthrough`, `eac3_passthrough`, `dts_passthrough`, `truehd_passthrough` | The HDMI output takes it as it is right now (follows what is plugged in). |
+| `sub_srt`, `sub_vtt`, `sub_ass`, `sub_pgs`, `sub_vobsub` | Subtitle formats it shows, as files and inside MKV. |
+| `sub_ass_full` | `false`: ASS keeps position, colours, bold and italic, but not effects, karaoke or embedded fonts. |
+| `youtube` | It opens YouTube links in the TV's YouTube app (CastApp's own use). |
+
+Keys may be added; read the ones you know and treat a missing key as unknown.
+
+**Hints in the DIDL-Lite metadata** of `SetAVTransportURI`, each in its own `<desc>` with
+`nameSpace="urn:castapp"` inside the `<item>`:
+
+- `castapp:subtrack:<hint>`: which subtitle track **inside the file** to show. It counts only when no
+  subtitle file comes with the item (a second `<res>` or `sec:CaptionInfoEx` wins). `<hint>` is `off`
+  (none), or `&`-joined fields with URL-encoded values: `prefer=de,en` (languages, best first),
+  `lang=jpn` (this language), `title=Full` (the track's name, with `lang`), `t=2` (the track's place
+  among the file's subtitle tracks, counted from 0; used when its language agrees with `lang`). Only
+  `prefer=` is fine too: the player then takes a track in the first language it has.
+- `castapp:substyle:size=1.35;fg=FFEB3B;bg=box`: how subtitles look. `size` is `0.75`, `1.0`, `1.35` or
+  `1.75` (other numbers go to the nearest), `fg` one of `FFFFFF`, `FFEB3B`, `4DD0E1`, `8BC34A` (others
+  become white), `bg` is `none`, `shadow` or `box` (half-transparent black, the default). Without it the
+  TV's own caption settings apply.
+
+```xml
+<desc id="castapp-subtrack" nameSpace="urn:castapp">castapp:subtrack:lang=jpn&amp;title=Full&amp;prefer=de%2Cen</desc>
+<desc id="castapp-subtitles" nameSpace="urn:castapp">castapp:substyle:size=1.35;fg=FFFFFF;bg=shadow</desc>
+```
+
 ## Answers
 
 Every call is answered in up to three ways:

@@ -30,9 +30,20 @@ import kotlinx.coroutines.flow.asStateFlow
  * phones searching the network, also while another app is on screen.
  */
 class TvReceiverService : Service() {
-    private var renderer: UpnpRenderer? = null
+    @Volatile private var renderer: UpnpRenderer? = null
     private var multicastLock: WifiManager.MulticastLock? = null
     private var networkCallback: ConnectivityManager.NetworkCallback? = null
+
+    /**
+     * The TV wakes from sleep (screen on, screensaver ends): join the search group again and announce
+     * ourselves, in case the network went quiet while it slept (no network callback comes then).
+     */
+    private val wakeReceiver = object : BroadcastReceiver() {
+        override fun onReceive(context: Context, intent: Intent) {
+            Thread({ refreshNetwork() }, "CastApp-tv-wake").start()
+        }
+    }
+    private var wakeRegistered = false
 
     override fun onBind(intent: Intent?): IBinder? = null
 
@@ -63,6 +74,12 @@ class TvReceiverService : Service() {
         _address.value = NetworkScanner.localNetworks().firstOrNull()?.address?.hostAddress?.let { "$it:${r.port}" }
         _running.value = true
         watchNetwork()
+        try {
+            val filter = android.content.IntentFilter(Intent.ACTION_SCREEN_ON).apply { addAction(Intent.ACTION_DREAMING_STOPPED) }
+            ContextCompat.registerReceiver(this, wakeReceiver, filter, ContextCompat.RECEIVER_NOT_EXPORTED)
+            wakeRegistered = true
+        } catch (_: Exception) {
+        }
         // Phones that cast can find this receiver as a CastApp device (to join, hand over...).
         io.github.patschgoo.castapp.multi.Peers.acquire(this, "receiver")
     }
@@ -80,6 +97,7 @@ class TvReceiverService : Service() {
     }
 
     override fun onDestroy() {
+        if (wakeRegistered) try { unregisterReceiver(wakeReceiver) } catch (_: Exception) {}
         networkCallback?.let { cb ->
             try { getSystemService(ConnectivityManager::class.java)?.unregisterNetworkCallback(cb) } catch (_: Exception) {}
         }
@@ -94,17 +112,19 @@ class TvReceiverService : Service() {
 
     private fun interfaces() = NetworkScanner.localNetworks().map { it.iface }.distinct()
 
+    /** Off the main thread: it sends on the network. */
+    private fun refreshNetwork() {
+        val r = renderer ?: return
+        r.networkChanged(interfaces())
+        _address.value = NetworkScanner.localNetworks().firstOrNull()?.address?.hostAddress?.let { "$it:${r.port}" }
+    }
+
     /** A new Wi-Fi connection (or address): rejoin the search group there and announce ourselves. */
     private fun watchNetwork() {
         val cm = getSystemService(ConnectivityManager::class.java) ?: return
         val cb = object : ConnectivityManager.NetworkCallback() {
-            override fun onAvailable(network: Network) = refresh()
-            override fun onLinkPropertiesChanged(network: Network, linkProperties: LinkProperties) = refresh()
-            private fun refresh() {
-                val r = renderer ?: return
-                r.networkChanged(interfaces())
-                _address.value = NetworkScanner.localNetworks().firstOrNull()?.address?.hostAddress?.let { "$it:${r.port}" }
-            }
+            override fun onAvailable(network: Network) = refreshNetwork()
+            override fun onLinkPropertiesChanged(network: Network, linkProperties: LinkProperties) = refreshNetwork()
         }
         try {
             cm.registerDefaultNetworkCallback(cb)

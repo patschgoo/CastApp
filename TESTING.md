@@ -110,6 +110,8 @@ The main screen is new: **Cast to** on top, three big buttons, tiles for everyth
 | Open over other apps | Cast while another TV app is in front (Android 10+ / Fire OS 8) | The player opens by itself, or the app tells you what to allow | Photo + debug log |
 | Receiver protection | Set **Ask first** / **Only paired phones**, cast from a second phone | The TV asks / needs the 4-digit code; a wrong code is refused | Debug log |
 | Rename | Rename the TV in the TV app | The phone shows the new name | Debug log |
+| Found from a PC | On a Windows PC in the same network, look for renderers with any DLNA app, e.g. VLC → **View → Playlist → Local Network → Universal Plug'n'Play** | CastApp TV is listed, also after the TV slept for an hour and was woken (e.g. by Plex) | The TV's address from its home screen and the PC's address (`ipconfig`): the first three numbers must match, else they are in different networks (a second router); say whether the TV slept |
+| What it plays | On the PC, open `http://<the TV's address>/castapp/capabilities` in a browser | A list of `true`/`false` per format (`h264_10bit`, `av1`, `truehd` ...) | Send the whole text: it shows what the TV's chips decode |
 
 ## Samsung and LG DLNA TVs
 
