@@ -95,6 +95,9 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
+import androidx.compose.foundation.text.TextAutoSize
+import androidx.compose.material3.LocalTextStyle
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import io.github.patschgoo.castapp.iptv.Channel
 import io.github.patschgoo.castapp.iptv.ChannelEntry
@@ -162,6 +165,17 @@ class TvChannelsActivity : ComponentActivity() {
         /** More channels than this are cut around the picked one (the TV list is the play list). */
         const val MAX_QUEUE = 1500
     }
+}
+
+/** A segment of the Live / Movies / Series and Channels / Guide / Grid rows: one line, smaller with a large font. */
+@Composable
+private fun SegmentLabel(text: String) {
+    Text(
+        text,
+        maxLines = 1,
+        softWrap = false,
+        autoSize = TextAutoSize.StepBased(minFontSize = 10.sp, maxFontSize = LocalTextStyle.current.fontSize),
+    )
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -313,7 +327,7 @@ internal fun ChannelsScreen(repo: IptvRepository, onBack: () -> Unit) {
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text(stringResource(R.string.tvc_title)) },
+                title = { Text(stringResource(R.string.tvc_title), maxLines = 1, overflow = TextOverflow.Ellipsis) },
                 navigationIcon = {
                     IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Rounded.ArrowBack, contentDescription = stringResource(R.string.back)) }
                 },
@@ -420,7 +434,7 @@ internal fun ChannelsScreen(repo: IptvRepository, onBack: () -> Unit) {
                             selected = currentTab == i,
                             onClick = { tab = i },
                             shape = SegmentedButtonDefaults.itemShape(i, 3),
-                        ) { Text(stringResource(label)) }
+                        ) { SegmentLabel(stringResource(label)) }
                     }
                 }
             }
@@ -461,7 +475,7 @@ internal fun ChannelsScreen(repo: IptvRepository, onBack: () -> Unit) {
                             selected = liveView == i,
                             onClick = { liveView = i },
                             shape = SegmentedButtonDefaults.itemShape(i, 3),
-                        ) { Text(stringResource(label)) }
+                        ) { SegmentLabel(stringResource(label)) }
                     }
                 }
             }

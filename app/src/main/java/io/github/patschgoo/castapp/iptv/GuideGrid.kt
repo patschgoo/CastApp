@@ -141,9 +141,14 @@ internal fun GuideGrid(
             val leftTime by remember(scroll, spec, dpPx) { derivedStateOf { spec.timeAt(scroll.value / dpPx) } }
             var dayMenu by remember { mutableStateOf(false) }
             Row(Modifier.fillMaxWidth().padding(horizontal = 8.dp), verticalAlignment = Alignment.CenterVertically) {
-                Box {
+                // The day takes what the buttons leave (cut short with a large font, never the buttons).
+                Box(Modifier.weight(1f)) {
                     TextButton(onClick = { dayMenu = true }) {
-                        Text(DateUtils.formatDateTime(context, leftTime, DateUtils.FORMAT_SHOW_WEEKDAY or DateUtils.FORMAT_SHOW_DATE or DateUtils.FORMAT_ABBREV_ALL))
+                        Text(
+                            DateUtils.formatDateTime(context, leftTime, DateUtils.FORMAT_SHOW_WEEKDAY or DateUtils.FORMAT_SHOW_DATE or DateUtils.FORMAT_ABBREV_ALL),
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis,
+                        )
                     }
                     DropdownMenu(expanded = dayMenu, onDismissRequest = { dayMenu = false }) {
                         for (day in remember(spec) { spec.dayStarts() }) {
@@ -161,14 +166,13 @@ internal fun GuideGrid(
                         }
                     }
                 }
-                Spacer(Modifier.weight(1f))
                 IconButton(onClick = { scope.launch { scroll.animateScrollTo((scroll.value - SCROLL_STEP_MS * spec.dpPerMs * dpPx).toInt().coerceAtLeast(0)) } }) {
                     Icon(Icons.AutoMirrored.Rounded.KeyboardArrowLeft, contentDescription = stringResource(R.string.iptvx_grid_earlier))
                 }
                 TextButton(onClick = { scope.launch { scroll.animateScrollTo(scrollTarget(now - GridSpec.SLOT_MS, viewportPx)) } }) {
                     Icon(Icons.Rounded.Schedule, contentDescription = null, modifier = Modifier.size(18.dp))
                     Spacer(Modifier.width(6.dp))
-                    Text(stringResource(R.string.iptvx_grid_now))
+                    Text(stringResource(R.string.iptvx_grid_now), maxLines = 1, softWrap = false)
                 }
                 IconButton(onClick = { scope.launch { scroll.animateScrollTo((scroll.value + SCROLL_STEP_MS * spec.dpPerMs * dpPx).toInt().coerceAtMost(scroll.maxValue)) } }) {
                     Icon(Icons.AutoMirrored.Rounded.KeyboardArrowRight, contentDescription = stringResource(R.string.iptvx_grid_later))

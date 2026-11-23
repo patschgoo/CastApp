@@ -11,7 +11,6 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.IntrinsicSize
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
@@ -94,6 +93,8 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.layout.Layout
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.LiveRegionMode
 import androidx.compose.ui.semantics.Role
@@ -357,6 +358,15 @@ private fun CastToRow(target: DeviceEntry?, casting: Boolean, scanning: Boolean,
         else -> stringResource(R.string.home_status_missing)
     }
     val statusColor = if (target != null && (casting || target.online)) colors.ok else MaterialTheme.colorScheme.onSurfaceVariant
+    // With a large font the status goes under the name, so the name keeps the width.
+    val large = isLargeFont()
+    val statusLine: @Composable () -> Unit = {
+        Row(Modifier.semantics { liveRegion = LiveRegionMode.Polite }, verticalAlignment = Alignment.CenterVertically) {
+            Box(Modifier.size(8.dp).clip(CircleShape).background(statusColor))
+            Spacer(Modifier.width(6.dp))
+            Text(status, style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.Bold, color = statusColor, maxLines = 1)
+        }
+    }
     Surface(onClick = onClick, shape = RoundedCornerShape(26.dp), color = colors.card, modifier = Modifier.fillMaxWidth()) {
         Row(Modifier.padding(start = 8.dp, end = 12.dp, top = 8.dp, bottom = 8.dp), verticalAlignment = Alignment.CenterVertically) {
             Box(
@@ -375,12 +385,11 @@ private fun CastToRow(target: DeviceEntry?, casting: Boolean, scanning: Boolean,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
                 )
+                if (large) statusLine()
             }
-            Spacer(Modifier.width(8.dp))
-            Row(Modifier.semantics { liveRegion = LiveRegionMode.Polite }, verticalAlignment = Alignment.CenterVertically) {
-                Box(Modifier.size(8.dp).clip(CircleShape).background(statusColor))
-                Spacer(Modifier.width(6.dp))
-                Text(status, style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.Bold, color = statusColor, maxLines = 1)
+            if (!large) {
+                Spacer(Modifier.width(8.dp))
+                statusLine()
             }
             Spacer(Modifier.width(4.dp))
             Icon(Icons.Rounded.KeyboardArrowDown, contentDescription = null, modifier = Modifier.size(20.dp))
@@ -410,29 +419,42 @@ private fun QuickActions(
     onMusic: () -> Unit,
     onStop: () -> Unit,
 ) {
-    Row(Modifier.fillMaxWidth().height(IntrinsicSize.Max), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+    // With a large font three buttons side by side break their words: one below the other then.
+    val stacked = isLargeFont()
+    val buttons: @Composable (Modifier) -> Unit = { modifier ->
         when {
             running != null -> QuickButton(
                 Icons.Rounded.Stop,
                 stringResource(if (running.audioOnly) R.string.home_stop_sound else R.string.home_stop_mirroring),
-                QuickStyle.OUTLINED, onStop,
+                QuickStyle.OUTLINED, onStop, modifier, stacked,
             )
-            soundOnly -> QuickButton(Icons.Rounded.Speaker, stringResource(R.string.home_phone_sound), QuickStyle.PRIMARY, onSound)
-            else -> QuickButton(Icons.AutoMirrored.Rounded.ScreenShare, stringResource(R.string.home_mirror), QuickStyle.PRIMARY, onMirror)
+            soundOnly -> QuickButton(Icons.Rounded.Speaker, stringResource(R.string.home_phone_sound), QuickStyle.PRIMARY, onSound, modifier, stacked)
+            else -> QuickButton(Icons.AutoMirrored.Rounded.ScreenShare, stringResource(R.string.home_mirror), QuickStyle.PRIMARY, onMirror, modifier, stacked)
         }
         if (soundOnly) {
-            QuickButton(Icons.Rounded.LibraryMusic, stringResource(R.string.home_music_files), QuickStyle.PLAIN, onMusic)
+            QuickButton(Icons.Rounded.LibraryMusic, stringResource(R.string.home_music_files), QuickStyle.PLAIN, onMusic, modifier, stacked)
         } else {
-            QuickButton(Icons.Rounded.Apps, stringResource(R.string.home_one_app), QuickStyle.PLAIN, onApp)
-            QuickButton(Icons.Rounded.Speaker, stringResource(R.string.home_phone_sound), QuickStyle.PLAIN, onSound)
+            QuickButton(Icons.Rounded.Apps, stringResource(R.string.home_one_app), QuickStyle.PLAIN, onApp, modifier, stacked)
+            QuickButton(Icons.Rounded.Speaker, stringResource(R.string.home_phone_sound), QuickStyle.PLAIN, onSound, modifier, stacked)
+        }
+    }
+    if (stacked) {
+        Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(10.dp)) { buttons(Modifier.fillMaxWidth()) }
+    } else {
+        Row(Modifier.fillMaxWidth().height(IntrinsicSize.Max), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+            buttons(Modifier.weight(1f).fillMaxHeight())
         }
     }
 }
 
+/** The user picked a large font (Android's font size 150 % and up): some rows become columns. */
+@Composable
+private fun isLargeFont(): Boolean = LocalDensity.current.fontScale >= 1.5f
+
 private enum class QuickStyle { PRIMARY, PLAIN, OUTLINED }
 
 @Composable
-private fun RowScope.QuickButton(icon: ImageVector, label: String, style: QuickStyle, onClick: () -> Unit) {
+private fun QuickButton(icon: ImageVector, label: String, style: QuickStyle, onClick: () -> Unit, modifier: Modifier, wide: Boolean) {
     val scheme = MaterialTheme.colorScheme
     val container = when (style) {
         QuickStyle.PRIMARY -> scheme.primary
@@ -450,8 +472,16 @@ private fun RowScope.QuickButton(icon: ImageVector, label: String, style: QuickS
         color = container,
         contentColor = content,
         border = if (style == QuickStyle.OUTLINED) BorderStroke(2.dp, scheme.primary) else null,
-        modifier = Modifier.weight(1f).fillMaxHeight().semantics { role = Role.Button },
+        modifier = modifier.semantics { role = Role.Button },
     ) {
+        if (wide) {
+            Row(Modifier.heightIn(min = 56.dp).padding(horizontal = 16.dp, vertical = 10.dp), verticalAlignment = Alignment.CenterVertically) {
+                Icon(icon, contentDescription = null, modifier = Modifier.size(22.dp))
+                Spacer(Modifier.width(12.dp))
+                Text(label, fontSize = 13.sp, lineHeight = 16.sp, fontWeight = FontWeight.Bold)
+            }
+            return@Surface
+        }
         Column(
             Modifier.heightIn(min = 72.dp).padding(horizontal = 6.dp, vertical = 10.dp),
             horizontalAlignment = Alignment.CenterHorizontally,
@@ -484,11 +514,13 @@ private fun tileShape(index: Int): Shape {
 @Composable
 private fun SourceTiles(tiles: List<SourceTile>) {
     val colors = LocalCastColors.current
+    // Two tiles side by side leave a large font no room for the names.
+    val columns = if (isLargeFont()) 1 else 2
     Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-        tiles.chunked(2).forEachIndexed { rowIndex, row ->
+        tiles.chunked(columns).forEachIndexed { rowIndex, row ->
             Row(Modifier.fillMaxWidth().height(IntrinsicSize.Max), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                 row.forEachIndexed { column, tile ->
-                    val index = rowIndex * 2 + column
+                    val index = rowIndex * columns + column
                     Surface(
                         onClick = tile.onClick,
                         shape = tileShape(index),
@@ -502,21 +534,22 @@ private fun SourceTiles(tiles: List<SourceTile>) {
                                 contentAlignment = Alignment.Center,
                             ) { Icon(tile.icon, contentDescription = null, modifier = Modifier.size(18.dp)) }
                             Spacer(Modifier.height(8.dp))
+                            // Two lines each: German names don't fit one line on a 360 dp phone.
                             Column {
-                                Text(stringResource(tile.label), fontSize = 15.sp, lineHeight = 18.sp, fontWeight = FontWeight.ExtraBold, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                                Text(stringResource(tile.label), fontSize = 15.sp, lineHeight = 18.sp, fontWeight = FontWeight.ExtraBold, maxLines = 2, overflow = TextOverflow.Ellipsis)
                                 Text(
                                     stringResource(tile.hint),
                                     fontSize = 12.sp,
                                     lineHeight = 15.sp,
                                     color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                    maxLines = 1,
+                                    maxLines = 2,
                                     overflow = TextOverflow.Ellipsis,
                                 )
                             }
                         }
                     }
                 }
-                if (row.size == 1) Spacer(Modifier.weight(1f))
+                if (row.size < columns) Spacer(Modifier.weight(1f))
             }
         }
     }
@@ -685,13 +718,13 @@ private fun TvPickerBody(
             onMore = { onMore(entry) },
         )
     }
-    Row(Modifier.fillMaxWidth().padding(top = 12.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-        FilledTonalButton(onClick = actions.onScan, enabled = !scanning, modifier = Modifier.weight(1f)) {
+    ButtonPair(Modifier.fillMaxWidth().padding(top = 12.dp)) {
+        FilledTonalButton(onClick = actions.onScan, enabled = !scanning) {
             Icon(Icons.Rounded.Search, contentDescription = null, modifier = Modifier.size(18.dp))
             Spacer(Modifier.width(6.dp))
             Text(stringResource(if (scanning) R.string.scanning_short else R.string.scan_network), maxLines = 1, overflow = TextOverflow.Ellipsis)
         }
-        OutlinedButton(onClick = onAdd, modifier = Modifier.weight(1f)) {
+        OutlinedButton(onClick = onAdd) {
             Icon(Icons.Rounded.Add, contentDescription = null, modifier = Modifier.size(18.dp))
             Spacer(Modifier.width(6.dp))
             Text(stringResource(R.string.add_by_ip), maxLines = 1, overflow = TextOverflow.Ellipsis)
@@ -705,6 +738,35 @@ private fun TvPickerBody(
         color = MaterialTheme.colorScheme.onSurfaceVariant,
         modifier = Modifier.padding(top = 4.dp),
     )
+}
+
+/**
+ * Two buttons side by side at the same width when both labels fit, else one below the other
+ * at full width (long German labels, narrow phones, large fonts), instead of cutting the labels.
+ */
+@Composable
+private fun ButtonPair(modifier: Modifier = Modifier, content: @Composable () -> Unit) {
+    Layout(content, modifier) { measurables, constraints ->
+        val gap = 8.dp.roundToPx()
+        val width = constraints.maxWidth
+        val half = (width - gap) / 2
+        if (measurables.all { it.maxIntrinsicWidth(constraints.maxHeight) <= half }) {
+            val placeables = measurables.map { it.measure(constraints.copy(minWidth = half, maxWidth = half, minHeight = 0)) }
+            val height = placeables.maxOf { it.height }
+            layout(width, height) {
+                placeables.forEachIndexed { i, p -> p.placeRelative(i * (half + gap), (height - p.height) / 2) }
+            }
+        } else {
+            val placeables = measurables.map { it.measure(constraints.copy(minWidth = width, minHeight = 0)) }
+            layout(width, placeables.sumOf { it.height } + gap * (placeables.size - 1)) {
+                var y = 0
+                placeables.forEach {
+                    it.placeRelative(0, y)
+                    y += it.height + gap
+                }
+            }
+        }
+    }
 }
 
 @Composable

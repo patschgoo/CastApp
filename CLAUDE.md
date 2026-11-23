@@ -12,6 +12,12 @@ test checklist is [TESTING.md](TESTING.md); the intent API is [AUTOMATION.md](AU
 - Unit tests (JVM, no emulator):
   `./gradlew --no-daemon -Dorg.gradle.jvmargs=-Xmx2g -Pkotlin.compiler.execution.strategy=in-process :app:testDebugUnitTest`
   plus `:wear-protocol:testDebugUnitTest`. A few tests are opt-in and skipped by default.
+- Screenshots (JVM, Robolectric native graphics + Roborazzi, opt-in): add `-Pscreenshots` to the unit-test
+  command with `-Xmx3g` (it then runs only `app/src/test/.../screenshots/`, ~6 min). PNGs of the main
+  screens (light/dark, en/de, font 1.0/2.0, phone/tablet, TV home) go to `app/build/outputs/roborazzi/`,
+  each with a `.txt` of cut-off text, mid-word breaks and tap targets < 48 dp. `-Pscreenshots=store`
+  also rewrites `docs/*.png` and the fastlane `phoneScreenshots` (1080 x 2400, en-US and de-DE). Read the
+  pictures after UI changes; without the property these tests are excluded (CI doesn't render).
 - Lint: `:app:lintDebug` must have no errors (it fails on missing German translations).
 - Release APK: `:app:assembleRelease` with `-Dorg.gradle.jvmargs=-Xmx3g`. It builds whisper.cpp with the
   NDK for arm64-v8a and armeabi-v7a, so the first build takes a while. Watch app: `:wear:assembleRelease`.

@@ -17,13 +17,14 @@ Android app that casts to a **Chromecast**, **NVIDIA Shield**, **Google TV**, **
 No ads, no tracking, no account. It doesn't need Google Play Services (only the optional Wear OS remote does) or the phone's built-in Cast menu; it talks to your devices directly over your Wi-Fi. TVs and speakers don't need CastApp installed; a TV with CastApp TV gets extras such as lower delay, swap direction and synced playback.
 
 <p>
-  <img src="docs/quality_subtitles.png" width="260" alt="Playing a video: quality picker and subtitles being written">
-  <img src="docs/tv_channels.png" width="260" alt="TV channels from an M3U list">
-  <img src="docs/network.png" width="260" alt="Media servers, network shares and cloud">
+  <img src="docs/home.png" width="260" alt="The main screen: the TV to cast to, mirror the screen, one app or the phone's sound, and tiles for videos, photos, music, Plex, Jellyfin, network, TV channels and web videos">
+  <img src="docs/quality_subtitles.png" width="260" alt="Playing a video: player, quality, subtitles being written and the remote">
+  <img src="docs/tv_channels.png" width="260" alt="TV channels from an M3U list with the programme guide as a grid">
 </p>
 <p>
-  <img src="docs/audio_mode.png" width="260" alt="Audio mode with speakers, dark theme">
-  <img src="docs/file_queue.png" width="260" alt="Playing a play list with subtitles">
+  <img src="docs/network.png" width="260" alt="Network and cloud: Plex, Jellyfin, media servers, network shares and cloud">
+  <img src="docs/jellyfin.png" width="260" alt="A Jellyfin film library, dark theme">
+  <img src="docs/audio_mode.png" width="260" alt="Audio mode with speakers and TVs, dark theme">
 </p>
 
 ## Which devices work

@@ -129,6 +129,8 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.min
+import androidx.compose.ui.unit.sp
+import androidx.compose.foundation.text.TextAutoSize
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -931,10 +933,14 @@ private fun Rocker(
         } else {
             Spacer(Modifier.size(KEY_SIZE + 8.dp, KEY_SIZE))
         }
+        // One line: with a large font a long label ("PROG") gets smaller instead of breaking.
         Text(
             title,
             style = MaterialTheme.typography.labelMedium,
             color = if (enabled) content else content.copy(alpha = 0.38f),
+            maxLines = 1,
+            softWrap = false,
+            autoSize = TextAutoSize.StepBased(minFontSize = 8.sp, maxFontSize = MaterialTheme.typography.labelMedium.fontSize),
             modifier = Modifier.padding(vertical = 2.dp),
         )
         if (down in keys) {
