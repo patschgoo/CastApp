@@ -74,10 +74,21 @@ class QueueMappingTest {
     }
 
     @Test
+    fun theArtBecomesTheItemsPicture() {
+        assertEquals("https://media.example/poster.jpg", QueueMapping.toMediaItem(QueueItem("https://media.example/01.mkv", art = "https://media.example/poster.jpg")).artUri)
+        assertNull(QueueMapping.toMediaItem(QueueItem("https://media.example/01.mkv")).artUri)
+    }
+
+    @Test
     fun theItemsSurviveTheWayToTheCastingService() {
         // CastService gets the play list as JSON: nothing of the mapping may get lost on the way.
         val item = QueueMapping.toMediaItem(
-            QueueItem("https://media.example/01.mkv", title = "Episode 1", subtitles = listOf(QueueSubtitle("https://media.example/s", "en"))),
+            QueueItem(
+                "https://media.example/01.mkv",
+                title = "Episode 1",
+                subtitles = listOf(QueueSubtitle("https://media.example/s", "en")),
+                art = "https://media.example/poster.jpg",
+            ),
         )
         assertEquals(item, MediaItem.fromJson(JSONObject(item.toJson().toString())))
     }

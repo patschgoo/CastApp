@@ -19,7 +19,7 @@ data class QueueItem(
     val title: String? = null,
     val mime: String? = null,
     val subtitles: List<QueueSubtitle> = emptyList(),
-    /** Poster or cover (http(s)://), for the TV and the phone where CastApp shows one. */
+    /** Poster or cover (http(s)://): [MediaItem.artUri], shown in "Continue watching". */
     val art: String? = null,
 ) {
     val isContent: Boolean get() = isContentUri(url)
@@ -55,6 +55,8 @@ object QueueParser {
     const val MAX_ID = 200
     const val MAX_SUBTITLES = 20
     const val MAX_LABEL = 100
+    /** What [MediaItem.pictureAddress] takes: longer is rather inline data than a picture's address. */
+    const val MAX_ART = 4096
     /** Ten days: more than any recording, less than nonsense. */
     const val MAX_START_POSITION_MS = 10L * 24 * 60 * 60 * 1000
 
@@ -117,7 +119,10 @@ object QueueParser {
             title = text(o, "title", "$where: \"title\"", numbersToo = true)?.also { checkLength(it, MAX_TITLE, "$where: \"title\"") },
             mime = text(o, "mime", "$where: \"mime\"")?.also { if (!mimePattern.matches(it)) throw BadRequest("$where: \"mime\" is not a MIME type") },
             subtitles = subtitles(o.value("subtitles"), where, granted),
-            art = text(o, "art", "$where: \"art\"")?.also { checkHttp(it, "$where: \"art\"") },
+            art = text(o, "art", "$where: \"art\"")?.also {
+                checkLength(it, MAX_ART, "$where: \"art\"")
+                checkHttp(it, "$where: \"art\"")
+            },
         )
     }
 
@@ -291,6 +296,7 @@ object QueueMapping {
             subtitleUri = item.subtitles.firstOrNull()?.url,
             moreSubtitles = item.subtitles.drop(1).map { it.url },
             subtitleNames = subtitleNames,
+            artUri = MediaItem.pictureAddress(item.art),
         )
     }
 

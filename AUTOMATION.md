@@ -123,7 +123,7 @@ The JSON is an array with one object per item:
 | `title` | Shown on the phone and on TVs that show one. The file name if left out. |
 | `mime` | `video/mp4`, `video/x-matroska`, `audio/mpeg`, `application/x-mpegurl` ... Guessed from the address (or asked from the app that owns a `content://` file) if left out. |
 | `subtitles` | Subtitle files (SRT, WebVTT, ASS/SSA), up to 20: an array of objects `{"url": ..., "language": "en", "label": "Signs"}` or of plain addresses. The first one is shown; the others can be picked in CastApp. `language` is a language code (`en`, `de`, `pt-BR`), `label` (up to 100 characters) is added to the name in the subtitle picker ("English (Signs)"). Addresses as for `url`. |
-| `art` | Poster or cover, `http://` or `https://`: used where CastApp shows one. |
+| `art` | Poster or cover, `http://` or `https://` (up to 4096 characters): shown in "Continue watching" on the phone. |
 
 A plain address instead of an object is an item with only a `url`. Instead of the array, `queue` can
 also be an object `{"items": [...], "start_index": 2, "start_position_ms": 60000, "title": "Season 1"}`;

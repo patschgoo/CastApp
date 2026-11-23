@@ -174,6 +174,7 @@ class CastQueueParserTest {
         assertEquals(AutomationResult.CODE_INVALID, refused("""[{"url": "https://a.example/1.mp4", "subtitles": [{"url": "https://a.example/1.srt", "language": "English!"}]}]""").code)
         assertEquals(AutomationResult.CODE_INVALID, refused("""[{"url": "https://a.example/1.mp4", "subtitles": {"url": "https://a.example/1.srt"}}]""").code)
         assertEquals(AutomationResult.CODE_INVALID, refused("""[{"url": "https://a.example/1.mp4", "art": "content://images/1"}]""", granted = setOf("content://images/1")).code)
+        assertEquals(AutomationResult.CODE_INVALID, refused("""[{"url": "https://a.example/1.mp4", "art": "https://a.example/${"p".repeat(QueueParser.MAX_ART)}"}]""").code)
         val many = JSONArray().also { a -> repeat(QueueParser.MAX_SUBTITLES + 1) { a.put("https://a.example/s$it.srt") } }
         assertEquals(AutomationResult.CODE_INVALID, refused("""[{"url": "https://a.example/1.mp4", "subtitles": $many}]""").code)
     }
