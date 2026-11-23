@@ -202,7 +202,7 @@ body.glance-only section.block:not(#glance) { display: none; }
       <span class="cb-item"><span class="cb-label">Next</span><span class="cb-value">4.1.0 <span>ready on main, not released yet</span></span></span>
     </div>
     <div class="facts">
-      <span>Last updated: <b>2026-11-23</b>, matching CastApp main <b>b861386</b> plus the internet TV encryption and backup rules</span>
+      <span>Last updated: <b>2026-11-23</b>, matching CastApp main <b>315ed8c</b></span>
       <span>Feature IDs like <b>H9</b> are stable: use them when you add to or check this page.</span>
       <span>Kept current: source <code>docs/feature-map.html</code> in the CastApp repository.</span>
     </div>
@@ -645,7 +645,7 @@ body.glance-only section.block:not(#glance) { display: none; }
       <div class="links"><a href="#I5">I5</a><a href="#H2">H2</a></div>
       <div class="files">tv/ReceiverGuard.kt · tv/ReceiverPrompt.kt · tv/PairingClient.kt · tv/ReceiverProtectionUi.kt</div><div class="ver">4.0</div></article>
     <article class="f" id="H7" data-s="new"><div class="top"><div><div class="id">H7</div><h3>Tells what it can play</h3></div><span class="pill s-new">Ready in 4.1.0</span></div>
-      <p>Phones and other apps can ask the TV which picture, sound and subtitle formats and which file types it plays, as a list of yes and no at <code>/castapp/capabilities</code>. CastApp uses it to send a file as it is, use HEVC, or convert first.</p>
+      <p>Phones and other apps can ask the TV which picture, sound and subtitle formats and which file types it plays, as a list of yes and no at <code>/castapp/capabilities</code>. CastApp uses it to send a file as it is, use HEVC, or convert first. Blu-ray <code>.m2ts</code>/<code>.mts</code> files (192-byte packets), WMV/ASF and Ogg video don't open on CastApp TV; send them repackaged (e.g. as MKV or plain <code>.ts</code>) or converted.</p>
       <div class="links"><a href="#A9">A9</a><a href="#H8">H8</a><a href="#D4">D4</a></div>
       <div class="files">tv/DecoderReport.kt · tv/UpnpRenderer.kt · service/CastAppTvClient.kt</div><div class="ver">first list (HEVC, YouTube) 4.0 · full list, version 3, 4.1.0</div></article>
     <article class="f" id="H8" data-s="new"><div class="top"><div><div class="id">H8</div><h3>Says why it can't play</h3></div><span class="pill s-new">Ready in 4.1.0</span></div>
@@ -1113,7 +1113,7 @@ body.glance-only section.block:not(#glance) { display: none; }
 
 <footer>
   <span>CastApp · patschgoo/CastApp · releases on GitHub (latest: v4.0.0).</span>
-  <span>Written from the code on main (b861386), README.md, AUTOMATION.md, TESTING.md and CLAUDE.md. "Coming later" and "Your decisions" change as you decide.</span>
+  <span>Written from the code on main (b861386, checked again at 315ed8c), README.md, AUTOMATION.md, TESTING.md and CLAUDE.md. "Coming later" and "Your decisions" change as you decide.</span>
   <span>How it stays current: whenever a feature is added, changed, released or dropped, the session doing it updates <code>docs/feature-map.html</code> (status, IDs, links, the "Last updated" line) and republishes it to the same link.</span>
 </footer>
 </div>
