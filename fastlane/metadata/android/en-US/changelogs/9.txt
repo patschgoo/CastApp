@@ -1,0 +1,7 @@
+CastApp TV is now made for the remote.
+• TV home: one list, the selected line has a clear white ring, settings open as panels on the right
+• Bigger text and buttons, readable from the sofa
+• TV player: OK pauses, Left and Right jump, Up or Down bring the buttons
+• Pick subtitles and the sound track on the TV
+• Back twice ends the cast, so one slip doesn't
+• "What this TV can play" on the TV itself

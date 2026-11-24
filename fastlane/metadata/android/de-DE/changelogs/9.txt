@@ -1,0 +1,7 @@
+CastApp TV ist jetzt für die Fernbedienung gemacht.
+• TV-Startbildschirm: eine Liste, die gewählte Zeile hat einen klaren weißen Ring, Einstellungen öffnen sich rechts
+• Größere Schrift und Tasten, vom Sofa aus lesbar
+• TV-Player: OK pausiert, Links und Rechts springen, Hoch oder Runter zeigen die Tasten
+• Untertitel und Tonspur direkt am TV wählen
+• Zweimal Zurück beendet das Casten, ein Versehen nicht
+• „Was dieser TV abspielen kann“ direkt am TV
