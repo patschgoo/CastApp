@@ -17,8 +17,8 @@ android {
         applicationId = "io.github.patschgoo.castapp"
         minSdk = 25
         targetSdk = 36
-        versionCode = 8
-        versionName = "4.2.0"
+        versionCode = 9
+        versionName = "4.3.0"
 
         // Phones only; keeps the speech-recognition library small.
         ndk { abiFilters += listOf("arm64-v8a", "armeabi-v7a") }
