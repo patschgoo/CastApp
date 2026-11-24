@@ -1,0 +1,37 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- CastApp TV: the home screen, its panels and the player's controls, all used with the remote -->
+    <string name="tv_hint_pick">On your phone, open CastApp and pick this name.</string>
+    <string name="tv_version">Version %1$s</string>
+    <string name="tv_panel_back">Press Back to close</string>
+    <string name="tv_row_video">Back to the video</string>
+    <string name="tv_row_name">TV name</string>
+    <string name="tv_row_boot">Start with the TV</string>
+    <string name="tv_row_plays">What this TV can play</string>
+    <!-- %1$s: the pairing code -->
+    <string name="tv_code_value">Code %1$s</string>
+    <string name="tv_plays_checking">Checking…</string>
+    <string name="tv_plays_all">All common formats</string>
+    <!-- %1$s: formats, e.g. "Hi10P, AV1, DTS" -->
+    <string name="tv_plays_not">Not %1$s</string>
+    <string name="tv_plays_picture">Picture</string>
+    <string name="tv_plays_sound">Sound</string>
+    <string name="tv_plays_yes">Plays</string>
+    <string name="tv_plays_slow">May stutter</string>
+    <string name="tv_plays_no">Doesn\'t play</string>
+    <string name="tv_plays_note">CastApp on the phone converts videos this TV can\'t play while it casts them.</string>
+    <string name="tv_prompt_closes">This question closes by itself after a while.</string>
+
+    <string name="tv_back_again">Press Back again to stop casting</string>
+    <string name="tv_back_home">Press Back to return</string>
+    <string name="tv_btn_pause">Pause</string>
+    <string name="tv_btn_play">Play</string>
+    <string name="tv_btn_subtitles">Subtitles</string>
+    <string name="tv_btn_sound">Sound</string>
+    <string name="tv_btn_stop">Stop casting</string>
+    <string name="tv_sub_off">Off</string>
+    <!-- A subtitle or sound track the file gives no name: %1$d counts from 1 -->
+    <string name="tv_track_n">Track %1$d</string>
+    <string name="tv_detail_subtitles">Subtitles: %1$s</string>
+    <string name="tv_detail_sound">Sound: %1$s</string>
+</resources>

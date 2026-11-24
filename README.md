@@ -229,7 +229,7 @@ The same APK installed on a Fire TV (Fire OS 6 or newer), an Android TV / Google
 
 - It shows up on the phone with a **CastApp TV** label, and plays everything: screen mirroring with low delay (it plays the phone's stream with almost no buffer and speeds up slightly when it falls behind), videos with subtitles, music, photos, TV channels, network files and web videos.
 - It is a standard DLNA renderer, so other DLNA apps (BubbleUPnP, Web Video Caster, NAS apps) can cast to it too.
-- **Start with the TV** keeps it ready after a restart. **Rename** sets the name phones see (by default the TV's own name).
+- **Start with the TV** keeps it ready after a restart. **TV name** sets the name phones see (by default the TV's own name). Everything is one list for the remote: the selected line has a white ring, OK opens it, Back closes it. While a video plays, OK pauses, Left and Right jump, Up or Down bring the buttons (subtitles, sound, stop), and Back twice ends the cast.
 
 **Installing on a Fire TV:**
 
