@@ -27,7 +27,6 @@
     <string name="protect_mode_paired_hint">CastApp-Handys, die einmal den hier angezeigten Code eingeben. Andere Apps werden abgelehnt.</string>
     <string name="protect_code_label">Kopplungscode</string>
     <string name="protect_new_code">Neuer Code</string>
-    <string name="protect_change">Wer streamen darf …</string>
     <string name="protect_known_title">Gemerkte Absender</string>
     <string name="protect_known_none">Noch keine.</string>
     <string name="protect_kind_paired">Gekoppeltes Handy</string>

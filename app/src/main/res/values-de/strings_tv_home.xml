@@ -1,0 +1,33 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="tv_hint_pick">Öffne CastApp auf deinem Handy und wähle diesen Namen.</string>
+    <string name="tv_version">Version %1$s</string>
+    <string name="tv_panel_back">Zum Schließen Zurück drücken</string>
+    <string name="tv_row_video">Zurück zum Video</string>
+    <string name="tv_row_name">Name des Fernsehers</string>
+    <string name="tv_row_boot">Mit dem Fernseher starten</string>
+    <string name="tv_row_plays">Was dieser Fernseher abspielt</string>
+    <string name="tv_code_value">Code %1$s</string>
+    <string name="tv_plays_checking">Wird geprüft …</string>
+    <string name="tv_plays_all">Alle gängigen Formate</string>
+    <string name="tv_plays_not">Nicht %1$s</string>
+    <string name="tv_plays_picture">Bild</string>
+    <string name="tv_plays_sound">Ton</string>
+    <string name="tv_plays_yes">Wird abgespielt</string>
+    <string name="tv_plays_slow">Kann ruckeln</string>
+    <string name="tv_plays_no">Wird nicht abgespielt</string>
+    <string name="tv_plays_note">CastApp auf dem Handy wandelt Videos, die dieser Fernseher nicht abspielt, beim Streamen um.</string>
+    <string name="tv_prompt_closes">Diese Frage schließt sich nach einer Weile von selbst.</string>
+
+    <string name="tv_back_again">Zum Beenden noch einmal Zurück drücken</string>
+    <string name="tv_back_home">Zum Verlassen Zurück drücken</string>
+    <string name="tv_btn_pause">Pause</string>
+    <string name="tv_btn_play">Abspielen</string>
+    <string name="tv_btn_subtitles">Untertitel</string>
+    <string name="tv_btn_sound">Ton</string>
+    <string name="tv_btn_stop">Streamen beenden</string>
+    <string name="tv_sub_off">Aus</string>
+    <string name="tv_track_n">Spur %1$d</string>
+    <string name="tv_detail_subtitles">Untertitel: %1$s</string>
+    <string name="tv_detail_sound">Ton: %1$s</string>
+</resources>

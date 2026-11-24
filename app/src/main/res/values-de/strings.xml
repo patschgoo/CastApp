@@ -114,9 +114,6 @@
     <string name="tv_playing">Wiedergabe von deinem Handy</string>
     <string name="tv_name_label">Dieser Fernseher erscheint als</string>
     <string name="tv_address">Adresse: %1$s</string>
-    <string name="tv_rename">Umbenennen</string>
-    <string name="tv_boot_on">Mit dem Fernseher starten: an</string>
-    <string name="tv_boot_off">Mit dem Fernseher starten: aus</string>
     <string name="tv_how_title">So streamst du an diesen Fernseher</string>
     <string name="tv_step1">1. Verbinde dein Handy mit demselben WLAN wie diesen Fernseher.</string>
     <string name="tv_step2">2. Öffne CastApp auf dem Handy und wähle „%1$s“ (mit CastApp TV gekennzeichnet).</string>

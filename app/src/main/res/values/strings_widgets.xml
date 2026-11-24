@@ -27,7 +27,6 @@
     <string name="protect_mode_paired_hint">CastApp phones that type in the code shown here once. Other apps are refused.</string>
     <string name="protect_code_label">Pairing code</string>
     <string name="protect_new_code">New code</string>
-    <string name="protect_change">Who can cast…</string>
     <string name="protect_known_title">Remembered senders</string>
     <string name="protect_known_none">None yet.</string>
     <string name="protect_kind_paired">Paired phone</string>

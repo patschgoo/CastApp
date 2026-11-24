@@ -14,10 +14,12 @@ import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.MaterialTheme
@@ -32,8 +34,10 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.core.app.NotificationCompat
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import io.github.patschgoo.castapp.CastApp
@@ -165,7 +169,9 @@ class ReceiverPromptActivity : ComponentActivity() {
             CastAppTheme(if (tv) ThemeMode.DARK else settings.theme) {
                 val focus = remember { FocusRequester() }
                 LaunchedEffect(first?.id, notice) { try { focus.requestFocus() } catch (_: Exception) {} }
-                if (first != null) {
+                if (first != null && tv) {
+                    TvCastQuestion(first, pending.size - 1, focus) { guard.answer(first.id, it) }
+                } else if (first != null) {
                     AlertDialog(
                         onDismissRequest = { finish() },
                         title = { Text(stringResource(R.string.protect_prompt_title, first.name)) },
@@ -191,6 +197,8 @@ class ReceiverPromptActivity : ComponentActivity() {
                             }
                         },
                     )
+                } else if (notice != null && tv) {
+                    TvPairingCode(notice!!.name, guard.code, focus) { finish() }
                 } else if (notice != null) {
                     PairingCodeDialog(notice!!.name, guard.code, focus) { finish() }
                 }
@@ -213,4 +221,48 @@ private fun PairingCodeDialog(name: String, code: String, focus: FocusRequester,
         },
         confirmButton = { Button(onClick = onClose, modifier = Modifier.focusRequester(focus).focusRing()) { Text(stringResource(R.string.protect_close)) } },
     )
+}
+
+/** The TV's "Allow Pixel 8 to cast?": fills the screen, three big buttons, Allow has the focus. */
+@Composable
+internal fun TvCastQuestion(first: PendingCast, more: Int, focus: FocusRequester, answer: (Decision) -> Unit) {
+    TvQuestion(
+        title = stringResource(R.string.protect_prompt_title, first.name),
+        text = stringResource(R.string.protect_prompt_text_tv, first.address),
+    ) {
+        if (more > 0) {
+            Text(stringResource(R.string.protect_prompt_more, more), style = tvText(TvSize.value), color = MaterialTheme.colorScheme.onSurfaceVariant)
+        }
+        // Wraps: the three German answers don't fit in one line.
+        FlowRow(
+            modifier = Modifier.padding(top = 12.dp),
+            horizontalArrangement = Arrangement.spacedBy(16.dp),
+            verticalArrangement = Arrangement.spacedBy(16.dp),
+        ) {
+            TvButton(stringResource(R.string.protect_allow), primary = true, modifier = Modifier.focusRequester(focus)) { answer(Decision.ALLOW_ONCE) }
+            TvButton(stringResource(R.string.protect_allow_always)) { answer(Decision.ALLOW_ALWAYS) }
+            TvButton(stringResource(R.string.protect_block)) { answer(Decision.BLOCK) }
+        }
+        Text(
+            stringResource(R.string.tv_prompt_closes),
+            style = tvText(TvSize.small),
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier.padding(top = 8.dp),
+        )
+    }
+}
+
+/** The TV's pairing code, large enough to read from across the room. */
+@Composable
+private fun TvPairingCode(name: String, code: String, focus: FocusRequester, onClose: () -> Unit) {
+    TvQuestion(title = stringResource(R.string.protect_pairing_title, name), text = stringResource(R.string.protect_pairing_text)) {
+        Text(
+            code,
+            style = tvText(96.sp, FontWeight.Bold).copy(letterSpacing = 12.sp),
+            color = MaterialTheme.colorScheme.primary,
+            textAlign = TextAlign.Center,
+            modifier = Modifier.fillMaxWidth(),
+        )
+        TvButton(stringResource(R.string.protect_close), primary = true, modifier = Modifier.focusRequester(focus)) { onClose() }
+    }
 }

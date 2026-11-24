@@ -9,6 +9,7 @@ import android.os.Handler
 import android.os.Looper
 import android.util.TypedValue
 import android.view.Gravity
+import android.view.KeyEvent
 import android.view.View
 import android.view.WindowManager
 import android.widget.FrameLayout
@@ -17,6 +18,8 @@ import android.widget.TextView
 import androidx.activity.ComponentActivity
 import androidx.activity.addCallback
 import androidx.annotation.OptIn
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.ui.platform.ComposeView
 import androidx.core.view.WindowCompat
 import androidx.core.view.WindowInsetsCompat
 import androidx.core.view.WindowInsetsControllerCompat
@@ -38,6 +41,9 @@ import androidx.media3.exoplayer.source.DefaultMediaSourceFactory
 import androidx.media3.ui.CaptionStyleCompat
 import androidx.media3.ui.PlayerView
 import androidx.media3.ui.SubtitleView
+import io.github.patschgoo.castapp.R
+import io.github.patschgoo.castapp.settings.ThemeMode
+import io.github.patschgoo.castapp.ui.theme.CastAppTheme
 import java.net.HttpURLConnection
 import java.net.URL
 
@@ -78,12 +84,26 @@ class TvPlayerActivity : ComponentActivity() {
     /** Synced playback: follows the host's shared timeline (several screens, joined viewers). */
     private var follower: io.github.patschgoo.castapp.multi.SyncFollower? = null
 
+    /** On a TV the remote steers the player ([TvRemote]); a phone that receives keeps the touch controls. */
+    private val tv by lazy { TvReceiver.isTv(this) }
+    private var remote = RemoteState()
+    private val ui = mutableStateOf(TvPlayerUi())
+    /** The entries of the list that is open, and the tracks behind them (none behind "Off"). */
+    private var listed: List<TrackChoice?> = emptyList()
+    private var lastWindAt = 0L
+
     private val ticker = object : Runnable {
         override fun run() {
             checkPicture()
             reportState()
             catchUp()
             followTimeline()
+            if (tv) {
+                // The controls stay while it is paused on purpose; with nothing to pause (a photo, a mirror) they go.
+                val paused = remoteContext().canPause && exo?.playWhenReady == false
+                remote = TvRemote.tick(remote, android.os.SystemClock.elapsedRealtime(), playing = !paused)
+                publishUi()
+            }
             swapButton.visibility = if (io.github.patschgoo.castapp.service.SwapDirection.partner != null) View.VISIBLE else View.GONE
             handler.postDelayed(this, 500)
         }
@@ -100,7 +120,8 @@ class TvPlayerActivity : ComponentActivity() {
 
         val root = FrameLayout(this).apply { setBackgroundColor(Color.BLACK) }
         playerView = PlayerView(this).apply {
-            useController = true
+            // On a TV the controls are CastApp's own, made for the remote ([TvPlayerOverlay]).
+            useController = !tv
             controllerAutoShow = false
             setShowBuffering(PlayerView.SHOW_BUFFERING_WHEN_PLAYING)
             keepScreenOn = true
@@ -126,6 +147,15 @@ class TvPlayerActivity : ComponentActivity() {
         root.addView(playerView, FrameLayout.LayoutParams(FrameLayout.LayoutParams.MATCH_PARENT, FrameLayout.LayoutParams.MATCH_PARENT))
         root.addView(photoView, FrameLayout.LayoutParams(FrameLayout.LayoutParams.MATCH_PARENT, FrameLayout.LayoutParams.MATCH_PARENT))
         root.addView(infoView, FrameLayout.LayoutParams(FrameLayout.LayoutParams.MATCH_PARENT, FrameLayout.LayoutParams.WRAP_CONTENT, Gravity.CENTER))
+        if (tv) {
+            root.addView(
+                ComposeView(this).apply {
+                    isFocusable = false
+                    setContent { CastAppTheme(ThemeMode.DARK) { TvPlayerOverlay(ui.value) } }
+                },
+                FrameLayout.LayoutParams(FrameLayout.LayoutParams.MATCH_PARENT, FrameLayout.LayoutParams.MATCH_PARENT),
+            )
+        }
         root.addView(
             noticeView,
             FrameLayout.LayoutParams(FrameLayout.LayoutParams.WRAP_CONTENT, FrameLayout.LayoutParams.WRAP_CONTENT, Gravity.TOP or Gravity.CENTER_HORIZONTAL)
@@ -152,12 +182,9 @@ class TvPlayerActivity : ComponentActivity() {
         setContentView(root)
 
         onBackPressedDispatcher.addCallback(this) {
-            // Back ends the cast; the phone sees it stopped.
-            closing = true
-            TvReceiver.closedOnTv()
-            exo?.stop()
-            io.github.patschgoo.castapp.service.SwapDirection.ended(this@TvPlayerActivity)
-            finish()
+            // On a TV, Back first closes the controls and asks once before it ends the cast (a slip of the
+            // thumb shouldn't); after "can't play" there is nothing to lose.
+            if (tv && !failed) onRemote(TvKey.BACK, 0) else endCast()
         }
 
         TvReceiver.init(this)
@@ -170,6 +197,168 @@ class TvPlayerActivity : ComponentActivity() {
         }
         load(media, autoPlay = true)
         handler.post(ticker)
+    }
+
+    /** Ends the cast from this side; the phone sees it stopped. */
+    private fun endCast() {
+        closing = true
+        TvReceiver.closedOnTv()
+        exo?.stop()
+        io.github.patschgoo.castapp.service.SwapDirection.ended(this)
+        finish()
+    }
+
+    // ---- the remote (TV) -------------------------------------------------------------------------
+
+    override fun dispatchKeyEvent(event: KeyEvent): Boolean {
+        // "Swap back" is a real button: while it shows, the arrows and OK belong to it.
+        if (!tv || swapButton.visibility == View.VISIBLE) return super.dispatchKeyEvent(event)
+        val key = keyFor(event.keyCode) ?: return super.dispatchKeyEvent(event)
+        if (event.action != KeyEvent.ACTION_DOWN) return true
+        val winding = key == TvKey.LEFT || key == TvKey.RIGHT || key == TvKey.FORWARD || key == TvKey.REWIND
+        if (event.repeatCount > 0) {
+            // A held button repeats many times a second: only the arrows repeat, a few times a second.
+            val now = android.os.SystemClock.elapsedRealtime()
+            val moving = winding || key == TvKey.UP || key == TvKey.DOWN
+            if (!moving || now - lastWindAt < WIND_EVERY_MS) return true
+            lastWindAt = now
+        }
+        onRemote(key, event.repeatCount)
+        return true
+    }
+
+    private fun onRemote(key: TvKey, repeat: Int) {
+        val before = remote
+        val (next, actions) = TvRemote.press(before, key, android.os.SystemClock.elapsedRealtime(), remoteContext(), repeat) { selectedIn(it) }
+        remote = next
+        if (next.level == ControlsLevel.PANEL && next.panel != null && before.level != ControlsLevel.PANEL) {
+            listed = choicesOf(next.panel)
+        }
+        for (action in actions) {
+            when (action) {
+                RemoteAction.TogglePlay -> if (exo?.playWhenReady == true) pauseNow() else resume()
+                RemoteAction.Play -> resume()
+                RemoteAction.Pause -> pauseNow()
+                is RemoteAction.SeekBy -> exo?.let { p ->
+                    val end = p.duration.takeIf { it != C.TIME_UNSET && it > 0 } ?: Long.MAX_VALUE
+                    p.seekTo((p.currentPosition + action.ms).coerceIn(0, end))
+                }
+                RemoteAction.Stop -> {
+                    endCast()
+                    return
+                }
+                is RemoteAction.PickSubtitle -> pickText(listed.getOrNull(action.index), off = action.index == 0)
+                is RemoteAction.PickSound -> listed.getOrNull(action.index)?.let { pickSound(it) }
+            }
+        }
+        publishUi()
+    }
+
+    /** A subtitle or sound track of the file on screen, with the name the list shows. */
+    private class TrackChoice(val group: Tracks.Group, val track: Int, val name: String)
+
+    private fun tracksOf(type: Int): List<TrackChoice> {
+        val groups = exo?.currentTracks?.groups ?: return emptyList()
+        val found = ArrayList<TrackChoice>()
+        for (g in groups) {
+            if (g.type != type) continue
+            for (i in 0 until g.length) {
+                if (!g.isTrackSupported(i)) continue
+                val format = g.getTrackFormat(i)
+                val fallback = getString(io.github.patschgoo.castapp.R.string.tv_track_n, found.size + 1)
+                found += TrackChoice(g, i, TrackNames.name(format.language, format.label, fallback))
+            }
+        }
+        return found
+    }
+
+    /** The list a button opens: subtitles start with "Off" (null). */
+    private fun choicesOf(panel: PlayerPanel): List<TrackChoice?> =
+        if (panel == PlayerPanel.SUBTITLES) listOf<TrackChoice?>(null) + tracksOf(C.TRACK_TYPE_TEXT) else tracksOf(C.TRACK_TYPE_AUDIO)
+
+    /** Which entry of [choicesOf] is in use now. */
+    private fun selectedIn(panel: PlayerPanel): Int {
+        val at = choicesOf(panel).indexOfFirst { it != null && it.group.isTrackSelected(it.track) }
+        return at.coerceAtLeast(0)
+    }
+
+    private fun pickText(choice: TrackChoice?, off: Boolean) {
+        val p = exo ?: return
+        if (choice == null && !off) return
+        textPicked = true
+        val params = p.trackSelectionParameters.buildUpon().clearOverridesOfType(C.TRACK_TYPE_TEXT)
+        p.trackSelectionParameters = if (choice == null) {
+            params.setTrackTypeDisabled(C.TRACK_TYPE_TEXT, true).build()
+        } else {
+            params.setTrackTypeDisabled(C.TRACK_TYPE_TEXT, false)
+                .setOverrideForType(TrackSelectionOverride(choice.group.mediaTrackGroup, choice.track))
+                .build()
+        }
+    }
+
+    private fun pickSound(choice: TrackChoice) {
+        val p = exo ?: return
+        audioPicked = true
+        p.trackSelectionParameters = p.trackSelectionParameters.buildUpon()
+            .setOverrideForType(TrackSelectionOverride(choice.group.mediaTrackGroup, choice.track))
+            .build()
+    }
+
+    /** What the remote can do with the media on screen. */
+    private fun remoteContext(): RemoteContext {
+        val media = showing
+        val p = exo
+        if (media == null || p == null || media.kind == TvMediaKind.PHOTO || failed) return RemoteContext(canSeek = false, canPause = false)
+        // Synced screens follow their host's timeline: pausing or winding here would only fight it.
+        val free = follower == null && !media.lowLatency
+        val length = p.duration
+        return RemoteContext(
+            canSeek = free && !media.live && length != C.TIME_UNSET && length > 0 && p.isCurrentMediaItemSeekable,
+            canPause = free,
+            subtitleChoices = if (media.kind == TvMediaKind.VIDEO) tracksOf(C.TRACK_TYPE_TEXT).size.let { if (it > 0) it + 1 else 0 } else 0,
+            soundChoices = tracksOf(C.TRACK_TYPE_AUDIO).size,
+        )
+    }
+
+    /** Hands the controls' state to the screen ([TvPlayerOverlay]). */
+    private fun publishUi() {
+        if (!tv) return
+        val media = showing
+        val p = exo
+        val context = remoteContext()
+        val shown = remote.level != ControlsLevel.HIDDEN
+        // The names of the tracks in use are only looked up while the controls show.
+        val detail = if (shown && media != null && media.kind == TvMediaKind.VIDEO) {
+            val text = tracksOf(C.TRACK_TYPE_TEXT)
+            val sound = tracksOf(C.TRACK_TYPE_AUDIO)
+            listOfNotNull(
+                if (text.isNotEmpty()) getString(R.string.tv_detail_subtitles, text.firstOrNull { it.group.isTrackSelected(it.track) }?.name ?: getString(R.string.tv_sub_off)) else null,
+                if (sound.size >= 2) sound.firstOrNull { it.group.isTrackSelected(it.track) }?.let { getString(R.string.tv_detail_sound, it.name) } else null,
+            ).joinToString(" · ")
+        } else {
+            ""
+        }
+        val panel = remote.panel
+        ui.value = TvPlayerUi(
+            remote = remote,
+            buttons = context.buttons,
+            canSeek = context.canSeek,
+            title = media?.title.orEmpty(),
+            detail = detail,
+            positionMs = p?.currentPosition?.coerceAtLeast(0) ?: 0,
+            durationMs = p?.duration?.takeIf { it != C.TIME_UNSET && it > 0 } ?: 0,
+            playing = p?.playWhenReady == true,
+            backHint = remote.backHint(android.os.SystemClock.elapsedRealtime()),
+            entries = if (remote.level == ControlsLevel.PANEL) listed.map { it?.name ?: getString(R.string.tv_sub_off) } else emptyList(),
+            current = if (remote.level == ControlsLevel.PANEL && panel != null) selectedIn(panel) else 0,
+            music = media?.kind == TvMediaKind.AUDIO && !failed,
+        )
+    }
+
+    /** A message in the middle of the screen; on a TV it also says how to get away from it. */
+    private fun showInfo(text: String) {
+        infoView.text = if (tv) text + "\n\n" + getString(io.github.patschgoo.castapp.R.string.tv_back_home) else text
+        infoView.visibility = View.VISIBLE
     }
 
     override fun onNewIntent(intent: android.content.Intent) {
@@ -203,6 +392,8 @@ class TvPlayerActivity : ComponentActivity() {
     fun load(media: TvMedia, autoPlay: Boolean) {
         showing = media
         failed = false
+        remote = TvRemote.reset()
+        listed = emptyList()
         tracksChecked = false
         textPicked = false
         audioPicked = false
@@ -245,7 +436,8 @@ class TvPlayerActivity : ComponentActivity() {
         }
         player.trackSelectionParameters = trackParameters(player.trackSelectionParameters, subtitles, TrackHint.decode(media.audioTrack))
         applySubtitleStyle(io.github.patschgoo.castapp.subtitles.SubtitleStyle.decode(media.subtitleStyle))
-        if (media.kind == TvMediaKind.AUDIO) {
+        // On a TV the title of a song is part of the controls' screen (it moves, for OLED screens).
+        if (media.kind == TvMediaKind.AUDIO && !tv) {
             infoView.text = getString(io.github.patschgoo.castapp.R.string.tv_now_playing_audio, media.title)
             infoView.visibility = View.VISIBLE
         }
@@ -255,6 +447,7 @@ class TvPlayerActivity : ComponentActivity() {
         player.prepare()
         player.playWhenReady = autoPlay
         applyVolume()
+        publishUi()
     }
 
     /** The subtitle look chosen on the phone (size, colour, background); the TV's own when none came. */
@@ -335,8 +528,7 @@ class TvPlayerActivity : ComponentActivity() {
         player.addListener(object : Player.Listener {
             override fun onPlayerError(error: PlaybackException) {
                 failed = true
-                infoView.text = getString(io.github.patschgoo.castapp.R.string.tv_cant_play, error.errorCodeName)
-                infoView.visibility = View.VISIBLE
+                showInfo(getString(io.github.patschgoo.castapp.R.string.tv_cant_play, error.errorCodeName))
                 showing?.let { TvReceiver.failed(it, PlaybackFailure.of(error, it)) }
                 reportState()
             }
@@ -388,8 +580,7 @@ class TvPlayerActivity : ComponentActivity() {
     /** Gives up on [media]: says why on the screen ([what]) and to the sender ([error]), and stops. */
     private fun cantPlay(media: TvMedia, what: String, error: TvError) {
         failed = true
-        infoView.text = getString(io.github.patschgoo.castapp.R.string.tv_cant_play, what)
-        infoView.visibility = View.VISIBLE
+        showInfo(getString(io.github.patschgoo.castapp.R.string.tv_cant_play, what))
         TvReceiver.failed(media, error)
         exo?.stop()
         reportState()
@@ -527,8 +718,7 @@ class TvPlayerActivity : ComponentActivity() {
                     if (follower !== f) return@post
                     when {
                         stopped -> {
-                            infoView.text = getString(io.github.patschgoo.castapp.R.string.multi_host_stopped)
-                            infoView.visibility = View.VISIBLE
+                            showInfo(getString(io.github.patschgoo.castapp.R.string.multi_host_stopped))
                             exo?.stop()
                         }
                         // The host moved on to the next item: get its stream.
@@ -601,8 +791,7 @@ class TvPlayerActivity : ComponentActivity() {
                     photoView.setImageBitmap(bitmap)
                     photoState = TransportState.PLAYING
                 } else {
-                    infoView.text = getString(io.github.patschgoo.castapp.R.string.tv_cant_show_photo)
-                    infoView.visibility = View.VISIBLE
+                    showInfo(getString(io.github.patschgoo.castapp.R.string.tv_cant_show_photo))
                     photoState = TransportState.STOPPED
                     error?.let { TvReceiver.failed(media, it) }
                 }
@@ -633,5 +822,24 @@ class TvPlayerActivity : ComponentActivity() {
     private companion object {
         /** How long a notice ("No sound: …") stays on screen. */
         const val NOTICE_MS = 6000L
+
+        /** A held arrow winds this often. */
+        const val WIND_EVERY_MS = 250L
+
+        /** The remote's buttons the player handles itself; volume and the rest stay Android's. */
+        fun keyFor(keyCode: Int): TvKey? = when (keyCode) {
+            KeyEvent.KEYCODE_DPAD_CENTER, KeyEvent.KEYCODE_ENTER, KeyEvent.KEYCODE_NUMPAD_ENTER -> TvKey.OK
+            KeyEvent.KEYCODE_DPAD_LEFT -> TvKey.LEFT
+            KeyEvent.KEYCODE_DPAD_RIGHT -> TvKey.RIGHT
+            KeyEvent.KEYCODE_DPAD_UP -> TvKey.UP
+            KeyEvent.KEYCODE_DPAD_DOWN -> TvKey.DOWN
+            KeyEvent.KEYCODE_MEDIA_PLAY_PAUSE, KeyEvent.KEYCODE_SPACE -> TvKey.PLAY_PAUSE
+            KeyEvent.KEYCODE_MEDIA_PLAY -> TvKey.PLAY
+            KeyEvent.KEYCODE_MEDIA_PAUSE -> TvKey.PAUSE
+            KeyEvent.KEYCODE_MEDIA_FAST_FORWARD -> TvKey.FORWARD
+            KeyEvent.KEYCODE_MEDIA_REWIND -> TvKey.REWIND
+            KeyEvent.KEYCODE_MEDIA_STOP -> TvKey.STOP
+            else -> null
+        }
     }
 }

@@ -199,10 +199,10 @@ body.glance-only section.block:not(#glance) { display: none; }
     <div class="castbar" role="group" aria-label="Versions">
       <span class="cb-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path class="cb-stroke" d="M2 8V6a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2h-6M2 12a8 8 0 0 1 8 8M2 16a4 4 0 0 1 4 4M2 20h.01"/></svg></span>
       <span class="cb-item"><span class="cb-label">Released</span><span class="cb-value">4.2.0 <span>GitHub release v4.2.0, 23 Nov 2026 (new signing key: uninstall once)</span></span></span>
-      <span class="cb-item"><span class="cb-label">Next</span><span class="cb-value">4.3.0 <span>nothing merged yet</span></span></span>
+      <span class="cb-item"><span class="cb-label">Next</span><span class="cb-value">4.3.0 <span>the TV screens made for the remote (H14 to H16)</span></span></span>
     </div>
     <div class="facts">
-      <span>Last updated: <b>2026-11-23</b>, matching CastApp main <b>4f97434</b> (release v4.2.0)</span>
+      <span>Last updated: <b>2026-11-24</b>, matching CastApp main <b>4f97434</b> (release v4.2.0) plus the TV screens made for the remote (H14 to H16, for 4.3.0)</span>
       <span>Feature IDs like <b>H9</b> are stable: use them when you add to or check this page.</span>
       <span>Kept current: source <code>docs/feature-map.html</code> in the CastApp repository.</span>
     </div>
@@ -344,7 +344,7 @@ body.glance-only section.block:not(#glance) { display: none; }
   <div class="filters" role="group" aria-label="Show features by status">
     <button type="button" data-f="all" aria-pressed="true">All</button>
     <button type="button" data-f="ok" aria-pressed="false">Released</button>
-    <button type="button" data-f="new" aria-pressed="false">Ready for 4.2.0</button>
+    <button type="button" data-f="new" aria-pressed="false">Ready for 4.3.0</button>
     <button type="button" data-f="later" aria-pressed="false">Later</button>
     <button type="button" data-f="no" aria-pressed="false">Not in CastApp</button>
     <span class="count" id="fcount" aria-live="polite"></span>
@@ -684,6 +684,18 @@ body.glance-only section.block:not(#glance) { display: none; }
       <p>Size, colour and background chosen on the phone (<code>castapp:substyle</code>) apply on the TV; without it the TV's own caption settings apply. Since 4.1.0 also for tracks inside the file.</p>
       <div class="links"><a href="#F3">F3</a><a href="#D6">D6</a></div>
       <div class="files">tv/TvPlayerActivity.kt · tv/UpnpRenderer.kt · dlna/Dlna.kt</div><div class="ver">4.0 · tracks inside the file 4.1.0</div></article>
+    <article class="f" id="H14" data-s="new"><div class="top"><div><div class="id">H14</div><h3>A home screen made for the remote</h3></div><span class="pill s-new">Ready for 4.3.0</span></div>
+      <p>The TV's name stands large on the left; on the right is one list to move through with Up and Down: Who can cast here, TV name, Start with the TV (a switch), What this TV can play, How to cast. Each row opens a panel on the right and Back closes it. The first row has the focus when the screen opens, and the focus is a white ring with a gap, visible on every button. Text is at least 14 sp, rows are 64 dp high. "Allow Pixel 8 to cast?" and the pairing code fill the screen with big buttons. A permission the TV still needs, and "Back to the video" while something plays, appear as the first rows.</p>
+      <div class="links"><a href="#H1">H1</a><a href="#H4">H4</a><a href="#H6">H6</a><a href="#H16">H16</a></div>
+      <div class="files">tv/TvHomeActivity.kt · tv/TvUi.kt · tv/ReceiverProtectionUi.kt · tv/ReceiverPrompt.kt · ui/FocusRing.kt</div><div class="ver">4.3.0</div></article>
+    <article class="f" id="H15" data-s="new"><div class="top"><div><div class="id">H15</div><h3>The player listens to the remote</h3></div><span class="pill s-new">Ready for 4.3.0</span></div>
+      <p>On a TV the player has its own controls. OK pauses or plays. Left and Right jump 10 seconds, further the longer the button is held. Up or Down brings the buttons: Pause, Subtitles, Sound, Stop casting. Subtitles and Sound list the file's tracks, so they can be picked on the TV too. Back closes the list, then the controls; with nothing open it says "Press Back again to stop casting" and only the second press ends the cast. The remote's play, pause and wind buttons work as well. Music shows its title on a card that moves now and then. Mirroring and synced screens only offer Stop casting. A phone that receives keeps its touch controls.</p>
+      <div class="links"><a href="#H2">H2</a><a href="#H9">H9</a><a href="#H10">H10</a><a href="#H14">H14</a></div>
+      <div class="files">tv/TvRemote.kt · tv/TvPlayerOverlay.kt · tv/TvPlayerActivity.kt</div><div class="ver">4.3.0</div></article>
+    <article class="f" id="H16" data-s="new"><div class="top"><div><div class="id">H16</div><h3>The TV shows what it can play</h3></div><span class="pill s-new">Ready for 4.3.0</span></div>
+      <p>The list phones and other apps read (H7) is also on the TV's own screen: which picture and sound formats play, which may stutter (only a software decoder) and which don't play, for example no Hi10P, AV1 or DTS on a Shield from 2019. It explains why some videos get converted.</p>
+      <div class="links"><a href="#H7">H7</a><a href="#H14">H14</a></div>
+      <div class="files">tv/TvPlayable.kt · tv/TvHomeActivity.kt</div><div class="ver">4.3.0</div></article>
   </div></div>
 
   <!-- I: several screens -->
@@ -1085,6 +1097,7 @@ body.glance-only section.block:not(#glance) { display: none; }
       <li>Switching between the whole screen and one app while mirroring, and the note for an app whose sound can't be recorded (<a href="#A14">A14</a>, <a href="#A15">A15</a>). First test, 23 Nov: the sound was missing once (cause unknown), and Send debug log didn't work: now with Save as file and Copy (<a href="#N8">N8</a>).</li>
       <li>Repackaged recordings and AVI on a Pixel (<a href="#G2">G2</a>, <a href="#G3">G3</a>); Vosk and Whisper speed (<a href="#F4">F4</a>, <a href="#F5">F5</a>).</li>
       <li>Large text, German, TalkBack (<a href="#N4">N4</a>, <a href="#N5">N5</a>).</li>
+      <li>The TV screens made for the remote have never been seen on a real TV, and were not rendered as pictures either: the home list and its panels, the full-screen question, and the player with its subtitle and sound lists (<a href="#H14">H14</a>, <a href="#H15">H15</a>, <a href="#H16">H16</a>).</li>
     </ul></div>
     <div class="box"><h3>NVIDIA Shield (CastApp TV and Plex server)</h3><ul>
       <li>Found from the phone and from a PC, also after the Shield slept (<a href="#H5">H5</a>).</li>
@@ -1150,7 +1163,7 @@ body.glance-only section.block:not(#glance) { display: none; }
 
 (function () {
   var box = document.getElementById("glanceList");
-  var label = { ok: "Released", "new": "Ready for 4.2.0", later: "Later", no: "Not in CastApp", dec: "Your decision" };
+  var label = { ok: "Released", "new": "Ready for 4.3.0", later: "Later", no: "Not in CastApp", dec: "Your decision" };
   function esc(t) { return t.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/"/g, "&quot;"); }
   var html = "";
   document.querySelectorAll("#features .area").forEach(function (area) {
