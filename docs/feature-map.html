@@ -202,7 +202,7 @@ body.glance-only section.block:not(#glance) { display: none; }
       <span class="cb-item"><span class="cb-label">Next</span><span class="cb-value">4.3.0 <span>the TV screens made for the remote (H14 to H16)</span></span></span>
     </div>
     <div class="facts">
-      <span>Last updated: <b>2026-11-24</b>, matching CastApp main <b>4f97434</b> (release v4.2.0) plus the TV screens made for the remote (H14 to H16, for 4.3.0)</span>
+      <span>Last updated: <b>2026-11-24</b>, matching CastApp main <b>aaf3881</b> (release v4.2.0, plus the TV screens made for the remote, H14 to H16, ready for 4.3.0)</span>
       <span>Feature IDs like <b>H9</b> are stable: use them when you add to or check this page.</span>
       <span>Kept current: source <code>docs/feature-map.html</code> in the CastApp repository.</span>
     </div>
@@ -994,7 +994,7 @@ body.glance-only section.block:not(#glance) { display: none; }
     <thead><tr><th>What</th><th>How it works</th><th>Status</th></tr></thead>
     <tbody>
       <tr><td>AniBox on the PC → CastApp TV</td><td>Plain DLNA: AniBox finds CastApp TV by searching the network or by the address the TV shows (…:49595), pairs with the 4-digit code in "Only paired phones" mode, reads what it can play, sends the subtitle and sound track hints and reads why something didn't play. Since AniBox 1.11.1 the sound hint names the exact track (<code>t=</code>/<code>lang=</code>/<code>title=</code>, counted the same way as CastApp TV) when AniBox can read the file's tracks, else your languages (<code>prefer=</code>); its "Plays on the TV?" check reads the <code>container_*</code> keys and warns about <code>.m2ts</code>, WMV and Ogg video. With 4.0.0 on the TV, videos play, but the hints, the full format list and the reasons are missing. <a href="#H2">H2</a> <a href="#H6">H6</a> <a href="#H7">H7</a> <a href="#H8">H8</a> <a href="#H9">H9</a></td><td><span class="pill s-ok">Released in 4.1.0</span></td></tr>
-      <tr><td>AniBox Android app → CastApp on the phone</td><td><code>CAST_QUEUE</code> opens the Cast to TV sheet with the episode list (resume point, subtitles, sound and subtitle language, poster). <code>PLAYBACK</code> reports come back, so AniBox saves resume points and marks episodes watched. <a href="#L2">L2</a> <a href="#L3">L3</a> <a href="#L4">L4</a></td><td><span class="pill s-ok">Released</span> CastApp side (4.1.0); the AniBox app comes later</td></tr>
+      <tr><td>AniBox Android app → CastApp on the phone</td><td><code>CAST_QUEUE</code> opens the Cast to TV sheet with the episode list (resume point, subtitles, sound and subtitle language, poster). <code>PLAYBACK</code> reports come back, so AniBox saves resume points and marks episodes watched. <a href="#L2">L2</a> <a href="#L3">L3</a> <a href="#L4">L4</a></td><td><span class="pill s-ok">Released</span> CastApp side (4.1.0). The AniBox Android app is out as a test version (0.2.0, 24 Nov, phone and Shield) but plays with its own player; handing episodes to CastApp comes with its step 3</td></tr>
       <tr><td>Library, MyAnimeList sync, "What's missing", downloads</td><td>AniBox's job; CastApp stays a cast and mirror app. <a href="#X1">X1</a> <a href="#X2">X2</a> <a href="#X3">X3</a> <a href="#Y3">Y3</a></td><td><span class="pill s-no">Not in CastApp</span></td></tr>
     </tbody>
   </table></div>
