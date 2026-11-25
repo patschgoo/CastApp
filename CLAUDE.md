@@ -78,7 +78,12 @@ Wear OS remote.
 feature is added, changed, released or dropped, update that file (status, IDs, links, the "Last updated" line
 with the commit) and republish it to the same link. AniBox has its own map (linked from its CastApp section).
 
-## State (version 4.3.0)
+## State (version 4.4.0)
+
+4.4.0 (2026-11-25): the debug report has a cast diary (`support/CastJournal.kt`, file `files/support/cast-journal.txt`,
+with `support/SoundState.kt`), because the user's phone (TCL T807D, Android 16) kept only a minute of logcat. Share… was
+broken since the two FileProviders shared one class (now `support/AppFileProviders.kt`). The user's 24 Nov reports showed
+Stream mode Compatible (HLS) = the big delay; the Shield was found only as Google Cast. CI now runs lint.
 
 4.3.0 (2026-11-24): CastApp TV made for the remote (focus ring and sofa sizes in `tv/TvUi.kt`, home list with side
 panels, full-screen questions, the player's key logic in `tv/TvRemote.kt` with subtitle and sound lists). It compiled and
