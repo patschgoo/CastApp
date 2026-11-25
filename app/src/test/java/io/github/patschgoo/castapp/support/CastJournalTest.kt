@@ -11,13 +11,14 @@ import org.junit.Test
 class JournalBufferTest {
     @Test fun keepsTheNewestLines() {
         val b = JournalBuffer(10)
-        repeat(13) { b.add("line $it") }
+        repeat(12) { b.add("line $it") }
         // Trimming waits for 20 % extra, then goes back to the limit.
-        assertEquals(13, b.lines().size)
-        b.add("line 13")
+        assertEquals(12, b.lines().size)
+        assertFalse(b.trimmedSinceSave())
+        b.add("line 12")
         assertEquals(10, b.lines().size)
-        assertEquals("line 4", b.lines().first())
-        assertEquals("line 13", b.lines().last())
+        assertEquals("line 3", b.lines().first())
+        assertEquals("line 12", b.lines().last())
         assertTrue(b.trimmedSinceSave())
         assertFalse(b.trimmedSinceSave())
     }
