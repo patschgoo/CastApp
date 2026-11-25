@@ -13,9 +13,6 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.selection.selectable
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.Button
-import androidx.compose.material3.Card
-import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.ListItem
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
@@ -29,20 +26,23 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import io.github.patschgoo.castapp.R
 
-private fun title(mode: ProtectionMode) = when (mode) {
+internal fun protectionTitle(mode: ProtectionMode) = when (mode) {
     ProtectionMode.ANYONE -> R.string.protect_mode_anyone
     ProtectionMode.ASK -> R.string.protect_mode_ask
     ProtectionMode.PAIRED -> R.string.protect_mode_paired
 }
 
-private fun description(mode: ProtectionMode) = when (mode) {
+private fun protectionHint(mode: ProtectionMode) = when (mode) {
     ProtectionMode.ANYONE -> R.string.protect_mode_anyone_hint
     ProtectionMode.ASK -> R.string.protect_mode_ask_hint
     ProtectionMode.PAIRED -> R.string.protect_mode_paired_hint
@@ -59,38 +59,49 @@ fun ReceiverProtectionItem() {
     val mode = data.mode ?: guard.mode
     ListItem(
         onClick = { open = true },
-        supportingContent = { Text(stringResource(title(mode))) },
+        supportingContent = { Text(stringResource(protectionTitle(mode))) },
     ) { Text(stringResource(R.string.protect_title)) }
     if (open) ReceiverProtectionDialog { open = false }
 }
 
-/** TV home card: the current protection and a button (reachable with the D-pad) that opens the settings. */
+/**
+ * The TV's panel: the same choices as [ReceiverProtectionDialog], as large rows for the remote.
+ * It opens on the choice in use; OK on a remembered sender forgets it.
+ */
 @Composable
-fun ReceiverProtectionCard() {
-    val context = LocalContext.current
-    TvReceiver.init(context)
+internal fun ReceiverProtectionPanel(onClose: () -> Unit) {
     val guard = TvReceiver.guard
     val data by guard.data.collectAsStateWithLifecycle()
-    var open by remember { mutableStateOf(false) }
     val mode = data.mode ?: guard.mode
-    Card(
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerHigh),
-        modifier = Modifier.fillMaxWidth(),
-    ) {
-        Column(Modifier.padding(28.dp)) {
-            Text(stringResource(R.string.protect_title), style = MaterialTheme.typography.titleLarge)
-            Spacer(Modifier.height(8.dp))
-            Text(stringResource(title(mode)), style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.primary)
-            if (mode == ProtectionMode.PAIRED) {
-                Spacer(Modifier.height(8.dp))
-                Text(stringResource(R.string.protect_code_label), style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                Text(guard.code, style = MaterialTheme.typography.displaySmall)
-            }
-            Spacer(Modifier.height(16.dp))
-            Button(onClick = { open = true }, modifier = Modifier.focusRing()) { Text(stringResource(R.string.protect_change)) }
+    TvPanel(stringResource(R.string.protect_title), onClose) { first ->
+        for (m in ProtectionMode.entries) {
+            TvRow(
+                stringResource(protectionTitle(m)),
+                modifier = if (m == mode) Modifier.focusRequester(first) else Modifier,
+                hint = stringResource(protectionHint(m)),
+                selected = m == mode,
+            ) { guard.setMode(m) }
         }
+        if (mode == ProtectionMode.PAIRED) {
+            Text(stringResource(R.string.protect_code_label), style = tvText(TvSize.value), color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(top = 8.dp))
+            Text(data.code ?: guard.code, style = tvText(44.sp, FontWeight.Bold).copy(letterSpacing = 6.sp), color = MaterialTheme.colorScheme.primary)
+            TvRow(stringResource(R.string.protect_new_code)) { guard.newCode() }
+        }
+        Text(stringResource(R.string.protect_known_title), style = tvText(TvSize.value), color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(top = 8.dp))
+        val none = data.allowed.isEmpty() && data.blocked.isEmpty() && data.paired.isEmpty()
+        if (none) Text(stringResource(R.string.protect_known_none), style = tvText(TvSize.body))
+        val forget = stringResource(R.string.protect_forget)
+        for (p in data.paired) {
+            TvRow(p.name, hint = stringResource(R.string.protect_kind_paired), value = forget) { guard.forgetPaired(p.hash) }
+        }
+        for (a in data.allowed) {
+            TvRow(a.name, hint = stringResource(R.string.protect_kind_allowed, a.address), value = forget) { guard.forgetAllowed(a.key) }
+        }
+        for (b in data.blocked) {
+            TvRow(b.name, hint = stringResource(R.string.protect_kind_blocked, b.address), value = forget) { guard.forgetBlocked(b.key) }
+        }
+        if (!none) TvRow(stringResource(R.string.protect_forget_all)) { guard.forgetAll() }
     }
-    if (open) ReceiverProtectionDialog { open = false }
 }
 
 /** The choice of who may cast, the pairing code, and the list of senders to forget. Touch and D-pad. */
@@ -106,14 +117,14 @@ fun ReceiverProtectionDialog(onDismiss: () -> Unit) {
             Column(Modifier.verticalScroll(rememberScrollState())) {
                 for (m in ProtectionMode.entries) {
                     Row(
-                        Modifier.fillMaxWidth().focusRing(RoundedCornerShape(8.dp)).selectable(selected = mode == m, role = Role.RadioButton, onClick = { guard.setMode(m) }).padding(vertical = 8.dp),
+                        Modifier.fillMaxWidth().focusRing(RoundedCornerShape(8.dp), inside = true).selectable(selected = mode == m, role = Role.RadioButton, onClick = { guard.setMode(m) }).padding(vertical = 8.dp),
                         verticalAlignment = Alignment.CenterVertically,
                         horizontalArrangement = Arrangement.spacedBy(8.dp),
                     ) {
                         RadioButton(selected = mode == m, onClick = null)
                         Column {
-                            Text(stringResource(title(m)), style = MaterialTheme.typography.titleMedium)
-                            Text(stringResource(description(m)), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            Text(stringResource(protectionTitle(m)), style = MaterialTheme.typography.titleMedium)
+                            Text(stringResource(protectionHint(m)), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                         }
                     }
                 }

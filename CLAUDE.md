@@ -78,7 +78,11 @@ Wear OS remote.
 feature is added, changed, released or dropped, update that file (status, IDs, links, the "Last updated" line
 with the commit) and republish it to the same link. AniBox has its own map (linked from its CastApp section).
 
-## State (version 4.2.0)
+## State (version 4.3.0)
+
+4.3.0 (2026-11-24): CastApp TV made for the remote (focus ring and sofa sizes in `tv/TvUi.kt`, home list with side
+panels, full-screen questions, the player's key logic in `tv/TvRemote.kt` with subtitle and sound lists). It compiled and
+passed the unit tests only on GitHub; the screens were never rendered (`docs/tv_home.png` is the old home) or seen on a TV.
 
 Everything is built and unit-tested, but most features since 3.1 have **not been tried on real devices yet**.
 First device test (2026-11-23, an Android 14+ phone with a MediaTek chip + the Shield): the self-test had no problems (notes:
