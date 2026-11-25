@@ -59,6 +59,18 @@ jobs:
       - name: Unit tests
         run: ./gradlew testDebugUnitTest --console=plain
 
+      # Fails on missing German translations and other errors (CLAUDE.md: must have none).
+      - name: Lint
+        run: ./gradlew :app:lintDebug --console=plain
+
+      - name: Lint report
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: lint-report
+          path: app/build/reports/lint-results-debug.*
+          if-no-files-found: ignore
+
       # Signed with your own key when the CASTAPP_* secrets exist (see README),
       # otherwise with the key committed in the repository.
       - name: Build release APK

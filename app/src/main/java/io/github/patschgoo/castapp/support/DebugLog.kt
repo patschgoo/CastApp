@@ -25,6 +25,10 @@ data class ReportInput(
     val generated: String = "",
     /** The newest "Test this phone" result, if the self-test was run. */
     val selfTest: List<String> = emptyList(),
+    /** The cast diary ([CastJournal]): the last sessions step by step. */
+    val sessions: List<String> = emptyList(),
+    /** What the phone is playing as the report is made ([SoundState]). */
+    val soundNow: String = "",
 )
 
 /**
@@ -36,6 +40,7 @@ data class ReportInput(
 object DebugLog {
     const val MAX_LOG_LINES = 1500
     const val MAX_ERRORS = 60
+    const val MAX_SESSION_LINES = 400
 
     private val secretWords = Regex(
         """(?i)\b(password|passwd|pwd|pass|token|secret|api[_-]?key|apikey|authorization|cookie|pin|signature)\b(\s*[=:]\s*)("[^"]*"|'[^']*'|\S+)""",
@@ -90,6 +95,12 @@ object DebugLog {
             input.selfTest.forEach { appendLine(it) }
             appendLine()
         }
+        appendLine("Recent cast sessions (${input.sessions.count { it.contains(" === ") && !it.contains("=== ended") }})")
+        appendLine("--------------------")
+        if (input.soundNow.isNotEmpty()) appendLine("Sound on the phone right now: ${input.soundNow}")
+        if (input.sessions.isEmpty()) appendLine("none since this version was installed")
+        input.sessions.takeLast(MAX_SESSION_LINES).forEach { appendLine(redact(it)) }
+        appendLine()
         val clean = input.logLines.map { redact(it) }
         val errors = clean.filter { isProblem(it) }.takeLast(MAX_ERRORS)
         appendLine("Recent errors and warnings (${errors.size})")
@@ -153,6 +164,8 @@ object DebugLog {
             },
             logLines = readOwnLogcat(),
             selfTest = SelfTest.last,
+            sessions = CastJournal.also { it.attach(context) }.lines(),
+            soundNow = SoundState.describe(context),
             generated = java.text.SimpleDateFormat("yyyy-MM-dd HH:mm:ss Z", java.util.Locale.US).format(java.util.Date()),
         )
         val dir = File(context.cacheDir, "support/logs").apply { mkdirs() }
