@@ -199,10 +199,10 @@ body.glance-only section.block:not(#glance) { display: none; }
     <div class="castbar" role="group" aria-label="Versions">
       <span class="cb-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path class="cb-stroke" d="M2 8V6a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2h-6M2 12a8 8 0 0 1 8 8M2 16a4 4 0 0 1 4 4M2 20h.01"/></svg></span>
       <span class="cb-item"><span class="cb-label">Released</span><span class="cb-value">4.3.0 <span>GitHub release v4.3.0, 24 Nov 2026 (the TV screens made for the remote)</span></span></span>
-      <span class="cb-item"><span class="cb-label">Next</span><span class="cb-value">4.4.0 <span>nothing merged yet</span></span></span>
+      <span class="cb-item"><span class="cb-label">Next</span><span class="cb-value">4.4.0 <span>cast diary in the debug report, Share… fixed, microphone hint, one entry per Chromecast</span></span></span>
     </div>
     <div class="facts">
-      <span>Last updated: <b>2026-11-24</b>, matching CastApp main at <b>release v4.3.0</b></span>
+      <span>Last updated: <b>2026-11-25</b>, matching CastApp main after PR #4 (cast diary, sharing fix; not released)</span>
       <span>Feature IDs like <b>H9</b> are stable: use them when you add to or check this page.</span>
       <span>Kept current: source <code>docs/feature-map.html</code> in the CastApp repository.</span>
     </div>
@@ -411,9 +411,9 @@ body.glance-only section.block:not(#glance) { display: none; }
       <div class="links"><a href="#A1">A1</a><a href="#A2">A2</a><a href="#N1">N1</a></div>
       <div class="files">capture/ScreenEncoder.kt · capture/AudioEncoder.kt · service/CastSession.kt · service/CastService.kt</div><div class="ver">4.2.0</div></article>
     <article class="f" id="A15" data-s="ok"><div class="top"><div><div class="id">A15</div><h3>Sound that can't be recorded</h3></div><span class="pill s-ok">Released in 4.2.0</span></div>
-      <p>If the phone plays sound for 10 seconds but none of it reaches the capture (the app forbids recording, or a call), CastApp says that app's sound stays on the phone. A capture that stops delivering is restarted up to five times before it settles for silence.</p>
+      <p>If the phone plays sound for 10 seconds but none of it reaches the capture (the app forbids recording, or a call), CastApp says that app's sound stays on the phone. A capture that stops delivering is restarted up to five times before it settles for silence. <b>Ready for 4.4.0:</b> with Phone microphone off, the note says it can send that app's sound through the microphone instead (an app such as an ad-blocking browser that forbids recording can't be captured any other way), and the foreground service also takes the microphone type whenever sound is sent, since Android 11+ may silence a background app's recording without it.</p>
       <div class="links"><a href="#A3">A3</a><a href="#A1">A1</a></div>
-      <div class="files">capture/AudioEncoder.kt · capture/PcmLevel.kt</div><div class="ver">4.2.0</div></article>
+      <div class="files">capture/AudioEncoder.kt · capture/PcmLevel.kt · service/CastService.kt</div><div class="ver">4.2.0 · microphone hint 4.4.0</div></article>
     <article class="f" id="A16" data-s="ok"><div class="top"><div><div class="id">A16</div><h3>Less delay: use CastApp TV</h3></div><span class="pill s-ok">Released in 4.2.0</span></div>
       <p>The same box can show up twice: as Google Cast (1 to 3 seconds behind) and as CastApp TV (under half a second). Mirroring to the Google Cast entry while CastApp TV answers on that box, the casting card offers Use CastApp TV; a Shield or Google TV box without CastApp gets a hint to install it. Moving between the two players on one box closes the other one.</p>
       <div class="links"><a href="#A1">A1</a><a href="#H3">H3</a></div>
@@ -429,9 +429,9 @@ body.glance-only section.block:not(#glance) { display: none; }
       <div class="links"><a href="#B2">B2</a><a href="#N7">N7</a></div>
       <div class="files">discovery/NsdBrowser.kt · discovery/MdnsBrowser.kt · dlna/SsdpBrowser.kt · discovery/NetworkScanner.kt</div><div class="ver">1.0 · DLNA search 2.0</div></article>
     <article class="f" id="B2" data-s="ok"><div class="top"><div><div class="id">B2</div><h3>Remembered TVs, one entry each</h3></div><span class="pill s-ok">Released</span></div>
-      <p>Every TV you cast to is remembered and found again when its address changes. A TV that answers in several ways is listed once, the best way first: Google Cast, then DLNA, Roku, AirPlay. A CastApp TV is always listed.</p>
+      <p>Every TV you cast to is remembered and found again when its address changes. A TV that answers in several ways is listed once, the best way first: Google Cast, then DLNA, Roku, AirPlay. A CastApp TV is always listed. <b>Ready for 4.4.0:</b> a Chromecast that answers a second time over IPv6 (fe80::…, without its id) is no longer listed twice; that copy could not have played the stream anyway.</p>
       <div class="links"><a href="#B1">B1</a><a href="#A8">A8</a><a href="#H1">H1</a></div>
-      <div class="files">discovery/DeviceRepository.kt · discovery/CastDevice.kt</div><div class="ver">1.0 · one entry per TV 3.1</div></article>
+      <div class="files">discovery/DeviceRepository.kt · discovery/CastDevice.kt · discovery/AddressEcho.kt</div><div class="ver">1.0 · one entry per TV 3.1 · IPv6 copies 4.4.0</div></article>
     <article class="f" id="B3" data-s="ok"><div class="top"><div><div class="id">B3</div><h3>Google Cast</h3></div><span class="pill s-ok">Released</span></div>
       <p>Chromecast, Google TV Streamer, the Shield and TVs with Google TV or Android TV. CastApp speaks the Cast protocol itself, so it needs neither Google Play services nor the phone's Cast menu.</p>
       <div class="links"><a href="#A13">A13</a><a href="#B1">B1</a></div>
@@ -865,9 +865,9 @@ body.glance-only section.block:not(#glance) { display: none; }
       <div class="links"><a href="#B1">B1</a><a href="#N6">N6</a></div>
       <div class="files">support/NetworkCheck.kt · support/NetworkProbe.kt</div><div class="ver">4.0</div></article>
     <article class="f" id="N8" data-s="ok"><div class="top"><div><div class="id">N8</div><h3>Debug log and battery help</h3></div><span class="pill s-ok">Released</span></div>
-      <p>Send debug log makes the report (it says Preparing while it reads the log), then offers Share…, Save as file… and Copy short version (no log lines, to paste into a chat), because sharing alone failed on a test phone; nothing is sent by itself. Battery &amp; background asks to be left alone and shows tips for your phone's brand. The self-test's notes on notifications and battery have buttons straight to Android's settings (4.2.0).</p>
+      <p>Send debug log makes the report (it says Preparing while it reads the log), then offers Share…, Save as file… and Copy short version (no log lines, to paste into a chat), because sharing alone failed on a test phone; nothing is sent by itself. Battery &amp; background asks to be left alone and shows tips for your phone's brand. The self-test's notes on notifications and battery have buttons straight to Android's settings (4.2.0). <b>Ready for 4.4.0:</b> Share… works again (Android had used the recordings' file provider for it, the user's report of 24 Nov showed the error; the downloaded update's installer used the same broken path), and the report has a section "Recent cast sessions": a diary kept in the app's folder of each session's steps with timings (connect, TV player start, stream tracks, HLS wait, time to the first picture, TV states, fallbacks, reconnects), the sound capture's state and seconds of sound sent, and what the phone plays (kind of sound, whether the app allows recording). Android's own log on the test phone had only the last minute, so earlier reports said nothing about the casts.</p>
       <div class="links"><a href="#N6">N6</a></div>
-      <div class="files">support/DebugLog.kt · support/SendLogUi.kt · support/BatteryHelp.kt · support/SelfTestUi.kt</div><div class="ver">4.0 · save/copy 4.2.0</div></article>
+      <div class="files">support/DebugLog.kt · support/CastJournal.kt · support/SoundState.kt · support/AppFileProviders.kt · support/SendLogUi.kt · support/BatteryHelp.kt · support/SelfTestUi.kt</div><div class="ver">4.0 · save/copy 4.2.0 · cast diary 4.4.0</div></article>
     <article class="f" id="N9" data-s="ok"><div class="top"><div><div class="id">N9</div><h3>Updates from GitHub releases</h3></div><span class="pill s-ok">Released</span></div>
       <p>Looks at the GitHub releases once a day at start (can be off) or when you tap Check for updates, shows the release notes, and Install downloads CastApp.apk and starts Android's installer. A tag like v4.1.0 makes the release.</p>
       <div class="links"><a href="#N10">N10</a><a href="#Y4">Y4</a></div>
