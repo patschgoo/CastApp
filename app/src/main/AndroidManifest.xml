@@ -245,7 +245,7 @@
 
         <!-- Lets a TV play a recording from the phone's app folder -->
         <provider
-            android:name="androidx.core.content.FileProvider"
+            android:name=".support.RecordingsFileProvider"
             android:authorities="${applicationId}.recordings"
             android:exported="false"
             android:grantUriPermissions="true">
@@ -256,7 +256,7 @@
 
         <!-- Shares the debug log and the downloaded update (cache/support only) -->
         <provider
-            android:name="androidx.core.content.FileProvider"
+            android:name=".support.SupportFileProvider"
             android:authorities="${applicationId}.support.files"
             android:exported="false"
             android:grantUriPermissions="true">

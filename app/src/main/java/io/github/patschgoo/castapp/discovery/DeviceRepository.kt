@@ -273,6 +273,8 @@ class DeviceRepository(context: Context) {
         val entries = LinkedHashMap<String, DeviceEntry>()
         for ((id, d) in discovered) entries[id] = DeviceEntry(d.copy(mac = d.mac ?: savedCopy[id]?.mac), savedCopy.containsKey(id), true)
         for ((id, d) in savedCopy) if (id !in entries) entries[id] = DeviceEntry(d, true, id in reachable)
+        // The same TV once more over IPv6 without its id: list it once (see AddressEcho).
+        AddressEcho.echoes(entries.values.map { it.device }).forEach { entries.remove(it) }
         // Many TVs answer in several ways (Chromecast built in, DLNA, AirPlay, Roku); show each once,
         // the best way first: Cast, DLNA, Roku, AirPlay. CastApp TV receivers are always listed.
         val rank = mapOf(DeviceKind.CAST to 0, DeviceKind.DLNA to 1, DeviceKind.ROKU to 2, DeviceKind.AIRPLAY to 3)

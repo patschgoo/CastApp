@@ -1,0 +1,6 @@
+Bessere Hilfe, wenn Ton oder Tempo nicht stimmen.
+• Debug-Log senden → Teilen… geht wieder (das Update-Installieren auch)
+• Der Debug-Bericht zeigt deine letzten Casts Schritt für Schritt: wie lange das Verbinden dauerte, wann das Bild kam, ob Ton aufgenommen wurde
+• Wenn eine App keine Aufnahme ihres Tons erlaubt, sagt CastApp dir, wie du ihn übers Mikrofon sendest
+• Die Tonaufnahme läuft auch auf Handys weiter, die Apps im Hintergrund stummschalten
+• Ein Chromecast steht nicht mehr doppelt in der Liste

@@ -1,0 +1,6 @@
+Better help when sound or speed goes wrong.
+• Send debug log → Share… works again (the update installer too)
+• The debug report now shows your last casts step by step: how long connecting took, when the picture came, whether sound was captured
+• If an app doesn't allow its sound to be recorded, CastApp tells you how to send it through the microphone
+• Sound capture also keeps working on phones that silence apps in the background
+• A Chromecast is no longer listed twice

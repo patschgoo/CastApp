@@ -11,6 +11,7 @@
     <string name="svc_mode_screen"> · ganzer Bildschirm</string>
     <string name="svc_mode_app"> · eine App</string>
     <string name="mode_no_app_sound">Das Handy spielt Ton ab, aber nichts davon kommt beim Fernseher an. Die App, die ihn abspielt, erlaubt vielleicht keine Aufnahme ihres Tons (manche Streaming-Apps, Anrufe); dann bleibt ihr Ton auf dem Handy.</string>
+    <string name="mode_no_app_sound_mic">Das Handy spielt Ton ab, aber nichts davon kommt beim Fernseher an. Die App, die ihn abspielt, erlaubt keine Aufnahme ihres Tons (manche Browser, Streaming-Apps, Anrufe). Wenn du ihn trotzdem senden willst, schalte Einstellungen → Handy-Mikrofon ein: Das Mikrofon nimmt dann den Lautsprecher des Handys auf (schlechtere Qualität, mit Raumgeräuschen).</string>
     <string name="mode_faster_title">Weniger Verzögerung auf %1$s</string>
     <string name="mode_faster_text">Google Cast hält 1 bis 3 Sekunden Bild in Reserve. CastApp TV auf demselben Fernseher spiegelt mit unter einer halben Sekunde.</string>
     <string name="mode_faster_switch">CastApp TV nutzen</string>

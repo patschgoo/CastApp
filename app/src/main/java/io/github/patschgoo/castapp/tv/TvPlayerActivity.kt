@@ -210,6 +210,9 @@ class TvPlayerActivity : ComponentActivity() {
 
     // ---- the remote (TV) -------------------------------------------------------------------------
 
+    // Activity.dispatchKeyEvent is public Android API; lint mistakes it for androidx.core's
+    // restricted ComponentActivity override.
+    @android.annotation.SuppressLint("RestrictedApi")
     override fun dispatchKeyEvent(event: KeyEvent): Boolean {
         // "Swap back" is a real button: while it shows, the arrows and OK belong to it.
         if (!tv || swapButton.visibility == View.VISIBLE) return super.dispatchKeyEvent(event)

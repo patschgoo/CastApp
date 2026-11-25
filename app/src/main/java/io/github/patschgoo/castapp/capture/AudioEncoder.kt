@@ -18,6 +18,7 @@ import android.util.Log
 import androidx.annotation.RequiresApi
 import io.github.patschgoo.castapp.stream.AudioConfig
 import io.github.patschgoo.castapp.stream.StreamHub
+import io.github.patschgoo.castapp.support.CastJournal
 
 /**
  * Captures what other apps are playing (Android 10+, AudioPlaybackCapture) and/or
@@ -52,6 +53,11 @@ class AudioEncoder(
     private var codec: MediaCodec? = null
     private var thread: Thread? = null
     @Volatile private var running = false
+    /** Captured frames that held sound (not silence), for the cast diary. */
+    @Volatile private var soundFrames = 0L
+
+    /** Seconds of real sound (not silence) captured so far. */
+    fun soundSeconds(): Long = soundFrames / SAMPLE_RATE
 
     /** The microphone is being mixed in. */
     val micActive: Boolean get() = mic != null
@@ -119,6 +125,7 @@ class AudioEncoder(
             .setAudioPlaybackCaptureConfig(captureConfig)
             .build()
         if (r.state != AudioRecord.STATE_INITIALIZED) {
+            CastJournal.event("Capture of other apps' sound didn't initialize")
             r.release()
             null
         } else {
@@ -126,6 +133,7 @@ class AudioEncoder(
         }
     } catch (e: Exception) {
         Log.w(TAG, "Playback capture unavailable", e)
+        CastJournal.event("Android refused to capture other apps' sound: ${e.javaClass.simpleName}: ${e.message}")
         null
     }
 
@@ -214,6 +222,7 @@ class AudioEncoder(
                     retries = 0
                     lastSoundNs = System.nanoTime()
                     Log.i(TAG, if (r != null) "Sound capture moved to the new permission" else "Sound capture unavailable with the new permission")
+                    CastJournal.event(if (r != null) "Sound capture moved to the new permission" else "Sound capture unavailable with the new permission")
                 }
                 // The capture stopped delivering: try a fresh one a few times before settling for silence.
                 if (captureBroken && retries < MAX_CAPTURE_RETRIES && System.nanoTime() - brokenAtNs > CAPTURE_RETRY_NS) {
@@ -224,6 +233,7 @@ class AudioEncoder(
                         r = fresh
                         captureBroken = false
                         Log.i(TAG, "Sound capture restarted (attempt $retries)")
+                        CastJournal.event("Sound capture restarted (attempt $retries)")
                     } else {
                         brokenAtNs = System.nanoTime()
                     }
@@ -252,11 +262,15 @@ class AudioEncoder(
                 if (n < 0) {
                     // Keep the audio track alive with silence rather than freezing the stream.
                     Log.w(TAG, "AudioRecord.read failed: $n, continuing with silence")
+                    CastJournal.event("Sound capture stopped delivering (read $n); retrying")
                     captureBroken = true
                     brokenAtNs = System.nanoTime()
                     n = 0
                 }
-                if (n > 0 && PcmLevel.hasSound(readBuf, n)) lastSoundNs = System.nanoTime()
+                if (n > 0 && PcmLevel.hasSound(readBuf, n)) {
+                    lastSoundNs = System.nanoTime()
+                    soundFrames += n / BYTES_PER_FRAME
+                }
                 if (r != null && !quietReported && onNoAppSound != null) {
                     val now = System.nanoTime()
                     if (now >= nextQuietCheckNs) {

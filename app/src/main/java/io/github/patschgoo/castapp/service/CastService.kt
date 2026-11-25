@@ -122,10 +122,13 @@ class CastService : Service() {
         }
 
         // Must be in the foreground (with the mediaProjection type) before touching the projection.
-        // With "Phone microphone" on, also the microphone type: Android 11+ silences the
-        // microphone of a background app without it. If Android refuses that, mirror without.
+        // Whenever sound is sent, also the microphone type: Android 11+ can silence any recording
+        // (the microphone, and on some phones the capture of other apps' sound too) of an app whose
+        // foreground service lacks it while another app is in front. If Android refuses, mirror without.
         val projectionType = if (Build.VERSION.SDK_INT >= 29) ServiceInfo.FOREGROUND_SERVICE_TYPE_MEDIA_PROJECTION else 0
-        val withMic = Build.VERSION.SDK_INT >= 30 && CastApp.get(this).settings.current.microphone &&
+        val current = CastApp.get(this).settings.current
+        val wantsSound = current.microphone || current.audio || intent.getBooleanExtra(EXTRA_AUDIO_ONLY, false)
+        val withMic = Build.VERSION.SDK_INT >= 30 && wantsSound &&
             checkSelfPermission(android.Manifest.permission.RECORD_AUDIO) == android.content.pm.PackageManager.PERMISSION_GRANTED &&
             try {
                 ServiceCompat.startForeground(
@@ -137,6 +140,9 @@ class CastService : Service() {
             } catch (e: Exception) {
                 false
             }
+        io.github.patschgoo.castapp.support.CastJournal.forNextSession(
+            "Foreground service: screen capture" + if (withMic) " + microphone" else if (Build.VERSION.SDK_INT >= 30 && wantsSound) " (microphone type refused or no record permission)" else "",
+        )
         if (!withMic && !goForeground(device, projectionType)) return
         if (device == null || data == null || resultCode != Activity.RESULT_OK) {
             stopIfIdle()

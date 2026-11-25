@@ -9,6 +9,8 @@ import android.os.Looper
 import android.util.Log
 import io.github.patschgoo.castapp.CastApp
 import io.github.patschgoo.castapp.R
+import io.github.patschgoo.castapp.support.CastJournal
+import io.github.patschgoo.castapp.support.SoundState
 import io.github.patschgoo.castapp.capture.AudioEncoder
 import io.github.patschgoo.castapp.capture.CodecChooser
 import io.github.patschgoo.castapp.capture.HevcMemory
@@ -132,7 +134,35 @@ class CastSession(
         onGone = { d, _ -> onExtraGone(d) },
     ).also { it.provider = { d, local -> extraMedia(d, local) } }
 
+    /** When the session started, for the diary's timings. */
+    private val startedAt = System.currentTimeMillis()
+    private fun sinceStart() = System.currentTimeMillis() - startedAt
+    private var lastPlayerState = ""
+    private var firstPlayLogged = false
+
+    /** One line in the cast diary that goes into the debug report. */
+    private fun journal(message: String) = CastJournal.event(message)
+
     fun start() {
+        CastJournal.begin(
+            context,
+            buildString {
+                append("Cast to ${device.name} (${device.kind}")
+                device.model?.let { append(", $it") }
+                if (device.isCastAppTv) append(", CastApp TV")
+                append(") at ${device.host}:${device.port}; ")
+                append(
+                    when {
+                        audioOnly -> "sound only"
+                        singleApp -> "one app"
+                        else -> "whole screen"
+                    },
+                )
+                if (!audioOnly) append(", ${settings.resolution.short} ${settings.fps} fps")
+                append(", mode ${settings.streamMode}, sound ${settings.audio}, microphone ${settings.microphone}")
+                append(", Android ${Build.VERSION.SDK_INT}")
+            },
+        )
         CastController.begin(
             this,
             CastState.Active(
@@ -160,6 +190,7 @@ class CastSession(
             s.start()
             server = s
             codec = chooseCodec()
+            journal("Stream server ready on port ${settings.port}; video codec ${codec.label}")
             startCapture(h)
             // Sound sync can be changed in Settings while casting.
             scope.launch { settingsFlow.collect { h.audioOffsetUs = it.audioDelayMs * 1000L } }
@@ -175,6 +206,7 @@ class CastSession(
             throw e
         } catch (e: Exception) {
             Log.w(TAG, "Cast session failed", e)
+            journal("Failed: ${e.javaClass.simpleName}: ${e.message}")
             finish(e.message ?: Txt.s(R.string.err_cast_failed))
         }
     }
@@ -211,7 +243,10 @@ class CastSession(
             val a = AudioEncoder(
                 context, projection, h, captureApps = captureApps,
                 micGain = if (wantMic) ({ settingsFlow.value.micLevel / 100f }) else null,
-                onNoAppSound = { CastController.message(Txt.s(R.string.mode_no_app_sound)) },
+                onNoAppSound = {
+                    journal("Sound: the phone plays sound, but none reaches the capture. Phone: ${SoundState.describe(context)}")
+                    CastController.message(Txt.s(if (settings.microphone) R.string.mode_no_app_sound else R.string.mode_no_app_sound_mic))
+                },
             ) { e ->
                 Log.w(TAG, "Audio encoder error", e)
                 finish(Txt.s(R.string.err_audio_capture_stopped))
@@ -226,10 +261,28 @@ class CastSession(
                 h.expectAudio(false)
             }
         }
+        val micPermission = context.checkSelfPermission(android.Manifest.permission.RECORD_AUDIO) == android.content.pm.PackageManager.PERMISSION_GRANTED
+        journal(
+            when {
+                !wantAudio -> "Sound: off (setting${if (Build.VERSION.SDK_INT < 29) ", Android 9 or older can't capture apps" else ""})"
+                !audioOn -> "Sound: capture could not start (record permission ${if (micPermission) "granted" else "missing"}); stream without sound"
+                else -> "Sound: capture running (other apps ${audio?.appsActive == true}, microphone ${audio?.micActive == true}). Phone: ${SoundState.describe(context)}"
+            },
+        )
         if (audioOnly && !audioOn) {
             throw CastException(Txt.s(R.string.err_sound_capture_failed))
         }
         update { it.copy(audio = audioOn, microphone = micOn) }
+    }
+
+    private fun streamTracks(h: StreamHub): String = buildString {
+        if (!audioOnly) append("video ${h.videoConfig?.codecString ?: "?"}")
+        if (h.publishedAudioRate != null) {
+            if (isNotEmpty()) append(" + ")
+            append("sound ${h.publishedAudioRate} Hz")
+        } else {
+            append(", no sound track")
+        }
     }
 
     // ---- video codec ------------------------------------------------------------------
@@ -285,6 +338,7 @@ class CastSession(
         val h = hub ?: return false
         val s = server ?: return false
         Log.i(TAG, "HEVC didn't work on ${device.name} ($reason), switching to H.264")
+        journal("HEVC didn't play ($reason), switching to H.264")
         if (tvFailed && settings.videoCodec == CodecPreference.AUTO) HevcMemory.markFailed(context, device.id)
         codec = VideoCodec.H264
         val bitrate = currentBitrate()
@@ -329,12 +383,16 @@ class CastSession(
         if (device.isUrlRenderer) return connectUrlRenderer()
         val c = CastClient(host, port)
         c.listener = listenerFor(c)
+        val connectStart = System.currentTimeMillis()
+        journal("Connecting to $host:$port")
         try {
             c.connect(6000)
         } catch (e: Exception) {
+            journal("Connection failed after ${System.currentTimeMillis() - connectStart} ms: ${e.message}")
             c.close()
             throw e
         }
+        journal("Connected in ${System.currentTimeMillis() - connectStart} ms (phone address ${c.localAddress?.hostAddress})")
         client = c
         localAddress = c.localAddress ?: throw CastException(Txt.s(R.string.err_no_path))
         update { it.copy(phase = CastPhase.STARTING) }
@@ -346,11 +404,14 @@ class CastSession(
             // Capture is running and the track layout is fixed (video-only if audio never starts).
             h.awaitInitSegment(8_000) ?: throw CastException(Txt.s(R.string.err_screen_start))
         }
+        journal("Stream ready: ${streamTracks(h)}")
 
         if (!audioOnly && settings.receiverAppId.isNotBlank() && settings.streamMode == StreamMode.LOW_LATENCY) {
             if (tryCustomPlayer(c, settings.receiverAppId.trim())) return
         }
+        val launchStart = System.currentTimeMillis()
         val a = c.launch(CastClient.DEFAULT_MEDIA_RECEIVER)
+        journal("Google's media player started on the TV in ${System.currentTimeMillis() - launchStart} ms")
         app = a
         try { readVolume(c.getReceiverStatus()) } catch (_: Exception) {}
         when {
@@ -369,6 +430,11 @@ class CastSession(
         r.listener = object : MediaRenderer.Listener {
             override fun onStatus(status: RendererStatus) {
                 if (r !== urlRenderer) return
+                if (status.state.name != lastPlayerState) {
+                    lastPlayerState = status.state.name
+                    journal("TV: ${status.state}" + if (status.state == PlayState.PLAYING && !firstPlayLogged) " (${sinceStart()} ms after the start)" else "")
+                    if (status.state == PlayState.PLAYING) firstPlayLogged = true
+                }
                 when (status.state) {
                     PlayState.PLAYING -> {
                         playing = true
@@ -398,7 +464,10 @@ class CastSession(
                 if (r === urlRenderer) primaryFailed(Txt.s(R.string.err_cast_stopped_tv))
             }
         }
+        val connectStart = System.currentTimeMillis()
+        journal("Connecting to ${device.kind} at ${device.host}:${device.port}")
         r.connect()
+        journal("Connected in ${System.currentTimeMillis() - connectStart} ms (phone address ${r.localAddress?.hostAddress})")
         urlRenderer = r
         localAddress = r.localAddress ?: throw CastException(Txt.s(R.string.err_no_path))
         update { it.copy(phase = CastPhase.STARTING) }
@@ -409,9 +478,12 @@ class CastSession(
         } else {
             h.awaitInitSegment(8_000) ?: throw CastException(Txt.s(R.string.err_screen_start))
         }
+        journal("Stream ready: ${streamTracks(h)}")
         playing = false
         val local = localAddress!!
-        r.load(mirrorMedia(s, local))
+        val media = mirrorMedia(s, local)
+        journal("Asking the TV to play ${media.mimeType}")
+        r.load(media)
         update { it.copy(phase = CastPhase.BUFFERING) }
         if (codec == VideoCodec.HEVC && !hevcPlayed) {
             // No picture after a while: the TV probably can't decode HEVC after all.
@@ -447,7 +519,9 @@ class CastSession(
             // AirPlay and Roku players want HLS; give the segmenter a few segments first.
             val segmenter = s.enableHls()
             usingHls = true
+            val waitStart = System.currentTimeMillis()
             withTimeoutOrNull(12_000) { while (segmenter.completedSegments < 3) delay(100) }
+            journal("HLS: ${segmenter.completedSegments} segments ready after ${System.currentTimeMillis() - waitStart} ms")
             // HEVC needs the master playlist, which names the codec ("hvc1...").
             val path = if (codec == VideoCodec.HEVC) s.hlsMasterPath else s.hlsPath
             RendererMedia(s.urlFor(local, path), "application/x-mpegurl", TITLE, device.name, live = true)
@@ -490,6 +564,7 @@ class CastSession(
             true
         } catch (e: Exception) {
             Log.w(TAG, "Low-latency TV player not available ($appId): ${e.message}")
+            journal("Low-latency TV player not available: ${e.message}")
             CastController.message(Txt.s(R.string.err_lowlat_failed))
             usingCustomPlayer = false
             false
@@ -504,6 +579,7 @@ class CastSession(
         usingHls = false
         update { it.copy(phase = CastPhase.BUFFERING, compatibilityMode = false) }
         val media = CastClient.liveMedia(s.urlFor(local, s.mp4Path), hls = false, title = TITLE, subtitle = device.name)
+        journal("Loading the low-latency MP4 stream")
         val ok = loadMedia(c, a, media)
         if (!ok) {
             scope.launch { fallbackToHls("load failed") }
@@ -528,7 +604,9 @@ class CastSession(
         watchdog?.cancel()
         update { it.copy(phase = CastPhase.BUFFERING, compatibilityMode = true) }
         val segmenter = s.enableHls()
+        val waitStart = System.currentTimeMillis()
         withTimeoutOrNull(12_000) { while (segmenter.completedSegments < 3) delay(100) }
+        journal("HLS: ${segmenter.completedSegments} segments ready after ${System.currentTimeMillis() - waitStart} ms; loading HLS (Google's player keeps several seconds in reserve)")
         // HEVC needs the master playlist, which names the codec ("hvc1...").
         val path = if (codec == VideoCodec.HEVC) s.hlsMasterPath else s.hlsPath
         val media = CastClient.liveMedia(s.urlFor(local, path), hls = true, title = TITLE, subtitle = device.name)
@@ -554,14 +632,17 @@ class CastSession(
     private suspend fun loadMedia(c: CastClient, a: RunningApp, media: JSONObject): Boolean {
         loading = true
         playing = false
+        val loadStart = System.currentTimeMillis()
         return try {
             val status = c.load(a, media)
             mediaSessionId = status.optInt("mediaSessionId", -1)
+            journal("TV accepted the stream in ${System.currentTimeMillis() - loadStart} ms")
             loading = false
             handleMediaStatus(status)
             true
         } catch (e: CastException) {
             Log.w(TAG, "LOAD failed (hls=$usingHls): ${e.message}")
+            journal("TV refused the stream after ${System.currentTimeMillis() - loadStart} ms (HLS $usingHls): ${e.message}")
             loading = false
             false
         }
@@ -578,6 +659,7 @@ class CastSession(
             }
         }
         Log.i(TAG, "Switching to HLS: $reason")
+        journal("Switching to HLS: $reason")
         loadHls()
     }
 
@@ -600,6 +682,7 @@ class CastSession(
             return
         }
         reconnecting = true
+        journal("Connection to the TV lost: reconnecting")
         watchdog?.cancel()
         update { it.copy(phase = CastPhase.RECONNECTING) }
         try { client?.close() } catch (_: Exception) {}
@@ -627,6 +710,7 @@ class CastSession(
                 connectAndPlay(host, port)
                 reconnecting = false
                 Log.i(TAG, "Reconnected after $attempt attempt(s)")
+                journal("Reconnected after $attempt attempt(s)")
                 return
             } catch (e: CancellationException) {
                 throw e
@@ -671,7 +755,15 @@ class CastSession(
     }
 
     private fun handleMediaStatus(status: JSONObject) {
-        when (status.optString("playerState")) {
+        val state = status.optString("playerState")
+        if (state.isNotEmpty() && state != lastPlayerState) {
+            lastPlayerState = state
+            val idle = status.optString("idleReason").takeIf { it.isNotEmpty() }?.let { " ($it)" } ?: ""
+            val first = if (state == "PLAYING" && !firstPlayLogged) " (${sinceStart()} ms after the start)" else ""
+            if (state == "PLAYING") firstPlayLogged = true
+            journal("TV: $state$idle$first")
+        }
+        when (state) {
             "PLAYING" -> {
                 playing = true
                 if (codec == VideoCodec.HEVC) hevcPlayed = true
@@ -744,6 +836,7 @@ class CastSession(
         audio?.switchProjection(newProjection)
         if (old !== newProjection) try { old.stop() } catch (_: Exception) {}
         Log.i(TAG, "Capture switched to " + if (newSingleApp) "one app" else "the whole screen")
+        journal("Capture switched to " + if (newSingleApp) "one app" else "the whole screen")
         val dark = newSingleApp && Build.VERSION.SDK_INT >= 34
         update { it.copy(singleApp = newSingleApp, canDarkScreen = dark, darkScreen = it.darkScreen && dark) }
     }
@@ -861,6 +954,8 @@ class CastSession(
 
     private fun teardown(message: String?, stopReceiver: Boolean) {
         watchdog?.cancel()
+        audio?.let { a -> journal("Sound sent: ${a.soundSeconds()} s with sound in ${sinceStart() / 1000} s") }
+        CastJournal.end(message ?: "stopped (by the user or the phone)")
         val c = client
         val a = app
         if (stopReceiver && c != null && a != null && c.isConnected) {
