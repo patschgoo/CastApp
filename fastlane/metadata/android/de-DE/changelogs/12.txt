@@ -1,0 +1,4 @@
+CastApp TV behält für sich, was er abspielt.
+• Mit „Nur gekoppelte Handys“ bekommen nicht gekoppelte Geräte keine laufenden Meldungen mehr darüber, was der Fernseher abspielt
+• Die laufenden Meldungen enthalten die Adresse des Streams nicht mehr
+• Höchstens 16 Apps können dem Fernseher gleichzeitig folgen

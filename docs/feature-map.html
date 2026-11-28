@@ -202,7 +202,7 @@ body.glance-only section.block:not(#glance) { display: none; }
       <span class="cb-item"><span class="cb-label">Next</span><span class="cb-value">4.5.0 <span>nothing merged yet</span></span></span>
     </div>
     <div class="facts">
-      <span>Last updated: <b>2026-11-28</b>, matching CastApp main at <b>release v4.4.1</b></span>
+      <span>Last updated: <b>2026-11-28</b>, matching CastApp main at <b>release v4.4.2</b></span>
       <span>Feature IDs like <b>H9</b> are stable: use them when you add to or check this page.</span>
       <span>Kept current: source <code>docs/feature-map.html</code> in the CastApp repository.</span>
     </div>
@@ -637,9 +637,9 @@ body.glance-only section.block:not(#glance) { display: none; }
       <div class="links"><a href="#H2">H2</a><a href="#H4">H4</a><a href="#H5">H5</a></div>
       <div class="files">tv/TvHomeActivity.kt · tv/TvReceiverService.kt · tv/TvReceiver.kt</div><div class="ver">3.1</div></article>
     <article class="f" id="H2" data-s="ok"><div class="top"><div><div class="id">H2</div><h3>A standard DLNA TV for every app</h3></div><span class="pill s-ok">Released</span></div>
-      <p>Phones see it with a CastApp TV label, and any DLNA app (BubbleUPnP, Web Video Caster, AniBox on a PC) can cast to it. It plays mirroring, videos with subtitles, music, photos, channels, network files and web videos. Since 4.4.1 apps that subscribe get live state events (UPnP eventing), many connections at once can't stall it, it opens only network streams (never the TV's own files) and senders over Tailscale count as home.</p>
+      <p>Phones see it with a CastApp TV label, and any DLNA app (BubbleUPnP, Web Video Caster, AniBox on a PC) can cast to it. It plays mirroring, videos with subtitles, music, photos, channels, network files and web videos. Since 4.4.1 apps that subscribe get live state events (UPnP eventing), many connections at once can't stall it, it opens only network streams (never the TV's own files) and senders over Tailscale count as home. Since 4.4.2 those events follow "Only paired phones" like the control commands, carry no stream address, and at most 16 apps can subscribe.</p>
       <div class="links"><a href="#H1">H1</a><a href="#H7">H7</a><a href="#H11">H11</a></div>
-      <div class="files">tv/UpnpRenderer.kt · tv/TvPlayerActivity.kt</div><div class="ver">3.1 · eventing, limits 4.4.1</div></article>
+      <div class="files">tv/UpnpRenderer.kt · tv/TvPlayerActivity.kt</div><div class="ver">3.1 · eventing, limits 4.4.1 · paired events 4.4.2</div></article>
     <article class="f" id="H3" data-s="ok"><div class="top"><div><div class="id">H3</div><h3>Low-delay mirroring</h3></div><span class="pill s-ok">Released</span></div>
       <p>For CastApp's own screen stream the player keeps almost no buffer and plays a little faster when frames pile up. It aims for under half a second.</p>
       <div class="links"><a href="#A1">A1</a><a href="#I2">I2</a></div>

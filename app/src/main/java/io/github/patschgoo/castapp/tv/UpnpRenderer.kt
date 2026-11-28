@@ -340,6 +340,12 @@ class UpnpRenderer(
         val service = path.removePrefix("/event/")
         if (service !in setOf("AVTransport", "RenderingControl", "ConnectionManager")) return plain(404, "Not Found", "No such service")
         if (!isLocal(remote)) return plain(403, "Forbidden", "Only devices on the local network may ask that")
+        // Events say what plays: the same rule as GetPositionInfo and /castapp/status ("Only paired phones").
+        val denied = guard?.authorize(senderOf(request, remote), Access.STATUS)
+        if (denied is Verdict.Denied) {
+            val pairing = denied.message == ReceiverGuard.PAIRING_REQUIRED
+            return plain(if (pairing) 401 else 403, if (pairing) "Unauthorized" else "Forbidden", denied.message)
+        }
         val seconds = request.headers["timeout"]?.substringAfter("Second-", "")?.toIntOrNull()?.coerceIn(60, SUBSCRIPTION_SECONDS)
             ?: SUBSCRIPTION_SECONDS
         val sid = request.headers["sid"]
@@ -355,6 +361,9 @@ class UpnpRenderer(
                 u?.scheme == "http" && u.host?.trim('[', ']') == remote?.hostAddress
             }.toList()
         if (callbacks.isEmpty() || request.headers["nt"] != "upnp:event") return plain(412, "Precondition Failed", "No callback")
+        val now = System.currentTimeMillis()
+        subscriptions.entries.removeIf { it.value.until < now }
+        if (subscriptions.size >= MAX_SUBSCRIPTIONS) return plain(503, "Service Unavailable", "Too many subscriptions")
         val newSid = "uuid:" + java.util.UUID.randomUUID()
         val sub = Subscription(service, callbacks, System.currentTimeMillis() + seconds * 1000L)
         subscriptions[newSid] = sub
@@ -377,10 +386,9 @@ class UpnpRenderer(
     private fun eventBody(service: String): String {
         val snap = backend.snapshot
         val vars = when (service) {
+            // Never the stream's address (it can carry the sender's private token): only whether something plays.
             "AVTransport" -> listOf(
                 "TransportState" to stateOf(snap).upnp,
-                "CurrentTrackURI" to (media?.uri ?: ""),
-                "NextAVTransportURI" to (next?.uri ?: ""),
             )
             "RenderingControl" -> listOf("Volume" to snap.volume.toString(), "Mute" to if (snap.muted) "1" else "0")
             else -> emptyList()
@@ -935,6 +943,7 @@ class UpnpRenderer(
         private val PLAYABLE_SCHEMES = setOf("http", "https", "rtsp", "rtsps", "rtmp", "rtmps", "rtp", "udp", "srt")
         private const val MAX_WORKERS = 32
         private const val SUBSCRIPTION_SECONDS = 1800
+        private const val MAX_SUBSCRIPTIONS = 16
 
         /** A device may only ask to receive the screen itself: the receiver must be at the requester's address. */
         fun mirrorAllowed(remote: InetAddress?, descriptionUrl: String): Boolean {

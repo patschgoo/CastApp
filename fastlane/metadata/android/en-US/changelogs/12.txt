@@ -1,0 +1,4 @@
+CastApp TV keeps what it plays to itself.
+• With "Only paired phones", devices that aren't paired no longer get live updates about what the TV plays
+• Live updates no longer contain the stream's address
+• At most 16 apps can follow the TV at once

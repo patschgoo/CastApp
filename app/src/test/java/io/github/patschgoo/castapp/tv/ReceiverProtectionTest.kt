@@ -154,6 +154,27 @@ class ReceiverProtectionTest {
         assertTrue(tv.calls.isEmpty())
     }
 
+    /** A raw SUBSCRIBE (HttpURLConnection can't send that method): the status code. */
+    private fun subscribe(): Int = java.net.Socket("127.0.0.1", renderer.port).use { s ->
+        s.soTimeout = 5000
+        s.getOutputStream().write(
+            ("SUBSCRIBE /event/AVTransport HTTP/1.1\r\nHost: 127.0.0.1:${renderer.port}\r\n" +
+                "CALLBACK: <http://127.0.0.1:9/cb>\r\nNT: upnp:event\r\nTIMEOUT: Second-300\r\nContent-Length: 0\r\n\r\n").toByteArray(),
+        )
+        val line = s.getInputStream().bufferedReader().readLine().orEmpty()
+        line.split(' ').getOrNull(1)?.toIntOrNull() ?: -1
+    }
+
+    @Test
+    fun eventsNeedPairingAndAreCapped() {
+        start(ProtectionMode.PAIRED)
+        assertEquals(401, subscribe()) // unpaired devices don't hear what plays
+        guard.setMode(ProtectionMode.ANYONE)
+        val codes = (1..17).map { subscribe() }
+        assertEquals(List(16) { 200 }, codes.take(16))
+        assertEquals(503, codes.last())
+    }
+
     @Test
     fun otherDlnaAppsGetAClearErrorWhenOnlyPairedPhonesMayCast() {
         start(ProtectionMode.PAIRED)
