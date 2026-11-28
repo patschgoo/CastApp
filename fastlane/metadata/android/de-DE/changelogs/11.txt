@@ -1,0 +1,5 @@
+CastApp TV ist robuster, wenn andere Apps an ihn senden.
+• Apps, die dem Zustand des Fernsehers folgen (AniBox, BubbleUPnP und andere), bekommen jetzt laufend Meldungen, statt immer wieder nachzufragen
+• Viele Verbindungen auf einmal bremsen den Fernseher nicht mehr aus und lassen ihn nicht mehr verstummen
+• Der Fernseher öffnet nur Netzwerk-Streams, die ihm geschickt werden, nie Dateien des Fernsehers selbst oder anderer Apps
+• Sender über Tailscale werden wie solche zu Hause angenommen

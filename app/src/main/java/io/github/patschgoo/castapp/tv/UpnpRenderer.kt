@@ -148,7 +148,14 @@ class UpnpRenderer(
     private val queueLock = Any()
     private var server: ServerSocket? = null
     private var ssdpSocket: MulticastSocket? = null
-    private val workers = Executors.newCachedThreadPool { r -> Thread(r, "upnp-http").apply { isDaemon = true } }
+    /** At most [MAX_WORKERS] requests at once: a flood of connections from the network can't pile up threads. */
+    private val workers = java.util.concurrent.ThreadPoolExecutor(
+        0, MAX_WORKERS, 30, java.util.concurrent.TimeUnit.SECONDS, java.util.concurrent.SynchronousQueue(),
+    ) { r -> Thread(r, "upnp-http").apply { isDaemon = true } }
+    /** Who asked to hear about changes (UPnP eventing, GENA): SID -> subscription. */
+    private val subscriptions = java.util.concurrent.ConcurrentHashMap<String, Subscription>()
+    private val events = Executors.newSingleThreadScheduledExecutor { r -> Thread(r, "upnp-events").apply { isDaemon = true } }
+    @Volatile private var eventsStarted = false
     private val ifacesLock = Any()
     private var ifaces: List<NetworkInterface> = emptyList()
 
@@ -194,7 +201,11 @@ class UpnpRenderer(
     private fun acceptLoop(ss: ServerSocket) {
         while (running) {
             val socket = try { ss.accept() } catch (_: IOException) { break }
-            workers.execute { serve(socket) }
+            try {
+                workers.execute { serve(socket) }
+            } catch (_: java.util.concurrent.RejectedExecutionException) {
+                try { socket.close() } catch (_: IOException) {} // too many at once: this one is turned away
+            }
         }
     }
 
@@ -204,7 +215,13 @@ class UpnpRenderer(
                 s.soTimeout = 10_000
                 val input = BufferedInputStream(s.getInputStream())
                 val request = readRequest(input) ?: return
-                val response = handle(request, s.localAddress, s.inetAddress)
+                val response = try {
+                    handle(request, s.localAddress, s.inetAddress)
+                } catch (e: RuntimeException) {
+                    // A bug or an odd request: the sender gets an answer instead of a dropped connection.
+                    android.util.Log.w("CastAppTV", "Request ${request.method} ${request.path.substringBefore('?')} failed", e)
+                    Response(500, "Internal Server Error", "text/plain", (e.javaClass.simpleName).toByteArray())
+                }
                 val out = s.getOutputStream()
                 val head = StringBuilder()
                     .append("HTTP/1.1 ").append(response.code).append(' ').append(response.reason).append("\r\n")
@@ -243,7 +260,31 @@ class UpnpRenderer(
             val i = h.indexOf(':')
             if (i > 0) headers[h.substring(0, i).trim().lowercase()] = h.substring(i + 1).trim()
         }
-        val length = headers["content-length"]?.toIntOrNull()?.coerceIn(0, MAX_BODY) ?: 0
+        if (headers["transfer-encoding"]?.contains("chunked", ignoreCase = true) == true) {
+            // Some controllers send their SOAP request in chunks instead of with a length.
+            val out = ByteArrayOutputStream()
+            while (true) {
+                val size = readLine(input)?.substringBefore(';')?.trim()?.toIntOrNull(16) ?: break
+                if (size <= 0) {
+                    while ((readLine(input) ?: "").isNotEmpty()) Unit // trailers
+                    break
+                }
+                if (out.size() + size > MAX_BODY) throw IOException("Request body too big")
+                val chunk = ByteArray(size)
+                var got = 0
+                while (got < size) {
+                    val n = input.read(chunk, got, size - got)
+                    if (n < 0) break
+                    got += n
+                }
+                out.write(chunk, 0, got)
+                readLine(input) // the line end after each chunk
+            }
+            return Request(parts[0].uppercase(), parts[1], headers, out.toString("UTF-8"))
+        }
+        val declared = headers["content-length"]?.toIntOrNull() ?: 0
+        if (declared > MAX_BODY) throw IOException("Request body too big") // never read a cut-off request
+        val length = declared.coerceAtLeast(0)
         val body = ByteArray(length)
         var read = 0
         while (read < length) {
@@ -279,13 +320,112 @@ class UpnpRenderer(
             }
             request.method == "POST" && path.startsWith("/control/") -> soap(path.removePrefix("/control/"), request, remote)
             request.method == "POST" && path.startsWith("/castapp/") -> castApp(path.removePrefix("/castapp/"), request, remote)
-            request.method == "SUBSCRIBE" -> Response(
-                200, "OK", "text/plain", ByteArray(0),
-                mapOf("SID" to (request.headers["sid"] ?: "uuid:" + java.util.UUID.randomUUID()), "TIMEOUT" to "Second-1800"),
-            )
-            request.method == "UNSUBSCRIBE" -> Response(200, "OK", "text/plain", ByteArray(0))
+            request.method == "SUBSCRIBE" -> subscribe(path, request, remote)
+            request.method == "UNSUBSCRIBE" -> {
+                request.headers["sid"]?.let { subscriptions.remove(it) }
+                Response(200, "OK", "text/plain", ByteArray(0))
+            }
             else -> Response(405, "Method Not Allowed", "text/plain", ByteArray(0))
         }
+    }
+
+    // ---- events (GENA): controllers that subscribe hear about play/pause/stop and volume changes ----------
+
+    private class Subscription(val service: String, val callbacks: List<String>, @Volatile var until: Long) {
+        @Volatile var seq = 0L
+        @Volatile var last: String = ""
+    }
+
+    private fun subscribe(path: String, request: Request, remote: InetAddress?): Response {
+        val service = path.removePrefix("/event/")
+        if (service !in setOf("AVTransport", "RenderingControl", "ConnectionManager")) return plain(404, "Not Found", "No such service")
+        if (!isLocal(remote)) return plain(403, "Forbidden", "Only devices on the local network may ask that")
+        val seconds = request.headers["timeout"]?.substringAfter("Second-", "")?.toIntOrNull()?.coerceIn(60, SUBSCRIPTION_SECONDS)
+            ?: SUBSCRIPTION_SECONDS
+        val sid = request.headers["sid"]
+        if (sid != null) { // a renewal
+            val sub = subscriptions[sid] ?: return plain(412, "Precondition Failed", "Unknown subscription")
+            sub.until = System.currentTimeMillis() + seconds * 1000L
+            return Response(200, "OK", "text/plain", ByteArray(0), mapOf("SID" to sid, "TIMEOUT" to "Second-$seconds"))
+        }
+        // Events only go back to the device that asked (never to another address it names).
+        val callbacks = Regex("<([^>]+)>").findAll(request.headers["callback"].orEmpty()).map { it.groupValues[1] }
+            .filter { cb ->
+                val u = try { java.net.URI(cb) } catch (_: Exception) { null }
+                u?.scheme == "http" && u.host?.trim('[', ']') == remote?.hostAddress
+            }.toList()
+        if (callbacks.isEmpty() || request.headers["nt"] != "upnp:event") return plain(412, "Precondition Failed", "No callback")
+        val newSid = "uuid:" + java.util.UUID.randomUUID()
+        val sub = Subscription(service, callbacks, System.currentTimeMillis() + seconds * 1000L)
+        subscriptions[newSid] = sub
+        startEvents()
+        events.schedule({ sendEvent(newSid, sub, force = true) }, 200, java.util.concurrent.TimeUnit.MILLISECONDS) // the first event
+        return Response(200, "OK", "text/plain", ByteArray(0), mapOf("SID" to newSid, "TIMEOUT" to "Second-$seconds"))
+    }
+
+    private fun startEvents() {
+        if (eventsStarted) return
+        eventsStarted = true
+        events.scheduleWithFixedDelay({
+            val now = System.currentTimeMillis()
+            subscriptions.entries.removeIf { it.value.until < now }
+            subscriptions.forEach { (sid, sub) -> sendEvent(sid, sub, force = false) }
+        }, 1, 1, java.util.concurrent.TimeUnit.SECONDS)
+    }
+
+    /** The service's state as a LastChange event (only sent when it changed, or [force] for the first one). */
+    private fun eventBody(service: String): String {
+        val snap = backend.snapshot
+        val vars = when (service) {
+            "AVTransport" -> listOf(
+                "TransportState" to stateOf(snap).upnp,
+                "CurrentTrackURI" to (media?.uri ?: ""),
+                "NextAVTransportURI" to (next?.uri ?: ""),
+            )
+            "RenderingControl" -> listOf("Volume" to snap.volume.toString(), "Mute" to if (snap.muted) "1" else "0")
+            else -> emptyList()
+        }
+        val ns = if (service == "RenderingControl") "urn:schemas-upnp-org:metadata-1-0/RCS/" else "urn:schemas-upnp-org:metadata-1-0/AVT/"
+        val inner = vars.joinToString("") { (k, v) ->
+            val channel = if (service == "RenderingControl") " channel=\"Master\"" else ""
+            "<$k val=\"${Dlna.escape(v)}\"$channel/>"
+        }
+        val last = "<Event xmlns=\"$ns\"><InstanceID val=\"0\">$inner</InstanceID></Event>"
+        return "<?xml version=\"1.0\" encoding=\"utf-8\"?><e:propertyset xmlns:e=\"urn:schemas-upnp-org:event-1-0\">" +
+            (if (service == "ConnectionManager") "<e:property><CurrentConnectionIDs>0</CurrentConnectionIDs></e:property>"
+            else "<e:property><LastChange>${Dlna.escape(last)}</LastChange></e:property>") + "</e:propertyset>"
+    }
+
+    private fun sendEvent(sid: String, sub: Subscription, force: Boolean) {
+        val body = try { eventBody(sub.service) } catch (_: RuntimeException) { return }
+        if (!force && body == sub.last) return
+        sub.last = body
+        val bytes = body.toByteArray(Charsets.UTF_8)
+        for (cb in sub.callbacks) {
+            if (postEvent(cb, sid, sub.seq, bytes)) break // one callback that takes it is enough
+        }
+        sub.seq = if (sub.seq == Long.MAX_VALUE) 1 else sub.seq + 1
+    }
+
+    /** One NOTIFY over a plain socket (HttpURLConnection can't send that method). */
+    private fun postEvent(callback: String, sid: String, seq: Long, body: ByteArray): Boolean = try {
+        val u = java.net.URI(callback)
+        val port = if (u.port > 0) u.port else 80
+        val path = (u.rawPath ?: "").ifEmpty { "/" } + (u.rawQuery?.let { "?$it" } ?: "")
+        Socket().use { sock ->
+            sock.connect(InetSocketAddress(u.host.trim('[', ']'), port), 2000)
+            sock.soTimeout = 2000
+            val head = "NOTIFY $path HTTP/1.1\r\nHost: ${u.host}:$port\r\nContent-Type: text/xml; charset=\"utf-8\"\r\n" +
+                "NT: upnp:event\r\nNTS: upnp:propchange\r\nSID: $sid\r\nSEQ: $seq\r\nContent-Length: ${body.size}\r\n" +
+                "Connection: close\r\n\r\n"
+            val out = sock.getOutputStream()
+            out.write(head.toByteArray(Charsets.ISO_8859_1))
+            out.write(body)
+            out.flush()
+            readLine(BufferedInputStream(sock.getInputStream()))?.contains(" 200") == true
+        }
+    } catch (_: Exception) {
+        false
     }
 
     /**
@@ -475,6 +615,7 @@ class UpnpRenderer(
             "SetAVTransportURI" -> {
                 val uri = arg("CurrentURI")?.trim().orEmpty()
                 if (uri.isEmpty()) throw SoapFault(716, "Resource not found")
+                if (!playableScheme(uri)) throw SoapFault(714, "Only network addresses (http, https, rtsp …) can be played")
                 val parsed = parseMedia(uri, arg("CurrentURIMetaData").orEmpty())
                 synchronized(queueLock) {
                     media = parsed
@@ -487,6 +628,7 @@ class UpnpRenderer(
             "SetNextAVTransportURI" -> {
                 // An empty address takes back what was queued.
                 val uri = arg("NextURI")?.trim().orEmpty()
+                if (uri.isNotEmpty() && !playableScheme(uri)) throw SoapFault(714, "Only network addresses (http, https, rtsp …) can be played")
                 val parsed = if (uri.isEmpty()) null else parseMedia(uri, arg("NextURIMetaData").orEmpty())
                 synchronized(queueLock) { next = parsed }
                 emptyList()
@@ -773,7 +915,26 @@ class UpnpRenderer(
 
         /** Requests from this home network only (private, link-local or loopback addresses). */
         fun isLocal(remote: InetAddress?): Boolean =
-            remote != null && (remote.isSiteLocalAddress || remote.isLinkLocalAddress || remote.isLoopbackAddress)
+            remote != null && (remote.isSiteLocalAddress || remote.isLinkLocalAddress || remote.isLoopbackAddress ||
+                isTailnetOrUla(remote))
+
+        /** Tailscale (100.64.0.0/10, shared address space) and IPv6 unique local addresses (fc00::/7): home too. */
+        fun isTailnetOrUla(a: InetAddress): Boolean {
+            val b = a.address
+            return when (b.size) {
+                4 -> (b[0].toInt() and 0xFF) == 100 && (b[1].toInt() and 0xC0) == 64
+                16 -> (b[0].toInt() and 0xFE) == 0xFC
+                else -> false
+            }
+        }
+
+        /** Addresses the player may open: network streams only, never this TV's own files or other apps' data. */
+        fun playableScheme(uri: String): Boolean =
+            uri.substringBefore(':', "").lowercase() in PLAYABLE_SCHEMES
+
+        private val PLAYABLE_SCHEMES = setOf("http", "https", "rtsp", "rtsps", "rtmp", "rtmps", "rtp", "udp", "srt")
+        private const val MAX_WORKERS = 32
+        private const val SUBSCRIPTION_SECONDS = 1800
 
         /** A device may only ask to receive the screen itself: the receiver must be at the requester's address. */
         fun mirrorAllowed(remote: InetAddress?, descriptionUrl: String): Boolean {
@@ -808,7 +969,7 @@ class UpnpRenderer(
                 upnpClass.contains("audioItem") || mime?.startsWith("audio/") == true -> TvMediaKind.AUDIO
                 else -> TvMediaKind.VIDEO
             }
-            val subtitle = subtitleIn(metadata)
+            val subtitle = subtitleIn(metadata)?.takeIf { it.first.startsWith("http://", true) || it.first.startsWith("https://", true) }
             return TvMedia(
                 uri = uri,
                 metadata = metadata,

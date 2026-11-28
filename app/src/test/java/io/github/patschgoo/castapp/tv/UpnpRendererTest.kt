@@ -230,4 +230,23 @@ class UpnpRendererTest {
             assertEquals("uuid:1234-abcd::${Dlna.MEDIA_RENDERER}", headers["usn"])
         }
     }
+
+    @Test fun onlyNetworkStreamsArePlayable() {
+        assertTrue(UpnpRenderer.playableScheme("http://10.0.0.7/v.mkv"))
+        assertTrue(UpnpRenderer.playableScheme("HTTPS://example.org/v.mp4"))
+        assertTrue(UpnpRenderer.playableScheme("rtsp://10.0.0.7/live"))
+        assertFalse(UpnpRenderer.playableScheme("file:///sdcard/secret.mp4"))
+        assertFalse(UpnpRenderer.playableScheme("content://com.other.app/data"))
+        assertFalse(UpnpRenderer.playableScheme("smb://10.0.0.7/share/v.mkv"))
+        assertFalse(UpnpRenderer.playableScheme("no scheme"))
+    }
+
+    @Test fun tailnetAndUniqueLocalCountAsHome() {
+        assertTrue(UpnpRenderer.isLocal(InetAddress.getByName("100.101.102.103")))
+        assertTrue(UpnpRenderer.isLocal(InetAddress.getByName("fd12:3456::1")))
+        assertTrue(UpnpRenderer.isLocal(InetAddress.getByName("192.168.178.20")))
+        assertFalse(UpnpRenderer.isLocal(InetAddress.getByName("100.128.0.1")))
+        assertFalse(UpnpRenderer.isLocal(InetAddress.getByName("8.8.8.8")))
+        assertFalse(UpnpRenderer.isLocal(null))
+    }
 }

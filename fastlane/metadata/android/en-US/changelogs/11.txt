@@ -1,0 +1,5 @@
+CastApp TV is sturdier when other apps send to it.
+• Apps that follow the TV's state (AniBox, BubbleUPnP and others) now get live updates instead of asking again and again
+• Many connections at once can no longer slow the TV down or stop it from answering
+• The TV only opens network streams sent to it, never files of the TV itself or other apps
+• Senders over Tailscale are accepted like ones at home
